@@ -1,0 +1,168 @@
+/* Global Styles - Kanit Font Configuration */
+@import url("https://fonts.googleapis.com/css2?family=Kanit:wght@100;200;300;400;500;600;700;800;900&display=swap");
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Kanit", sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Override Ant Design font family */
+.ant-typography,
+.ant-input,
+.ant-form-item-label,
+.ant-btn,
+.ant-select,
+.ant-menu,
+.ant-tabs,
+.ant-layout,
+.ant-card,
+.ant-form-item-explain,
+.ant-form-item-extra,
+.ant-picker,
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4,
+.ant-typography h5,
+.ant-typography h6 {
+  font-family: "Kanit", sans-serif !important;
+}
+
+/* Layout customizations */
+.ant-layout-sider {
+  background: #001529 !important;
+}
+
+.ant-menu-dark {
+  background: #001529 !important;
+}
+
+.ant-menu-dark .ant-menu-item {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  color: #1890ff;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: #1890ff !important;
+  color: #fff !important;
+}
+
+/* Logo styles */
+.logo {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #303030;
+}
+
+/* Form container styles */
+.form-container {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Button group styles */
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* Tab styles */
+.ant-tabs-tab {
+  font-family: "Kanit", sans-serif !important;
+}
+
+.ant-tabs-content-holder {
+  padding: 16px 0;
+}
+
+/* Form layout styles */
+.transport-form {
+  max-width: 800px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .button-group {
+    flex-direction: column;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Loading overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.loading-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 300px;
+}
+
+/* Error styles */
+.error-tab .ant-tabs-tab {
+  color: #ff4d4f;
+  border-color: #ff4d4f;
+}
+
+/* Header styles */
+.main-header {
+  background: #fff;
+  padding: 0 24px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.form-counter {
+  font-size: 14px;
+  color: #666;
+}

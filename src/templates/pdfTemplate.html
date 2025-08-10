@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      @page {
+        size: A4;
+        margin: 20mm;
+      }
+
+      body {
+        font-family: "Sarabun", sans-serif;
+        margin: 0;
+        padding: 20px;
+        line-height: 1.4;
+      }
+
+      .document-container {
+        border: 2px solid #000;
+        padding: 20px;
+        width: 100%;
+        min-height: 80vh;
+      }
+
+      .header {
+        text-align: center;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 30px;
+        padding-bottom: 10px;
+      }
+
+      .form-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        min-height: 25px;
+        border-bottom: 1px dotted #999;
+        padding-bottom: 2px;
+      }
+
+      .field-label {
+        width: 140px;
+        font-weight: 400;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+
+      .field-separator {
+        margin: 0 10px;
+        font-weight: 400;
+      }
+
+      .field-value {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 400;
+        min-height: 20px;
+      }
+
+      .section-break {
+        margin: 20px 0;
+        border-bottom: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="document-container">
+      <div class="header">บริษัท ทรงยุทธ โลจิสติคส์ จำกัด</div>
+
+      <div class="form-row">
+        <div class="field-label">วันที่</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{date}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ชื่อลูกค้า</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{customerName}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">บุ๊คกิ้ง</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{booking}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">เอเย่นต์</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{agent}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ชื่อเรือ</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{shipName}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">อินวอยซ์</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{invoice}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ขนาดตู้</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{containerSize}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">เบอร์ตู้</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{containerNumber}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">เบอร์ซีล</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{sealNumber}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ชิปปิ้ง</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{shipping}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">สถานที่รับตู้</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{pickupLocation}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">สถานที่คืนตู้</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{returnLocation}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">CLOSING TIME</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{closingTime}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">เวลาเข้าโรงงาน</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{factoryTime}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ช่องโหลด</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{loadingSlot}}</div>
+      </div>
+
+      <div class="section-break"></div>
+
+      <div class="form-row">
+        <div class="field-label">ชื่อ พขร.</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{driverName}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ทะเบียนรถ</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{vehicleRegistration}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">เบอร์โทร</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{phoneNumber}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">หมายเหตุ</div>
+        <div class="field-separator">:</div>
+        <div class="field-value">{{remarks}}</div>
+      </div>
+    </div>
+  </body>
+</html>
