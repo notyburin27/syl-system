@@ -1,14 +1,21 @@
 name: syl-transport-system
-   services:
-   - name: web
-     source_dir: /
-     github:
-       repo: notyburin27/syl-system
-       branch: main
-     run_command: npm start
-     environment_slug: node-js
-     instance_count: 1
-     instance_size_slug: basic-xxs
-     build_command: npm run build
-     routes:
-     - path: /
+services:
+- name: web
+  source_dir: /
+  github:
+    repo: notyburin27/syl-system
+    branch: main
+  build_command: npm run build
+  run_command: npm start
+  environment_slug: node-js
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  routes:
+  - path: /
+  health_check:
+    http_path: /
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: PORT
+    value: "3000"
