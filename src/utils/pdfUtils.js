@@ -153,6 +153,109 @@ export const generateMultiplePDFs = async (forms, onProgress) => {
   return results;
 };
 
+// Generate combined PDF with multiple forms as pages
+export const generateCombinedPDF = async (forms, onProgress) => {
+  try {
+    // Create combined HTML content with page breaks
+    let combinedHtml = "";
+
+    for (let i = 0; i < forms.length; i++) {
+      const form = forms[i];
+
+      // Update progress
+      if (onProgress) {
+        onProgress({
+          current: i + 1,
+          total: forms.length,
+          formTitle: form.title,
+          status: "processing",
+        });
+      }
+
+      // Generate HTML for this form
+      const htmlContent = generatePDFFromTemplate(form.data);
+
+      // Extract body content (remove html/head tags)
+      const bodyMatch = htmlContent.match(/<body[^>]*>(.*?)<\/body>/s);
+      const bodyContent = bodyMatch ? bodyMatch[1] : htmlContent;
+
+      // Add page content
+      combinedHtml += bodyContent;
+
+      // Add page break except for the last form
+      if (i < forms.length - 1) {
+        combinedHtml += '<div style="page-break-after: always;"></div>';
+      }
+    }
+
+    // Wrap in complete HTML structure
+    // Get the head section from the template for consistent styling
+    const headMatch = pdfTemplate.match(/<head[^>]*>(.*?)<\/head>/s);
+    const headContent = headMatch
+      ? headMatch[1]
+      : `
+      <meta charset="UTF-8">
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    `;
+
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        ${headContent}
+      </head>
+      <body>
+        ${combinedHtml}
+      </body>
+      </html>
+    `;
+
+    // Create filename with current date
+    const today = new Date();
+    const dateStr = today.toISOString().split("T")[0].replace(/-/g, "");
+    const filename = `Combined_Transport_Documents_${dateStr}.pdf`;
+
+    const options = {
+      margin: 0.5,
+      filename: filename,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        letterRendering: true,
+        allowTaint: true,
+      },
+      jsPDF: {
+        unit: "in",
+        format: "a4",
+        orientation: "portrait",
+      },
+    };
+
+    // Generate and download PDF
+    await html2pdf().set(options).from(fullHtml).save();
+
+    // Final progress update
+    if (onProgress) {
+      onProgress({
+        current: forms.length,
+        total: forms.length,
+        status: "completed",
+      });
+    }
+
+    return {
+      success: true,
+      filename,
+      formCount: forms.length,
+      formTitles: forms.map((f) => f.title),
+    };
+  } catch (error) {
+    console.error("Combined PDF generation error:", error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Validate form data before PDF generation
 export const validateFormForPDF = (formData) => {
   const requiredFields = [];

@@ -133,24 +133,7 @@ export const useFormManager = () => {
 
   // Validate form data
   const validateForm = useCallback((formData) => {
-    const requiredFields = [
-      "date",
-      "customerName",
-      "booking",
-      "agent",
-      "shipName",
-      "invoice",
-      "containerSize",
-      "containerNumber",
-      "sealNumber",
-      "shipping",
-      "pickupLocation",
-      "returnLocation",
-      "closingTime",
-      "driverName",
-      "vehicleRegistration",
-      "phoneNumber",
-    ];
+    const requiredFields = [];
 
     const errors = [];
     requiredFields.forEach((field) => {

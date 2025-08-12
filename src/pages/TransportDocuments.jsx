@@ -71,7 +71,7 @@ const TransportDocuments = () => {
       return;
     }
 
-    setPdfMode("multiple");
+    setPdfMode("combined");
     setPdfGeneratorVisible(true);
   };
 

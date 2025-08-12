@@ -1,12 +1,24 @@
 /* eslint-disable react/prop-types */
 import React, { useState } from "react";
-import { Modal, Progress, Typography, List, Button, message } from "antd";
+import {
+  Modal,
+  Progress,
+  Typography,
+  List,
+  Button,
+  message,
+  Radio,
+} from "antd";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   LoadingOutlined,
 } from "@ant-design/icons";
-import { generateMultiplePDFs, validateFormForPDF } from "../../utils/pdfUtils";
+import {
+  generateMultiplePDFs,
+  generateCombinedPDF,
+  validateFormForPDF,
+} from "../../utils/pdfUtils";
 
 const { Title, Text } = Typography;
 
@@ -14,13 +26,14 @@ const PDFGenerator = ({
   visible,
   onClose,
   forms,
-  mode = "multiple", // 'single' or 'multiple'
+  mode: _mode = "multiple", // 'single', 'multiple', or 'combined'
 }) => {
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentForm, setCurrentForm] = useState("");
   const [results, setResults] = useState([]);
   const [completed, setCompleted] = useState(false);
+  const [pdfMode, setPdfMode] = useState("combined"); // 'separate' or 'combined'
 
   const handleGeneratePDFs = async () => {
     // Validate all forms first
@@ -46,30 +59,65 @@ const PDFGenerator = ({
     setCompleted(false);
 
     try {
-      const pdfResults = await generateMultiplePDFs(forms, (progressInfo) => {
-        const percentage = Math.round(
-          (progressInfo.current / progressInfo.total) * 100
-        );
-        setProgress(percentage);
-        setCurrentForm(progressInfo.formTitle || "");
+      if (pdfMode === "combined") {
+        // Generate single combined PDF
+        const result = await generateCombinedPDF(forms, (progressInfo) => {
+          const percentage = Math.round(
+            (progressInfo.current / progressInfo.total) * 100
+          );
+          setProgress(percentage);
+          setCurrentForm(progressInfo.formTitle || "");
 
-        if (progressInfo.status === "completed") {
-          setCompleted(true);
-          setCurrentForm("");
+          if (progressInfo.status === "completed") {
+            setCompleted(true);
+            setCurrentForm("");
+          }
+        });
+
+        setResults([
+          {
+            formId: "combined",
+            formTitle: `Combined PDF (${forms.length} forms)`,
+            ...result,
+          },
+        ]);
+
+        if (result.success) {
+          message.success(
+            `Combined PDF with ${forms.length} forms generated successfully!`
+          );
+        } else {
+          message.error("Combined PDF generation failed");
         }
-      });
-
-      setResults(pdfResults);
-
-      const successCount = pdfResults.filter((result) => result.success).length;
-      const failCount = pdfResults.filter((result) => !result.success).length;
-
-      if (failCount === 0) {
-        message.success(`All ${successCount} PDFs generated successfully!`);
       } else {
-        message.warning(
-          `${successCount} PDFs generated successfully, ${failCount} failed.`
-        );
+        // Generate separate PDFs
+        const pdfResults = await generateMultiplePDFs(forms, (progressInfo) => {
+          const percentage = Math.round(
+            (progressInfo.current / progressInfo.total) * 100
+          );
+          setProgress(percentage);
+          setCurrentForm(progressInfo.formTitle || "");
+
+          if (progressInfo.status === "completed") {
+            setCompleted(true);
+            setCurrentForm("");
+          }
+        });
+
+        setResults(pdfResults);
+
+        const successCount = pdfResults.filter(
+          (result) => result.success
+        ).length;
+        const failCount = pdfResults.filter((result) => !result.success).length;
+
+        if (failCount === 0) {
+          message.success(`All ${successCount} PDFs generated successfully!`);
+        } else {
+          message.warning(
+            `${successCount} PDFs generated successfully, ${failCount} failed.`
+          );
+        }
       }
     } catch (error) {
       message.error("PDF generation process failed");
@@ -85,6 +133,7 @@ const PDFGenerator = ({
       setCurrentForm("");
       setResults([]);
       setCompleted(false);
+      setPdfMode("combined"); // Reset to default
       onClose();
     }
   };
@@ -99,9 +148,7 @@ const PDFGenerator = ({
 
   return (
     <Modal
-      title={`Generate ${mode === "multiple" ? "Multiple" : "Single"} PDF${
-        mode === "multiple" ? "s" : ""
-      }`}
+      title="Generate Transport Document PDFs"
       open={visible}
       onCancel={handleClose}
       footer={[
@@ -110,7 +157,8 @@ const PDFGenerator = ({
         </Button>,
         !completed && !generating && (
           <Button key="generate" type="primary" onClick={handleGeneratePDFs}>
-            Generate PDF{mode === "multiple" ? "s" : ""}
+            Generate PDF
+            {pdfMode === "combined" ? " (Combined)" : "s (Separate)"}
           </Button>
         ),
       ]}
@@ -121,10 +169,30 @@ const PDFGenerator = ({
       <div style={{ minHeight: 200 }}>
         {!generating && !completed && (
           <div>
-            <Text>
-              Ready to generate {forms.length} PDF{forms.length > 1 ? "s" : ""}{" "}
-              from the selected form{forms.length > 1 ? "s" : ""}.
+            <div style={{ marginBottom: 16 }}>
+              <Text style={{ display: "block", marginBottom: 8 }}>
+                Choose PDF generation mode:
+              </Text>
+              <Radio.Group
+                value={pdfMode}
+                onChange={(e) => setPdfMode(e.target.value)}
+                style={{ width: "100%" }}
+              >
+                <Radio.Button value="combined" style={{ width: "50%" }}>
+                  📄 Combined PDF (Single file, multiple pages)
+                </Radio.Button>
+                <Radio.Button value="separate" style={{ width: "50%" }}>
+                  📄📄 Separate PDFs (Multiple files)
+                </Radio.Button>
+              </Radio.Group>
+            </div>
+
+            <Text type="secondary">
+              {pdfMode === "combined"
+                ? `Generate 1 PDF file with ${forms.length} pages (one page per form)`
+                : `Generate ${forms.length} separate PDF files`}
             </Text>
+
             <List
               size="small"
               style={{ marginTop: 16 }}
@@ -132,7 +200,10 @@ const PDFGenerator = ({
               renderItem={(form, index) => (
                 <List.Item>
                   <Text>
-                    {index + 1}. {form.title}
+                    {pdfMode === "combined"
+                      ? `Page ${index + 1}`
+                      : `File ${index + 1}`}
+                    : {form.title}
                   </Text>
                 </List.Item>
               )}
