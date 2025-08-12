@@ -79,13 +79,15 @@ export const generateSinglePDF = async (formData, formTitle) => {
     const filename = `${formTitle.replace(/\s+/g, "_")}_${dateStr}.pdf`;
 
     const options = {
-      margin: 0.5,
+      margin: [0.3, 0.3, 0.3, 0.3], // top, left, bottom, right in inches
       filename: filename,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         letterRendering: true,
+        height: window.innerHeight,
+        width: window.innerWidth,
       },
       jsPDF: {
         unit: "in",
@@ -216,14 +218,16 @@ export const generateCombinedPDF = async (forms, onProgress) => {
     const filename = `Combined_Transport_Documents_${dateStr}.pdf`;
 
     const options = {
-      margin: 0.5,
+      margin: [0.3, 0.3, 0.3, 0.3], // top, left, bottom, right in inches
       filename: filename,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         letterRendering: true,
         allowTaint: true,
+        height: window.innerHeight,
+        width: window.innerWidth,
       },
       jsPDF: {
         unit: "in",
