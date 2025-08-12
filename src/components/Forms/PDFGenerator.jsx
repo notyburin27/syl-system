@@ -177,12 +177,13 @@ const PDFGenerator = ({
                 value={pdfMode}
                 onChange={(e) => setPdfMode(e.target.value)}
                 style={{ width: "100%" }}
+                direction="vertical"
               >
-                <Radio.Button value="combined" style={{ width: "50%" }}>
-                  📄 Combined PDF (Single file, multiple pages)
+                <Radio.Button value="combined">
+                  Combined PDF (Single file, multiple pages)
                 </Radio.Button>
-                <Radio.Button value="separate" style={{ width: "50%" }}>
-                  📄📄 Separate PDFs (Multiple files)
+                <Radio.Button value="separate">
+                  Separate PDFs (Multiple files)
                 </Radio.Button>
               </Radio.Group>
             </div>
