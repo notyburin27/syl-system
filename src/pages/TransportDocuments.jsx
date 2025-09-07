@@ -4,10 +4,12 @@ import {
   PlusOutlined,
   FilePdfOutlined,
   FileTextOutlined,
+  FileExcelOutlined,
 } from "@ant-design/icons";
 import { useFormManager } from "../hooks/useFormManager";
 import FormTabs from "../components/Forms/FormTabs";
 import PDFGenerator from "../components/Forms/PDFGenerator";
+import ExcelUploader from "../components/Forms/ExcelUploader";
 
 const { Title, Text } = Typography;
 
@@ -17,6 +19,7 @@ const TransportDocuments = () => {
     activeFormId,
     setActiveFormId,
     addForm,
+    addFormWithData,
     deleteForm,
     duplicateForm,
     updateFormData,
@@ -28,6 +31,7 @@ const TransportDocuments = () => {
 
   const [pdfGeneratorVisible, setPdfGeneratorVisible] = useState(false);
   const [pdfMode, setPdfMode] = useState("multiple");
+  const [excelUploaderVisible, setExcelUploaderVisible] = useState(false);
 
   // Handle adding new form
   const handleAddForm = () => {
@@ -75,10 +79,47 @@ const TransportDocuments = () => {
     setPdfGeneratorVisible(true);
   };
 
-  // Handle clear all forms
-  const handleClearAllForms = () => {
-    forms.forEach((form) => clearForm(form.id));
-    message.success("All forms cleared successfully");
+  // Handle clear all forms (reserved for future use)
+  // const handleClearAllForms = () => {
+  //   forms.forEach((form) => clearForm(form.id));
+  //   message.success("All forms cleared successfully");
+  // };
+
+  // Handle Excel data import
+  const handleExcelDataImport = (excelDataArray) => {
+    try {
+      // Store original forms to delete later
+      const originalForms = [...forms];
+
+      // Create new forms from Excel data first
+      excelDataArray.forEach((rowData) => {
+        // Remove Excel-specific fields from rowData
+        const formData = { ...rowData };
+        const generatedTitle = formData._generatedTitle;
+        delete formData._excelRowIndex;
+        delete formData._originalData;
+        delete formData._generatedTitle;
+
+        // Create form with data in one go
+        addFormWithData(formData, generatedTitle);
+      });
+
+      // Now delete the original forms (including the empty default form)
+      originalForms.forEach((form) => deleteForm(form.id));
+
+      setExcelUploaderVisible(false);
+      message.success(
+        `นำเข้าข้อมูลสำเร็จ! สร้าง ${excelDataArray.length} ฟอร์มแล้ว`
+      );
+    } catch (error) {
+      console.error("Error importing Excel data:", error);
+      message.error("เกิดข้อผิดพลาดในการนำเข้าข้อมูล");
+    }
+  };
+
+  // Handle show Excel uploader
+  const handleShowExcelUploader = () => {
+    setExcelUploaderVisible(true);
   };
 
   return (
@@ -121,6 +162,12 @@ const TransportDocuments = () => {
               Add New Form
             </Button>
             <Button
+              icon={<FileExcelOutlined />}
+              onClick={handleShowExcelUploader}
+            >
+              Import from Excel
+            </Button>
+            <Button
               type="default"
               icon={<FilePdfOutlined />}
               onClick={handleGenerateAllPDFs}
@@ -150,6 +197,13 @@ const TransportDocuments = () => {
         onClose={() => setPdfGeneratorVisible(false)}
         forms={forms}
         mode={pdfMode}
+      />
+
+      {/* Excel Uploader Modal */}
+      <ExcelUploader
+        visible={excelUploaderVisible}
+        onClose={() => setExcelUploaderVisible(false)}
+        onDataImported={handleExcelDataImport}
       />
     </div>
   );

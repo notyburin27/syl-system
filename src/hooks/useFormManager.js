@@ -38,8 +38,30 @@ export const useFormManager = () => {
     const newForm = createEmptyForm(nextId);
     setForms((prev) => [...prev, newForm]);
     setActiveFormId(nextId);
+    const currentId = nextId;
     setNextId((prev) => prev + 1);
+    return currentId; // Return the ID of the newly created form
   }, [nextId]);
+
+  // Add new form with data
+  const addFormWithData = useCallback(
+    (initialData = {}, title = null) => {
+      const currentId = nextId;
+      const newForm = {
+        ...createEmptyForm(currentId),
+        title: title || `Transport Document #${currentId}`,
+        data: {
+          ...createEmptyForm(currentId).data,
+          ...initialData,
+        },
+      };
+      setForms((prev) => [...prev, newForm]);
+      setActiveFormId(currentId);
+      setNextId((prev) => prev + 1);
+      return currentId;
+    },
+    [nextId]
+  );
 
   // Delete form (ensure minimum of 1 form)
   const deleteForm = useCallback(
@@ -77,6 +99,20 @@ export const useFormManager = () => {
                 ...form.data,
                 [fieldName]: value,
               },
+            }
+          : form
+      )
+    );
+  }, []);
+
+  // Update form title
+  const updateFormTitle = useCallback((formId, title) => {
+    setForms((prev) =>
+      prev.map((form) =>
+        form.id === formId
+          ? {
+              ...form,
+              title: title,
             }
           : form
       )
@@ -169,9 +205,11 @@ export const useFormManager = () => {
     activeFormId,
     setActiveFormId,
     addForm,
+    addFormWithData,
     deleteForm,
     duplicateForm,
     updateFormData,
+    updateFormTitle,
     clearForm,
     getActiveForm,
     getAllForms,
