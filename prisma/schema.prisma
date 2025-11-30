@@ -1,0 +1,67 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+model AuthUser {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // bcrypt hashed
+  role      Role     @default(STAFF)
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  documents TransportDocument[]
+
+  @@index([username])
+  @@map("auth_users")
+}
+
+model TransportDocument {
+  id          String   @id @default(cuid())
+  title       String
+
+  // Form fields (19 fields)
+  date              DateTime?
+  customerName      String?
+  booking           String?
+  agent             String?
+  shipName          String?
+  invoice           String?
+  containerSize     String?
+  containerNumber   String?
+  sealNumber        String?
+  shipping          String?
+  pickupLocation    String?
+  returnLocation    String?
+  closingTime       DateTime?
+  factoryTime       String?
+  loadingSlot       String?
+  driverName        String?
+  vehicleRegistration String?
+  phoneNumber       String?
+  remarks           String?
+
+  // Metadata
+  createdById String
+  createdBy   AuthUser @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("transport_documents")
+}
