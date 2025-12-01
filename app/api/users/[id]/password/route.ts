@@ -9,13 +9,14 @@ const changePasswordSchema = z.object({
 })
 
 // PATCH /api/users/[id]/password - Change user password (admin only)
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const { id } = await params
     const body = await req.json()
     const validation = changePasswordSchema.safeParse(body)
 
@@ -29,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const hashedPassword = await hash(validation.data.password, 10)
 
     await prisma.authUser.update({
-      where: { id: params.id },
+      where: { id },
       data: { password: hashedPassword },
     })
 

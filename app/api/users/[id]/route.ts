@@ -14,20 +14,22 @@ const changePasswordSchema = z.object({
 })
 
 // DELETE /api/users/[id] - Delete user (admin only)
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const { id } = await params
+
     // Prevent deleting self
-    if (params.id === session.user.id) {
+    if (id === session.user.id) {
       return NextResponse.json({ error: 'ไม่สามารถลบบัญชีของตัวเองได้' }, { status: 400 })
     }
 
     await prisma.authUser.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ success: true })
@@ -38,13 +40,14 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 }
 
 // PATCH /api/users/[id] - Update user (admin only)
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const { id } = await params
     const body = await req.json()
     const validation = updateUserSchema.safeParse(body)
 
@@ -56,7 +59,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     const user = await prisma.authUser.update({
-      where: { id: params.id },
+      where: { id },
       data: validation.data,
       select: {
         id: true,

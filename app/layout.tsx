@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Kanit } from 'next/font/google'
-import { AntdRegistry } from '@ant-design/nextjs-registry'
+import StyledComponentsRegistry from '@/lib/AntdRegistry'
 import { App, ConfigProvider } from 'antd'
 import thTH from 'antd/locale/th_TH'
 import './globals.css'
@@ -24,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className={kanit.className}>
-        <AntdRegistry>
+        <StyledComponentsRegistry>
           <ConfigProvider
             locale={thTH}
             theme={{
@@ -38,7 +38,7 @@ export default function RootLayout({
               {children}
             </App>
           </ConfigProvider>
-        </AntdRegistry>
+        </StyledComponentsRegistry>
       </body>
     </html>
   )

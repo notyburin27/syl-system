@@ -3,15 +3,17 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/documents/[id] - Get single document
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     const document = await prisma.transportDocument.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         createdBy: {
           select: {
@@ -35,17 +37,18 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // PATCH /api/documents/[id] - Update document
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await req.json()
 
     const document = await prisma.transportDocument.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         title: body.title,
         date: body.date ? new Date(body.date) : null,
@@ -87,15 +90,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // DELETE /api/documents/[id] - Delete document
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     await prisma.transportDocument.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ success: true })

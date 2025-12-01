@@ -4,11 +4,11 @@ import { Form, Input, DatePicker, Button, Card, App } from 'antd'
 import { ClearOutlined, FilePdfOutlined, CopyOutlined, SaveOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { generateSinglePDF, validateFormForPDF } from '@/lib/utils/pdfUtils'
-import type { FormState } from '@/types/document'
+import type { FormState, TransportFormData } from '@/types/document'
 
 interface TransportFormProps {
   form: FormState
-  onFieldChange: (formId: number, fieldName: string, value: any) => void
+  onFieldChange: (formId: number, fieldName: keyof TransportFormData, value: any) => void
   onClearForm: (formId: number) => void
   onFormValidation: (formId: number, hasErrors: boolean) => void
   onDuplicateForm: (fieldsToOopy: any) => void
@@ -27,7 +27,7 @@ export default function TransportForm({
   const [antForm] = Form.useForm()
 
   // Handle form field changes
-  const handleFieldChange = (fieldName: string, value: any) => {
+  const handleFieldChange = (fieldName: keyof TransportFormData, value: any) => {
     onFieldChange(form.id, fieldName, value)
 
     // Trigger form validation

@@ -23,7 +23,7 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
+declare module "@auth/core/jwt" {
   interface JWT {
     id: string
     username: string
@@ -97,6 +97,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.username = token.username as string
       }
       return session
+    },
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user
+      const pathname = nextUrl.pathname
+
+      // Public routes
+      if (pathname.startsWith("/login")) {
+        if (isLoggedIn) {
+          return Response.redirect(new URL("/transport-documents", nextUrl))
+        }
+        return true
+      }
+
+      // Protected routes - require authentication
+      if (!isLoggedIn) {
+        return false // Redirect to login
+      }
+
+      // Admin-only routes
+      if (pathname.startsWith("/admin") && auth.user.role !== "ADMIN") {
+        return Response.redirect(new URL("/transport-documents", nextUrl))
+      }
+
+      return true
     },
   },
   pages: {

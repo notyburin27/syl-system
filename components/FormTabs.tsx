@@ -2,14 +2,14 @@
 
 import { Tabs } from 'antd'
 import TransportForm from './TransportForm'
-import type { FormState } from '@/types/document'
+import type { FormState, TransportFormData } from '@/types/document'
 
 interface FormTabsProps {
   forms: FormState[]
   activeFormId: number
   onTabChange: (formId: number) => void
   onDeleteForm: (formId: number) => void
-  onFieldChange: (formId: number, fieldName: string, value: any) => void
+  onFieldChange: (formId: number, fieldName: keyof TransportFormData, value: any) => void
   onClearForm: (formId: number) => void
   onFormValidation: (formId: number, hasErrors: boolean) => void
   onDuplicateForm: (fieldsToOopy: any) => void
