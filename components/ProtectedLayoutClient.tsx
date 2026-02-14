@@ -7,6 +7,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   TeamOutlined,
+  BankOutlined,
 } from "@ant-design/icons";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -37,6 +38,7 @@ export default function ProtectedLayoutClient({
   // Get selected key based on current path
   const getSelectedKey = () => {
     if (pathname?.startsWith("/admin/users")) return "users";
+    if (pathname?.startsWith("/statement-converter")) return "statement-converter";
     if (pathname?.startsWith("/transport-documents")) return "documents";
     return "documents";
   };
@@ -46,6 +48,11 @@ export default function ProtectedLayoutClient({
       key: "documents",
       icon: <FileTextOutlined />,
       label: <Link href="/transport-documents">เอกสารขนส่ง</Link>,
+    },
+    {
+      key: "statement-converter",
+      icon: <BankOutlined />,
+      label: <Link href="/statement-converter">แปลง Statement</Link>,
     },
     ...(isAdmin
       ? [

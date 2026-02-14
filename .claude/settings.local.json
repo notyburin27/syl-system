@@ -13,7 +13,10 @@
       "Bash(kill:*)",
       "Bash(node --version:*)",
       "Bash(npm run build:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(xargs:*)",
+      "Bash(node -e:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

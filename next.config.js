@@ -3,6 +3,9 @@ const nextConfig = {
   // Ant Design SSR support
   transpilePackages: ['antd', '@ant-design/icons'],
 
+  // Exclude pdf-parse from webpack bundling (uses native Node.js require)
+  serverExternalPackages: ['pdf-parse'],
+
   // Disable x-powered-by header
   poweredByHeader: false,
 
