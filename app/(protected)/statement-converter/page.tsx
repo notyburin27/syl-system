@@ -13,6 +13,7 @@ import {
   Space,
   Alert,
   Spin,
+  Radio,
 } from "antd";
 import {
   InboxOutlined,
@@ -20,7 +21,7 @@ import {
   LoadingOutlined,
 } from "@ant-design/icons";
 import type { UploadFile } from "antd";
-import type { Transaction } from "@/types/statement";
+import type { BankType } from "@/lib/utils/statementPdfParser";
 
 const { Title } = Typography;
 const { Dragger } = Upload;
@@ -39,6 +40,7 @@ export default function StatementConverterPage() {
   const [result, setResult] = useState<ConvertResult | null>(null);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [bankType, setBankType] = useState<BankType>("SCB");
 
   const handleUpload = async (file: File) => {
     setLoading(true);
@@ -48,6 +50,7 @@ export default function StatementConverterPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("bankType", bankType);
 
       const response = await fetch("/api/convert-statement", {
         method: "POST",
@@ -104,7 +107,32 @@ export default function StatementConverterPage() {
     <div>
       <Title level={3}>แปลง Bank Statement (PDF → Excel)</Title>
 
-      <Spin spinning={loading} tip="กำลังแปลงไฟล์..." size="large">
+      <Card style={{ marginBottom: 24 }}>
+        <Radio.Group
+          value={bankType}
+          onChange={(e) => {
+            setBankType(e.target.value);
+            setFileList([]);
+            setResult(null);
+            setError(null);
+          }}
+          disabled={loading}
+        >
+          <Radio.Button value="SCB">SCB (ไทยพาณิชย์)</Radio.Button>
+          <Radio.Button value="KBANK">KBANK (กสิกรไทย)</Radio.Button>
+        </Radio.Group>
+      </Card>
+
+      {loading ? (
+        <Card style={{ marginBottom: 24, textAlign: "center", padding: 40 }}>
+          <Spin
+            indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />}
+          />
+          <p style={{ marginTop: 16, fontSize: 16, color: "#666" }}>
+            กำลังแปลงไฟล์...
+          </p>
+        </Card>
+      ) : (
         <Card style={{ marginBottom: 24 }}>
           <Dragger
             accept=".pdf"
@@ -142,22 +170,19 @@ export default function StatementConverterPage() {
               setResult(null);
               setError(null);
             }}
-            disabled={loading}
           >
             <p className="ant-upload-drag-icon">
-              {loading ? <LoadingOutlined /> : <InboxOutlined />}
+              <InboxOutlined />
             </p>
             <p className="ant-upload-text">
-              {loading
-                ? "กำลังประมวลผล..."
-                : "คลิกหรือลากไฟล์ PDF Bank Statement มาที่นี่"}
+              คลิกหรือลากไฟล์ PDF Bank Statement มาที่นี่
             </p>
             <p className="ant-upload-hint">
-              รองรับไฟล์ PDF จากธนาคารไทยพาณิชย์ (SCB) ขนาดไม่เกิน 10MB
+              รองรับไฟล์ PDF จาก{bankType === "SCB" ? "ธนาคารไทยพาณิชย์ (SCB)" : "ธนาคารกสิกรไทย (KBANK)"} ขนาดไม่เกิน 10MB
             </p>
           </Dragger>
         </Card>
-      </Spin>
+      )}
 
       {error && (
         <Alert

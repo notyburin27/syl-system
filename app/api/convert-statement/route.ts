@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { parseBankStatement } from "@/lib/utils/statementPdfParser";
+import { parseBankStatement, BankType } from "@/lib/utils/statementPdfParser";
 import { generateStatementExcel } from "@/lib/utils/statementExcelGenerator";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -38,12 +38,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get bank type from form data
+    const bankTypeRaw = formData.get("bankType") as string | null;
+    const bankType: BankType = bankTypeRaw === "KBANK" ? "KBANK" : "SCB";
+
     // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // Parse PDF
-    const parseResult = await parseBankStatement(buffer);
+    const parseResult = await parseBankStatement(buffer, bankType);
 
     if (parseResult.transactions.length === 0) {
       return NextResponse.json(

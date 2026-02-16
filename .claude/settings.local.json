@@ -16,7 +16,8 @@
       "Bash(xargs kill:*)",
       "Bash(xargs:*)",
       "Bash(node -e:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
