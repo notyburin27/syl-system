@@ -65,3 +65,90 @@ model TransportDocument {
   @@index([createdAt])
   @@map("transport_documents")
 }
+
+// ==================== Stock Module ====================
+
+model Product {
+  id           String     @id @default(cuid())
+  name         String
+  sellingPrice Float
+  image        String?
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  stockIns  StockIn[]
+  stockOuts StockOut[]
+
+  @@index([name])
+  @@map("products")
+}
+
+model Buyer {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  stockOuts StockOut[]
+  invoices  Invoice[]
+
+  @@index([name])
+  @@map("buyers")
+}
+
+model StockIn {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+  purchasePrice Float
+  quantity      Int
+  date          DateTime
+  note          String?
+  createdAt     DateTime @default(now())
+
+  @@index([productId])
+  @@index([date])
+  @@map("stock_ins")
+}
+
+model StockOut {
+  id           String    @id @default(cuid())
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id])
+  buyerId      String
+  buyer        Buyer     @relation(fields: [buyerId], references: [id])
+  quantity     Int
+  sellingPrice Float
+  date         DateTime
+  isDelivered  Boolean   @default(false)
+  deliveredAt  DateTime?
+  invoiceId    String?
+  invoice      Invoice?  @relation(fields: [invoiceId], references: [id])
+  note         String?
+  createdAt    DateTime  @default(now())
+
+  @@index([productId])
+  @@index([buyerId])
+  @@index([invoiceId])
+  @@index([date])
+  @@map("stock_outs")
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  buyerId     String
+  buyer       Buyer     @relation(fields: [buyerId], references: [id])
+  totalAmount Float
+  isPaid      Boolean   @default(false)
+  paidAt      DateTime?
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  stockOuts StockOut[]
+
+  @@index([buyerId])
+  @@index([isPaid])
+  @@map("invoices")
+}

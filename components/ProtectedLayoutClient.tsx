@@ -8,6 +8,7 @@ import {
   LogoutOutlined,
   TeamOutlined,
   BankOutlined,
+  ShoppingOutlined,
 } from "@ant-design/icons";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -39,8 +40,18 @@ export default function ProtectedLayoutClient({
   const getSelectedKey = () => {
     if (pathname?.startsWith("/admin/users")) return "users";
     if (pathname?.startsWith("/statement-converter")) return "statement-converter";
+    if (pathname?.startsWith("/stock/products")) return "stock-products";
+    if (pathname?.startsWith("/stock/import")) return "stock-import";
+    if (pathname?.startsWith("/stock/export")) return "stock-export";
+    if (pathname?.startsWith("/stock/buyers")) return "stock-buyers";
+    if (pathname === "/stock") return "stock-dashboard";
     if (pathname?.startsWith("/transport-documents")) return "documents";
     return "documents";
+  };
+
+  const getOpenKeys = () => {
+    if (pathname?.startsWith("/stock")) return ["stock"];
+    return [];
   };
 
   const menuItems = [
@@ -53,6 +64,33 @@ export default function ProtectedLayoutClient({
       key: "statement-converter",
       icon: <BankOutlined />,
       label: <Link href="/statement-converter">แปลง Statement</Link>,
+    },
+    {
+      key: "stock",
+      icon: <ShoppingOutlined />,
+      label: "คลังสินค้า",
+      children: [
+        {
+          key: "stock-dashboard",
+          label: <Link href="/stock">ภาพรวม</Link>,
+        },
+        {
+          key: "stock-products",
+          label: <Link href="/stock/products">สินค้า</Link>,
+        },
+        {
+          key: "stock-import",
+          label: <Link href="/stock/import">นำเข้าสินค้า</Link>,
+        },
+        {
+          key: "stock-export",
+          label: <Link href="/stock/export">ขายสินค้า</Link>,
+        },
+        {
+          key: "stock-buyers",
+          label: <Link href="/stock/buyers">ลูกค้า</Link>,
+        },
+      ],
     },
     ...(isAdmin
       ? [
@@ -100,6 +138,7 @@ export default function ProtectedLayoutClient({
           theme="dark"
           mode="inline"
           selectedKeys={[getSelectedKey()]}
+          defaultOpenKeys={getOpenKeys()}
           items={menuItems}
         />
       </Sider>
