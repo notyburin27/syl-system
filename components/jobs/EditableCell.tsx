@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { InputNumber, Select, DatePicker, Input, Checkbox, Tooltip } from 'antd'
-import { LoadingOutlined, CheckOutlined } from '@ant-design/icons'
+import { useState, useEffect } from 'react'
+import { Select, DatePicker, Input, Checkbox, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 
 export type CellType = 'text' | 'number' | 'select' | 'date' | 'checkbox' | 'computed'
@@ -14,9 +13,11 @@ interface EditableCellProps {
   locked: boolean
   options?: { value: string; label: string }[]
   onSave: (value: unknown) => Promise<boolean>
+  onSaveStatus?: (status: 'saving' | 'saved' | 'error') => void
   format?: (val: unknown) => string
   precision?: number
   dropdownRenderExtra?: React.ReactNode
+  dateFormat?: string
 }
 
 export default function EditableCell({
@@ -26,50 +27,43 @@ export default function EditableCell({
   locked,
   options,
   onSave,
+  onSaveStatus,
   format,
   precision = 2,
   dropdownRenderExtra,
+  dateFormat = 'DD/MM/YYYY',
 }: EditableCellProps) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(value)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setEditValue(value)
   }, [value])
-
-  useEffect(() => {
-    if (saved) {
-      const timer = setTimeout(() => setSaved(false), 1500)
-      return () => clearTimeout(timer)
-    }
-  }, [saved])
 
   const handleSave = async (newValue: unknown) => {
     if (newValue === value) {
       setEditing(false)
       return
     }
-    setSaving(true)
+    onSaveStatus?.('saving')
     setError(null)
     try {
       const success = await onSave(newValue)
       if (success) {
-        setSaved(true)
+        onSaveStatus?.('saved')
         setEditing(false)
       } else {
+        onSaveStatus?.('error')
         setEditValue(value)
         setEditing(false)
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'บันทึกล้มเหลว')
+      const msg = e instanceof Error ? e.message : 'บันทึกล้มเหลว'
+      if (msg) setError(msg)
+      onSaveStatus?.('error')
       setEditValue(value)
       setEditing(false)
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -91,13 +85,6 @@ export default function EditableCell({
     width: '100%',
   }
 
-  // Status icons
-  const statusIcon = saving ? (
-    <LoadingOutlined style={{ fontSize: 12, color: '#1890ff', marginLeft: 4 }} />
-  ) : saved ? (
-    <CheckOutlined style={{ fontSize: 12, color: '#52c41a', marginLeft: 4 }} />
-  ) : null
-
   // Checkbox type
   if (cellType === 'checkbox') {
     return (
@@ -109,7 +96,6 @@ export default function EditableCell({
             await handleSave(e.target.checked)
           }}
         />
-        {statusIcon}
       </div>
     )
   }
@@ -132,12 +118,12 @@ export default function EditableCell({
     if (format) {
       displayVal = format(value)
     } else if (cellType === 'date' && value) {
-      displayVal = dayjs(value as string).format('DD/MM/YYYY')
+      displayVal = dayjs(value as string).format(dateFormat)
     } else if (cellType === 'select' && options) {
       const opt = options.find((o) => o.value === value)
       displayVal = opt?.label || String(value ?? '')
-    } else if (cellType === 'number' && value != null) {
-      displayVal = typeof value === 'number' ? value.toFixed(precision) : String(value)
+    } else if (cellType === 'number') {
+      displayVal = (value != null && value !== 0) ? (typeof value === 'number' ? value.toFixed(precision) : String(value)) : ''
     } else {
       displayVal = String(value ?? '')
     }
@@ -156,7 +142,6 @@ export default function EditableCell({
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
             {displayVal || <span style={{ color: '#ccc' }}>-</span>}
           </span>
-          {statusIcon}
         </div>
       </Tooltip>
     )
@@ -174,13 +159,16 @@ export default function EditableCell({
           format="DD/MM/YYYY"
           style={inputStyle}
           autoFocus
+          open={editing}
           onChange={(val) => {
             const dateStr = val?.format('YYYY-MM-DD') || null
             setEditValue(dateStr)
             handleSave(dateStr)
           }}
-          onBlur={() => {
-            if (editing) setEditing(false)
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditing(false)
+            }
           }}
         />
       </div>
@@ -193,17 +181,20 @@ export default function EditableCell({
         <Select
           size="small"
           showSearch
+          allowClear
           value={editValue as string}
           options={options}
           style={inputStyle}
           autoFocus
           defaultOpen
+          popupMatchSelectWidth={false}
+          dropdownStyle={{ minWidth: 200 }}
           filterOption={(input, option) =>
             (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
           }
           onChange={(val) => {
-            setEditValue(val)
-            handleSave(val)
+            setEditValue(val ?? null)
+            handleSave(val ?? null)
           }}
           onBlur={() => {
             if (editing) setEditing(false)
@@ -220,18 +211,23 @@ export default function EditableCell({
   }
 
   if (cellType === 'number') {
+    const parseNumber = (val: unknown) => {
+      const str = String(val ?? '').trim()
+      if (str === '') return null
+      const num = Number(str)
+      return isNaN(num) ? null : num
+    }
+
     return (
       <div style={cellStyle} onKeyDown={handleKeyDown}>
-        <InputNumber
+        <Input
           size="small"
-          value={editValue as number}
+          value={editValue != null ? String(editValue) : ''}
           style={inputStyle}
           autoFocus
-          ref={inputRef as unknown as React.Ref<HTMLInputElement>}
-          precision={precision}
-          onPressEnter={() => handleSave(editValue)}
-          onBlur={() => handleSave(editValue)}
-          onChange={(val) => setEditValue(val)}
+          onPressEnter={() => handleSave(parseNumber(editValue))}
+          onBlur={() => handleSave(parseNumber(editValue))}
+          onChange={(e) => setEditValue(e.target.value)}
         />
       </div>
     )

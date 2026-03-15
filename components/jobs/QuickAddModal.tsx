@@ -61,7 +61,6 @@ export default function QuickAddModal({
       }
 
       const item = await res.json()
-      message.success('เพิ่มสำเร็จ')
       form.resetFields()
       onSuccess(item)
       onClose()

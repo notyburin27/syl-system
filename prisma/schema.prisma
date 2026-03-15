@@ -219,8 +219,8 @@ model Job {
   // Core fields
   jobDate           DateTime  @db.Date
   jobType           String
-  customerId        String
-  customer          Customer  @relation(fields: [customerId], references: [id])
+  customerId        String?
+  customer          Customer?  @relation(fields: [customerId], references: [id])
   jobNumber         String    @unique
   driverId          String?
   driver            Driver?   @relation(fields: [driverId], references: [id])
@@ -235,18 +235,18 @@ model Job {
   returnLocation    Location? @relation("ReturnLocation", fields: [returnLocationId], references: [id])
 
   // Financial fields
-  estimatedTransfer Decimal?  @default(0) @db.Decimal(10, 2)
-  income            Decimal?  @default(0) @db.Decimal(10, 2)
-  driverWage        Decimal?  @default(0) @db.Decimal(10, 2)
-  actualTransfer    Decimal?  @default(0) @db.Decimal(10, 2)
-  advance           Decimal?  @default(0) @db.Decimal(10, 2)
-  toll              Decimal?  @default(0) @db.Decimal(10, 2)
-  pickupFee         Decimal?  @default(0) @db.Decimal(10, 2)
-  returnFee         Decimal?  @default(0) @db.Decimal(10, 2)
-  liftFee           Decimal?  @default(0) @db.Decimal(10, 2)
-  storageFee        Decimal?  @default(0) @db.Decimal(10, 2)
-  tire              Decimal?  @default(0) @db.Decimal(10, 2)
-  other             Decimal?  @default(0) @db.Decimal(10, 2)
+  estimatedTransfer Decimal?  @db.Decimal(10, 2)
+  income            Decimal?  @db.Decimal(10, 2)
+  driverWage        Decimal?  @db.Decimal(10, 2)
+  actualTransfer    Decimal?  @db.Decimal(10, 2)
+  advance           Decimal?  @db.Decimal(10, 2)
+  toll              Decimal?  @db.Decimal(10, 2)
+  pickupFee         Decimal?  @db.Decimal(10, 2)
+  returnFee         Decimal?  @db.Decimal(10, 2)
+  liftFee           Decimal?  @db.Decimal(10, 2)
+  storageFee        Decimal?  @db.Decimal(10, 2)
+  tire              Decimal?  @db.Decimal(10, 2)
+  other             Decimal?  @db.Decimal(10, 2)
 
   // Mileage & Fuel
   mileage           Int?

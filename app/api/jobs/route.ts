@@ -80,13 +80,6 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!customerId) {
-      return NextResponse.json(
-        { error: "กรุณาเลือกลูกค้า" },
-        { status: 400 }
-      );
-    }
-
     if (!jobDate) {
       return NextResponse.json(
         { error: "กรุณาระบุวันที่" },
@@ -98,24 +91,24 @@ export async function POST(req: Request) {
       data: {
         jobDate: new Date(jobDate),
         jobType: jobType || "",
-        customerId,
+        customerId: customerId || null,
         jobNumber: finalJobNumber,
         driverId: driverId || null,
         size: rest.size || null,
         pickupLocationId: rest.pickupLocationId || null,
         factoryLocationId: rest.factoryLocationId || null,
         returnLocationId: rest.returnLocationId || null,
-        estimatedTransfer: rest.estimatedTransfer ?? 0,
-        income: rest.income ?? 0,
-        actualTransfer: rest.actualTransfer ?? 0,
-        advance: rest.advance ?? 0,
-        toll: rest.toll ?? 0,
-        pickupFee: rest.pickupFee ?? 0,
-        returnFee: rest.returnFee ?? 0,
-        liftFee: rest.liftFee ?? 0,
-        storageFee: rest.storageFee ?? 0,
-        tire: rest.tire ?? 0,
-        other: rest.other ?? 0,
+        estimatedTransfer: rest.estimatedTransfer ?? null,
+        income: rest.income ?? null,
+        actualTransfer: rest.actualTransfer ?? null,
+        advance: rest.advance ?? null,
+        toll: rest.toll ?? null,
+        pickupFee: rest.pickupFee ?? null,
+        returnFee: rest.returnFee ?? null,
+        liftFee: rest.liftFee ?? null,
+        storageFee: rest.storageFee ?? null,
+        tire: rest.tire ?? null,
+        other: rest.other ?? null,
         mileage: rest.mileage ?? null,
         fuelOfficeLiters: rest.fuelOfficeLiters ?? null,
         fuelCashLiters: rest.fuelCashLiters ?? null,
