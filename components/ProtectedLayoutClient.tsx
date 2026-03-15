@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Layout, Menu } from "antd";
+import { Layout, Menu, Dropdown, Space, Tag } from "antd";
 import {
   FileTextOutlined,
   UserOutlined,
@@ -10,6 +10,7 @@ import {
   BankOutlined,
   ShoppingOutlined,
   TruckOutlined,
+  DownOutlined,
 } from "@ant-design/icons";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -21,12 +22,14 @@ interface ProtectedLayoutClientProps {
   children: React.ReactNode;
   userName: string;
   isAdmin: boolean;
+  userRole: string;
 }
 
 export default function ProtectedLayoutClient({
   children,
   userName,
   isAdmin,
+  userRole,
 }: ProtectedLayoutClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -94,6 +97,7 @@ export default function ProtectedLayoutClient({
 
   const menuItems = isAdmin
     ? [
+        jobsMenu,
         {
           key: "documents",
           icon: <FileTextOutlined />,
@@ -104,7 +108,6 @@ export default function ProtectedLayoutClient({
           icon: <BankOutlined />,
           label: <Link href="/statement-converter">แปลง Statement</Link>,
         },
-        jobsMenu,
         {
           key: "stock",
           icon: <ShoppingOutlined />,
@@ -198,26 +201,30 @@ export default function ProtectedLayoutClient({
           <div style={{ fontSize: 18, fontWeight: 500 }}>
             ระบบจัดการเอกสารขนส่ง
           </div>
-          <Menu
-            mode="horizontal"
-            selectedKeys={[]}
-            style={{ border: "none", flex: 0 }}
-            items={[
-              {
-                key: "user",
-                icon: <UserOutlined />,
-                label: userName,
-                children: [
-                  {
-                    key: "logout",
-                    icon: <LogoutOutlined />,
-                    label: "ออกจากระบบ",
-                    onClick: handleLogout,
-                  },
-                ],
-              },
-            ]}
-          />
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: "logout",
+                  icon: <LogoutOutlined />,
+                  label: "ออกจากระบบ",
+                  onClick: handleLogout,
+                },
+              ],
+            }}
+          >
+            <Space style={{ cursor: "pointer" }}>
+              <UserOutlined />
+              {userName}
+              <Tag
+                color={userRole === "ADMIN" ? "volcano" : "blue"}
+                style={{ marginLeft: 2, marginRight: 0 }}
+              >
+                {userRole}
+              </Tag>
+              <DownOutlined style={{ fontSize: 10 }} />
+            </Space>
+          </Dropdown>
         </Header>
         <Content style={{ margin: "24px 16px 0", overflow: "initial" }}>
           <div style={{ padding: 24, background: "#fff", minHeight: 360 }}>

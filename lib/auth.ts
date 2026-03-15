@@ -101,11 +101,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
       const pathname = nextUrl.pathname
+      const isStaff = auth?.user?.role === "STAFF"
+      const defaultPage = "/jobs"
 
       // Public routes
       if (pathname.startsWith("/login")) {
         if (isLoggedIn) {
-          return Response.redirect(new URL("/transport-documents", nextUrl))
+          return Response.redirect(new URL(defaultPage, nextUrl))
         }
         return true
       }
@@ -117,7 +119,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // Admin-only routes
       if (pathname.startsWith("/admin") && auth.user.role !== "ADMIN") {
-        return Response.redirect(new URL("/transport-documents", nextUrl))
+        return Response.redirect(new URL(defaultPage, nextUrl))
+      }
+
+      // Staff can only access /jobs routes
+      if (isStaff && !pathname.startsWith("/jobs") && !pathname.startsWith("/api")) {
+        return Response.redirect(new URL("/jobs", nextUrl))
       }
 
       return true

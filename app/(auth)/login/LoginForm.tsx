@@ -13,7 +13,7 @@ export default function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
-  const callbackUrl = searchParams.get('callbackUrl') || '/transport-documents'
+  const callbackUrl = searchParams.get('callbackUrl') || '/'
 
   const onFinish = async (values: { username: string; password: string }) => {
     setLoading(true)

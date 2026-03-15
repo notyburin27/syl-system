@@ -2,6 +2,6 @@ import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
-export default function Home() {
-  redirect('/transport-documents')
+export default async function Home() {
+  redirect('/jobs')
 }

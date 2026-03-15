@@ -28,7 +28,10 @@
       "Bash(npm i:*)",
       "Bash(source ~/.nvm/nvm.sh)",
       "Bash(nvm use:*)",
-      "Bash(grep -E \"\\\\.\\(tsx?|json\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx?|json\\)$\")",
+      "Bash(npm ls:*)",
+      "Bash(npx next:*)",
+      "WebFetch(domain:www.prisma.io)"
     ],
     "deny": [],
     "ask": []

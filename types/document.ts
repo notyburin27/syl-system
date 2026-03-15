@@ -1,4 +1,4 @@
-import { TransportDocument, AuthUser } from '@prisma/client'
+import { TransportDocument, AuthUser } from '@/app/generated/prisma/client'
 
 // Form data type (without database metadata)
 export type TransportFormData = {
