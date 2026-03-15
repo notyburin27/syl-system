@@ -17,7 +17,17 @@
       "Bash(xargs:*)",
       "Bash(node -e:*)",
       "Bash(npm uninstall:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(ls /Users/burinlumyai/Projects/syl-system/app/\\\\\\(protected\\\\\\)/)",
+      "Bash(ls -R /Users/burinlumyai/Projects/syl-system/app/\\\\\\(protected\\\\\\)/stock/)",
+      "Bash(mkdir -p /Users/burinlumyai/Projects/syl-system/app/api/customers/[id])",
+      "Bash(mkdir -p /Users/burinlumyai/Projects/syl-system/app/api/drivers/[id]/bank-accounts/[accountId])",
+      "Bash(mkdir -p /Users/burinlumyai/Projects/syl-system/app/api/locations/[id])",
+      "Bash(npx tsc:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm i:*)",
+      "Bash(source ~/.nvm/nvm.sh)",
+      "Bash(nvm use:*)"
     ],
     "deny": [],
     "ask": []

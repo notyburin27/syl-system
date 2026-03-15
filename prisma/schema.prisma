@@ -6,7 +6,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -25,6 +24,7 @@ model AuthUser {
 
   // Relations
   documents TransportDocument[]
+  jobs      Job[]
 
   @@index([username])
   @@map("auth_users")
@@ -151,4 +151,124 @@ model Invoice {
   @@index([buyerId])
   @@index([isPaid])
   @@map("invoices")
+}
+
+// ==================== Job Management Module ====================
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([name])
+  @@map("customers")
+}
+
+model Driver {
+  id           String              @id @default(cuid())
+  name         String              @unique
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  bankAccounts DriverBankAccount[]
+  jobs         Job[]
+
+  @@index([name])
+  @@map("drivers")
+}
+
+model DriverBankAccount {
+  id          String   @id @default(cuid())
+  driverId    String
+  driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  bankName    String
+  accountNo   String
+  accountName String
+  createdAt   DateTime @default(now())
+
+  @@index([driverId])
+  @@map("driver_bank_accounts")
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  type      String   @default("general") // "factory" | "general"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pickupJobs  Job[] @relation("PickupLocation")
+  factoryJobs Job[] @relation("FactoryLocation")
+  returnJobs  Job[] @relation("ReturnLocation")
+
+  @@index([name])
+  @@index([type])
+  @@map("locations")
+}
+
+model Job {
+  id        String   @id @default(cuid())
+
+  // Core fields
+  jobDate           DateTime  @db.Date
+  jobType           String
+  customerId        String
+  customer          Customer  @relation(fields: [customerId], references: [id])
+  jobNumber         String    @unique
+  driverId          String?
+  driver            Driver?   @relation(fields: [driverId], references: [id])
+  size              String?
+
+  // Location fields
+  pickupLocationId  String?
+  pickupLocation    Location? @relation("PickupLocation", fields: [pickupLocationId], references: [id])
+  factoryLocationId String?
+  factoryLocation   Location? @relation("FactoryLocation", fields: [factoryLocationId], references: [id])
+  returnLocationId  String?
+  returnLocation    Location? @relation("ReturnLocation", fields: [returnLocationId], references: [id])
+
+  // Financial fields
+  estimatedTransfer Decimal?  @default(0) @db.Decimal(10, 2)
+  income            Decimal?  @default(0) @db.Decimal(10, 2)
+  driverWage        Decimal?  @default(0) @db.Decimal(10, 2)
+  actualTransfer    Decimal?  @default(0) @db.Decimal(10, 2)
+  advance           Decimal?  @default(0) @db.Decimal(10, 2)
+  toll              Decimal?  @default(0) @db.Decimal(10, 2)
+  pickupFee         Decimal?  @default(0) @db.Decimal(10, 2)
+  returnFee         Decimal?  @default(0) @db.Decimal(10, 2)
+  liftFee           Decimal?  @default(0) @db.Decimal(10, 2)
+  storageFee        Decimal?  @default(0) @db.Decimal(10, 2)
+  tire              Decimal?  @default(0) @db.Decimal(10, 2)
+  other             Decimal?  @default(0) @db.Decimal(10, 2)
+
+  // Mileage & Fuel
+  mileage           Int?
+  fuelOfficeLiters  Decimal?  @db.Decimal(10, 2)
+  fuelCashLiters    Decimal?  @db.Decimal(10, 2)
+  fuelCashAmount    Decimal?  @db.Decimal(10, 2)
+  fuelCreditLiters  Decimal?  @db.Decimal(10, 2)
+  fuelCreditAmount  Decimal?  @db.Decimal(10, 2)
+
+  // Status fields
+  clearStatus       Boolean   @default(false)
+  statementVerified Boolean   @default(false)
+
+  // Metadata
+  createdById String
+  createdBy   AuthUser @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([jobDate])
+  @@index([jobType])
+  @@index([customerId])
+  @@index([driverId])
+  @@index([createdById])
+  @@map("jobs")
 }

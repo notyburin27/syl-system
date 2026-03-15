@@ -1,0 +1,237 @@
+[
+  {
+    "key": "job_date",
+    "label": "วันที่",
+    "type": "dateonly",
+    "description": "ใช้ antd DatePicker แสดงผลวันที่ในรูปแบบ dd/MM/yyyy",
+    "relational": false
+  },
+  {
+    "key": "job_type",
+    "label": "ลักษณะงาน",
+    "type": "string",
+    "unique": true,
+    "description": "ใช้ antd Select แบบ search สำหรับระบุลักษณะงาน มีค่าตัวเลือก ดังนี้ ขาเข้า, ขาออก, ทอยตู้, พื้นเรียบ, โรงสี, เบิกล่วงหน้า",
+    "relational": false
+  },
+  {
+    "key": "customer",
+    "label": "ลูกค้า",
+    "type": "string",
+    "description": "ใช้ antd Select แบบ search สำหรับระบุชื่อลูกค้า",
+    "relational": true
+  },
+  {
+    "key": "job_number",
+    "label": "JOB/เลขที่",
+    "type": "string",
+    "description": "ใช้ antd Input สำหรับระบุเลขที่งาน จะมีการเช็คซ้ำกับเลขที่งานอื่นๆ ไม่ให้ซ้ำกัน (validate by backend)",
+    "relational": false
+  },
+  {
+    "key": "driver",
+    "label": "คนขับรถ",
+    "type": "string",
+    "description": "fixed ใช้แสดงชื่อคนขับรถที่ถูก assign งานนี้ โดยข้อมูลคนขับรถจะมาจากฐานข้อมูลของระบบเดียวกับรถที่ใช้ในงานนี้",
+    "relational": true
+  },
+  {
+    "key": "size",
+    "label": "SIZE",
+    "type": "string",
+    "description": "ใช้ antd Select แบบ search สำหรับระบุขนาดตู้ มีค่าตัวเลือก ดังนี้ 20DC, 40DC, 20RF, 40RF, 2x20DC, truck",
+    "relational": false
+  },
+  {
+    "key": "pickup_location",
+    "label": "สถานที่รับตู้",
+    "type": "string",
+    "description": "ใช้ antd Select แบบ search สำหรับระบุสถานที่รับตู้ โดยข้อมูลสถานที่รับตู้จะมาจากฐานข้อมูลของระบบเดียวกับโรงงานและสถานที่คืนตู้",
+    "relational": true
+  },
+  {
+    "key": "factory_location",
+    "label": "โรงงาน",
+    "type": "string",
+    "description": "ใช้ antd Select แบบ search สำหรับระบุโรงงาน โดยข้อมูลโรงงานจะมาจากฐานข้อมูลของระบบเดียวกับสถานที่รับตู้และสถานที่คืนตู้",
+    "relational": true
+  },
+  {
+    "key": "return_location",
+    "label": "สถานที่คืนตู้",
+    "type": "string",
+    "description": "ใช้ antd Select แบบ search สำหรับระบุสถานที่คืนตู้ โดยข้อมูลสถานที่คืนตู้จะมาจากฐานข้อมูลของระบบเดียวกับสถานที่รับตู้และโรงงาน",
+    "relational": true
+  },
+  {
+    "key": "estimated_transfer",
+    "label": "คาดการณ์ยอดเงินโอน",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุคาดการณ์ยอดเงินโอน จะมี prefill จากการคำนวณตามลักษณะงานและขนาดตู้และสถานที่ที่เกี่ยวข้อง โดยสามารถแก้ไขได้หากมีการเปลี่ยนแปลงข้อมูลที่เกี่ยวข้อง เช่น ลักษณะงาน ขนาดตู้ หรือโรงงาน (calculated based on job_type, size, pickup_location, return_location by backend, return estimated_transfer = pickup_fee + return_fee in latest record with same job_type, size, pickup_location, return_location)",
+    "relational": false
+  },
+  {
+    "key": "income",
+    "label": "รายได้",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุรายได้ จะมี prefill จากการคำนวณตามลักษณะงานและขนาดตู้และสถานที่ที่เกี่ยวข้องและลูกค้า โดยสามารถแก้ไขได้หากมีการเปลี่ยนแปลงข้อมูลที่เกี่ยวข้อง เช่น ลักษณะงาน ขนาดตู้ หรือโรงงาน (calculated based on job_type, size, pickup_location, factory_location, return_location, and customer by backend)",
+    "relational": false
+  },
+  {
+    "key": "driver_wage",
+    "label": "ค่าเที่ยวคนขับรถ",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุค่าเที่ยวคนขับรถ จะมี prefill จากการคำนวณตามโรงงานและขนาดตู้ โดยสามารถแก้ไขได้หากมีการเปลี่ยนแปลงข้อมูลที่เกี่ยวข้อง เช่น ขนาดตู้ หรือโรงงาน (calculated based on size, factory_location by backend)",
+    "relational": false
+  },
+  {
+    "key": "actual_transfer",
+    "label": "ยอดโอนเงินที่โอนจริง",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุยอดโอนเงินที่โอนจริง จะมีการคำนวณยอดเงินส่วนต่าง (difference_transfer) โดยอัตโนมัติเมื่อมีการกรอกข้อมูลยอดโอนเงินที่โอนจริง",
+    "relational": false
+  },
+  {
+    "key": "advance",
+    "label": "เบิกล่วงหน้า",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุเบิกล่วงหน้า เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "toll",
+    "label": "ค่าทางด่วน",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุค่าทางด่วน เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "pickup_fee",
+    "label": "ค่ารับตู้",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุค่ารับตู้ เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "return_fee",
+    "label": "ค่าคืนตู้",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุค่าคืนตู้ เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "lift_fee",
+    "label": "ค่ายกตู้",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุค่ายกตู้ เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "storage_fee",
+    "label": "ค่าฝากตู้",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุค่าฝากตู้ เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "tire",
+    "label": "ค่ายาง",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุค่ายาง เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "other",
+    "label": "อื่นๆ",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุค่าอื่นๆ เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "driver_overall_transfer",
+    "label": "ยอดเงินรวมที่คนรถปิดงาน",
+    "type": "decimal(2)",
+    "description": "disable ไม่ให้แก้ไข ใช้แสดงยอดเงินรวมที่คนรถปิดงาน ซึ่งคำนวณจากเบิกล่วงหน้า (advance) + ค่าทางด่วน (toll) + ค่ารับตู้ (pickup_fee) + ค่าคืนตู้ (return_fee) + ค่ายกตู้ (lift_fee) + ค่าฝากตู้ (storage_fee) + ค่ายาง (tire) + ค่าอื่นๆ (other)",
+    "computed": "advance + toll + pickup_fee + return_fee + lift_fee + storage_fee + tire + other",
+    "relational": false
+  },
+  {
+    "key": "difference_transfer",
+    "label": "ยอดเงินส่วนต่างที่ต้องโอนเพิ่มหรือเรียกคืน",
+    "type": "decimal(2)",
+    "description": "disable ไม่ให้แก้ไข ใช้แสดงยอดเงินส่วนต่างที่ต้องโอนเพิ่มหรือเรียกคืน ซึ่งคำนวณจากยอดเงินรวมที่คนรถปิดงาน (driver_overall_transfer) - ยอดโอนเงินที่โอนจริง (actual_transfer)",
+    "computed": "driver_overall_transfer - actual_transfer",
+    "relational": false
+  },
+  {
+    "key": "clear_status",
+    "label": "สถานะเคลียร์ยอดเงินส่วนต่าง",
+    "type": "boolean",
+    "description": "ใช้ antd Checkbox สำหรับระบุสถานะเคลียร์ยอดเงินส่วนต่าง โดยให้เลือกได้เพียงครั้งเดียวเมื่อมียอดเงินส่วนต่าง (difference_transfer) เท่านั้น",
+    "relational": false
+  },
+  {
+    "key": "total_transfer",
+    "label": "รวมยอดเงินที่โอนทั้งหมด",
+    "type": "decimal(2)",
+    "description": "disable ไม่ให้แก้ไข ใช้แสดงรวมยอดเงินที่โอนทั้งหมด ซึ่งคำนวณจากยอดโอนเงินที่โอนจริง (actual_transfer) + ยอดเงินส่วนต่างที่ต้องโอนเพิ่มหรือเรียกคืน (difference_transfer)",
+    "computed": "actual_transfer + difference_transfer",
+    "relational": false
+  },
+  {
+    "key": "mileage",
+    "label": "ไมล์รถ",
+    "type": "number",
+    "description": "ใช้ antd Input Number สำหรับระบุไมล์รถ เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "fuel_office_liters",
+    "label": "น้ำมัน OFFICE (ลิตร)",
+    "type": "float",
+    "description": "ใช้ antd Input Number สำหรับระบุน้ำมัน OFFICE (ลิตร) เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "fuel_cash_liters",
+    "label": "น้ำมันเงินสด (ลิตร)",
+    "type": "float",
+    "description": "ใช้ antd Input Number สำหรับระบุน้ำมันเงินสด (ลิตร) เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "fuel_cash_amount",
+    "label": "น้ำมันเงินสด (จำนวนเงิน)",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุน้ำมันเงินสด (จำนวนเงิน) เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "fuel_credit_liters",
+    "label": "น้ำมันเครดิต (ลิตร)",
+    "type": "float",
+    "description": "ใช้ antd Input Number สำหรับระบุน้ำมันเครดิต (ลิตร) เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "fuel_credit_amount",
+    "label": "น้ำมันเครดิต (จำนวนเงิน)",
+    "type": "decimal(2)",
+    "description": "ใช้ antd Input Number สำหรับระบุน้ำมันเครดิต (จำนวนเงิน) เว้นว่างได้",
+    "relational": false
+  },
+  {
+    "key": "locked",
+    "label": "ล็อคห้ามแก้ไข",
+    "type": "boolean",
+    "description": "ใช้ ant Button สำหรับ unlock เพื่อปลดล็อคห้ามแก้ไขข้อมูลในกรณีที่มีการล็อคไว้ โดยจะมีการแสดงสถานะล็อคอยู่ในปุ่ม และเมื่อมีการล็อคแล้วจะไม่สามารถแก้ไขข้อมูลได้จนกว่าจะมีการปลดล็อค",
+    "relational": false
+  },
+  {
+    "key": "statement_verified",
+    "label": "Statement verified",
+    "type": "boolean",
+    "description": "แสดงสถานะการตรวจสอบ Statement อย่างเดียว",
+    "relational": false
+  }
+]

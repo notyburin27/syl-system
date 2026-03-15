@@ -9,6 +9,7 @@ import {
   TeamOutlined,
   BankOutlined,
   ShoppingOutlined,
+  TruckOutlined,
 } from "@ant-design/icons";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -45,63 +46,99 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/stock/export")) return "stock-export";
     if (pathname?.startsWith("/stock/buyers")) return "stock-buyers";
     if (pathname === "/stock") return "stock-dashboard";
+    if (pathname?.startsWith("/jobs/settings/customers")) return "jobs-customers";
+    if (pathname?.startsWith("/jobs/settings/drivers")) return "jobs-drivers";
+    if (pathname?.startsWith("/jobs/settings/locations")) return "jobs-locations";
+    if (pathname?.startsWith("/jobs")) return "jobs-list";
     if (pathname?.startsWith("/transport-documents")) return "documents";
     return "documents";
   };
 
   const getOpenKeys = () => {
-    if (pathname?.startsWith("/stock")) return ["stock"];
-    return [];
+    const keys: string[] = [];
+    if (pathname?.startsWith("/stock")) keys.push("stock");
+    if (pathname?.startsWith("/jobs")) keys.push("jobs");
+    if (pathname?.startsWith("/jobs/settings")) keys.push("jobs-settings");
+    return keys;
   };
 
-  const menuItems = [
-    {
-      key: "documents",
-      icon: <FileTextOutlined />,
-      label: <Link href="/transport-documents">เอกสารขนส่ง</Link>,
-    },
-    {
-      key: "statement-converter",
-      icon: <BankOutlined />,
-      label: <Link href="/statement-converter">แปลง Statement</Link>,
-    },
-    {
-      key: "stock",
-      icon: <ShoppingOutlined />,
-      label: "คลังสินค้า",
-      children: [
-        {
-          key: "stock-dashboard",
-          label: <Link href="/stock">ภาพรวม</Link>,
-        },
-        {
-          key: "stock-products",
-          label: <Link href="/stock/products">สินค้า</Link>,
-        },
-        {
-          key: "stock-import",
-          label: <Link href="/stock/import">นำเข้าสินค้า</Link>,
-        },
-        {
-          key: "stock-export",
-          label: <Link href="/stock/export">ขายสินค้า</Link>,
-        },
-        {
-          key: "stock-buyers",
-          label: <Link href="/stock/buyers">ลูกค้า</Link>,
-        },
-      ],
-    },
-    ...(isAdmin
-      ? [
+  const jobsMenu = {
+    key: "jobs",
+    icon: <TruckOutlined />,
+    label: "งานขนส่ง",
+    children: [
+      {
+        key: "jobs-list",
+        label: <Link href="/jobs">รายการงาน</Link>,
+      },
+      {
+        key: "jobs-settings",
+        label: "ตั้งค่าข้อมูลอ้างอิง",
+        children: [
           {
-            key: "users",
-            icon: <TeamOutlined />,
-            label: <Link href="/admin/users">จัดการผู้ใช้</Link>,
+            key: "jobs-customers",
+            label: <Link href="/jobs/settings/customers">ลูกค้า</Link>,
           },
-        ]
-      : []),
-  ];
+          {
+            key: "jobs-drivers",
+            label: <Link href="/jobs/settings/drivers">คนขับรถ</Link>,
+          },
+          {
+            key: "jobs-locations",
+            label: <Link href="/jobs/settings/locations">สถานที่</Link>,
+          },
+        ],
+      },
+    ],
+  };
+
+  const menuItems = isAdmin
+    ? [
+        {
+          key: "documents",
+          icon: <FileTextOutlined />,
+          label: <Link href="/transport-documents">เอกสารขนส่ง</Link>,
+        },
+        {
+          key: "statement-converter",
+          icon: <BankOutlined />,
+          label: <Link href="/statement-converter">แปลง Statement</Link>,
+        },
+        jobsMenu,
+        {
+          key: "stock",
+          icon: <ShoppingOutlined />,
+          label: "คลังสินค้า",
+          children: [
+            {
+              key: "stock-dashboard",
+              label: <Link href="/stock">ภาพรวม</Link>,
+            },
+            {
+              key: "stock-products",
+              label: <Link href="/stock/products">สินค้า</Link>,
+            },
+            {
+              key: "stock-import",
+              label: <Link href="/stock/import">นำเข้าสินค้า</Link>,
+            },
+            {
+              key: "stock-export",
+              label: <Link href="/stock/export">ขายสินค้า</Link>,
+            },
+            {
+              key: "stock-buyers",
+              label: <Link href="/stock/buyers">ลูกค้า</Link>,
+            },
+          ],
+        },
+        {
+          key: "users",
+          icon: <TeamOutlined />,
+          label: <Link href="/admin/users">จัดการผู้ใช้</Link>,
+        },
+      ]
+    : [jobsMenu];
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
