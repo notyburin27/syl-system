@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Table, Button, Modal, Form, Input, Select, App, Space, Tag, Popconfirm } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons'
+import ImportCSVModal from './ImportCSVModal'
 import type { Location } from '@/types/job'
 import dayjs from 'dayjs'
 
@@ -14,6 +15,7 @@ export default function LocationManager() {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null)
   const [form] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const fetchLocations = useCallback(async () => {
     setLoading(true)
@@ -152,9 +154,14 @@ export default function LocationManager() {
     <>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>จัดการสถานที่</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
-          เพิ่มสถานที่
-        </Button>
+        <Space>
+          <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
+            Import CSV
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
+            เพิ่มสถานที่
+          </Button>
+        </Space>
       </div>
 
       <Table
@@ -196,6 +203,18 @@ export default function LocationManager() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <ImportCSVModal
+        open={importOpen}
+        title="Import สถานที่"
+        apiEndpoint="/api/locations/import"
+        headers={['name', 'type']}
+        headerLabels={{ name: 'ชื่อสถานที่', type: 'ประเภท (factory/general)' }}
+        exampleRow={['โรงงาน ABC', 'factory']}
+        templateFileName="location_import_template.csv"
+        onClose={() => setImportOpen(false)}
+        onSuccess={fetchLocations}
+      />
     </>
   )
 }

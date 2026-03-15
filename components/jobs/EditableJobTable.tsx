@@ -8,10 +8,12 @@ import {
   DeleteOutlined,
   UnlockOutlined,
   ArrowLeftOutlined,
+  ImportOutlined,
 } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import EditableCell from './EditableCell'
 import QuickAddModal from './QuickAddModal'
+import ImportJobModal from './ImportJobModal'
 import type { Job, Customer, Driver, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS } from '@/types/job'
 import dayjs from 'dayjs'
@@ -88,6 +90,9 @@ export default function EditableJobTable({
   const [quickAddType, setQuickAddType] = useState<'customer' | 'driver' | 'location'>('customer')
   const [quickAddLocationType, setQuickAddLocationType] = useState<'factory' | 'general' | undefined>()
   const [quickAddCallback, setQuickAddCallback] = useState<((item: { id: string }) => void) | null>(null)
+
+  // Import modal
+  const [importOpen, setImportOpen] = useState(false)
 
   const fetchJobs = useCallback(async () => {
     setLoading(true)
@@ -748,6 +753,9 @@ export default function EditableJobTable({
           </h2>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
+            Import CSV
+          </Button>
           {editMode && (
             <Button icon={<PlusOutlined />} onClick={handleAddRow}>
               เพิ่ม row
@@ -797,6 +805,14 @@ export default function EditableJobTable({
           fetchReferenceData()
           if (quickAddCallback) quickAddCallback(item)
         }}
+      />
+
+      {/* Import Modal */}
+      <ImportJobModal
+        open={importOpen}
+        driverId={driverId}
+        onClose={() => setImportOpen(false)}
+        onSuccess={fetchJobs}
       />
 
       <style jsx global>{`

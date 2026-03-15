@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons'
+import ImportCSVModal from './ImportCSVModal'
 import type { Driver, DriverBankAccount } from '@/types/job'
 import dayjs from 'dayjs'
 
@@ -21,6 +22,8 @@ export default function DriverManager() {
   const [bankDriverId, setBankDriverId] = useState<string | null>(null)
   const [bankForm] = Form.useForm()
   const [bankSubmitLoading, setBankSubmitLoading] = useState(false)
+  const [importDriverOpen, setImportDriverOpen] = useState(false)
+  const [importBankOpen, setImportBankOpen] = useState(false)
 
   const fetchDrivers = useCallback(async () => {
     setLoading(true)
@@ -266,9 +269,17 @@ export default function DriverManager() {
     <>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>จัดการคนขับรถ</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
-          เพิ่มคนขับ
-        </Button>
+        <Space>
+          <Button icon={<ImportOutlined />} onClick={() => setImportDriverOpen(true)}>
+            Import คนขับ
+          </Button>
+          <Button icon={<ImportOutlined />} onClick={() => setImportBankOpen(true)}>
+            Import บัญชีธนาคาร
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
+            เพิ่มคนขับ
+          </Button>
+        </Space>
       </div>
 
       <Table
@@ -300,6 +311,35 @@ export default function DriverManager() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <ImportCSVModal
+        open={importDriverOpen}
+        title="Import คนขับ"
+        apiEndpoint="/api/drivers/import"
+        headers={['name']}
+        headerLabels={{ name: 'ชื่อคนขับ' }}
+        exampleRow={['สมชาย ใจดี']}
+        templateFileName="driver_import_template.csv"
+        onClose={() => setImportDriverOpen(false)}
+        onSuccess={fetchDrivers}
+      />
+
+      <ImportCSVModal
+        open={importBankOpen}
+        title="Import บัญชีธนาคาร"
+        apiEndpoint="/api/drivers/import-bank-accounts"
+        headers={['driverName', 'bankName', 'accountNo', 'accountName']}
+        headerLabels={{
+          driverName: 'ชื่อคนขับ',
+          bankName: 'ชื่อธนาคาร',
+          accountNo: 'เลขบัญชี',
+          accountName: 'ชื่อบัญชี',
+        }}
+        exampleRow={['สมชาย ใจดี', 'กสิกร', '1234567890', 'สมชาย ใจดี']}
+        templateFileName="driver_bank_account_import_template.csv"
+        onClose={() => setImportBankOpen(false)}
+        onSuccess={fetchDrivers}
+      />
 
       {/* Bank Account Modal */}
       <Modal

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons'
+import ImportCSVModal from './ImportCSVModal'
 import type { Customer } from '@/types/job'
 import dayjs from 'dayjs'
 
@@ -14,6 +15,7 @@ export default function CustomerManager() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [form] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true)
@@ -144,9 +146,14 @@ export default function CustomerManager() {
     <>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>จัดการลูกค้า</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
-          เพิ่มลูกค้า
-        </Button>
+        <Space>
+          <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
+            Import CSV
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
+            เพิ่มลูกค้า
+          </Button>
+        </Space>
       </div>
 
       <Table
@@ -176,6 +183,18 @@ export default function CustomerManager() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <ImportCSVModal
+        open={importOpen}
+        title="Import ลูกค้า"
+        apiEndpoint="/api/customers/import"
+        headers={['name']}
+        headerLabels={{ name: 'ชื่อลูกค้า' }}
+        exampleRow={['บริษัท ABC จำกัด']}
+        templateFileName="customer_import_template.csv"
+        onClose={() => setImportOpen(false)}
+        onSuccess={fetchCustomers}
+      />
     </>
   )
 }

@@ -27,7 +27,8 @@
       "Bash(npx prisma:*)",
       "Bash(npm i:*)",
       "Bash(source ~/.nvm/nvm.sh)",
-      "Bash(nvm use:*)"
+      "Bash(nvm use:*)",
+      "Bash(grep -E \"\\\\.\\(tsx?|json\\)$\")"
     ],
     "deny": [],
     "ask": []
