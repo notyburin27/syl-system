@@ -80,7 +80,7 @@ export default function EditableCell({
     display: 'flex',
     alignItems: 'center',
     cursor: editable && !locked ? 'pointer' : locked ? 'not-allowed' : 'default',
-    opacity: locked ? 0.5 : 1,
+    opacity: 1,
     position: 'relative',
     width: '100%',
   }

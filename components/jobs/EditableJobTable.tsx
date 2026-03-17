@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Table, Button, App, Divider, Popconfirm } from 'antd'
+import { Table, Button, App, Divider } from 'antd'
 import {
   EditOutlined,
+  FormOutlined,
   PlusOutlined,
   DeleteOutlined,
   UnlockOutlined,
@@ -16,6 +17,7 @@ import { useRouter } from 'next/navigation'
 import EditableCell from './EditableCell'
 import QuickAddModal from './QuickAddModal'
 import ImportJobModal from './ImportJobModal'
+import JobFormModal from './JobFormModal'
 import type { Job, Customer, Driver, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS } from '@/types/job'
 import dayjs from 'dayjs'
@@ -84,7 +86,13 @@ export default function EditableJobTable({
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
   const [editMode, setEditMode] = useState(false)
+  const [modalEditMode, setModalEditMode] = useState(false)
   const [draftRows, setDraftRows] = useState<DraftRow[]>([])
+
+  // Job form modal state
+  const [formModalOpen, setFormModalOpen] = useState(false)
+  const [formModalMode, setFormModalMode] = useState<'create' | 'edit'>('create')
+  const [formModalJob, setFormModalJob] = useState<Job | null>(null)
 
   // Save status indicator
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -825,15 +833,22 @@ export default function EditableJobTable({
                     return null
                   }
                   return (
-                    <Popconfirm
-                      title="ยืนยันการลบ"
-                      description={isDraft(row) ? 'ล้างข้อมูล row นี้?' : 'ต้องการลบงานนี้?'}
-                      onConfirm={() => handleDeleteJob(row)}
-                      okText="ลบ"
-                      cancelText="ยกเลิก"
-                    >
-                      <Button type="link" size="small" danger icon={<DeleteOutlined />} />
-                    </Popconfirm>
+                    <Button
+                      type="link"
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => {
+                        modal.confirm({
+                          title: 'ยืนยันการลบ',
+                          content: isDraft(row) ? 'ล้างข้อมูล row นี้?' : 'ต้องการลบงานนี้?',
+                          okText: 'ลบ',
+                          okType: 'danger',
+                          cancelText: 'ยกเลิก',
+                          onOk: () => handleDeleteJob(row),
+                        })
+                      }}
+                    />
                   )
                 },
               },
@@ -876,20 +891,35 @@ export default function EditableJobTable({
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
             Import CSV
           </Button>
-          <Button
-            type={editMode ? 'primary' : 'default'}
-            icon={<EditOutlined />}
-            onClick={() => {
-              if (editMode) {
-                // Exit edit mode: clear drafts without job_number, refresh data
-                setDraftRows((prev) => prev.filter((d) => d.jobNumber))
-                fetchJobs()
-              }
-              setEditMode(!editMode)
-            }}
-          >
-            {editMode ? 'เสร็จสิ้น' : 'แก้ไข'}
-          </Button>
+          {!editMode && (
+            <Button
+              type={modalEditMode ? 'primary' : 'default'}
+              icon={<FormOutlined />}
+              onClick={() => {
+                if (modalEditMode) {
+                  fetchJobs()
+                }
+                setModalEditMode(!modalEditMode)
+              }}
+            >
+              {modalEditMode ? 'เสร็จสิ้น' : 'เปิดการแก้ไขแบบรายการ'}
+            </Button>
+          )}
+          {!modalEditMode && (
+            <Button
+              type={editMode ? 'primary' : 'default'}
+              icon={<EditOutlined />}
+              onClick={() => {
+                if (editMode) {
+                  setDraftRows((prev) => prev.filter((d) => d.jobNumber))
+                  fetchJobs()
+                }
+                setEditMode(!editMode)
+              }}
+            >
+              {editMode ? 'เสร็จสิ้น' : 'เปิดการแก้ไขแบบตาราง'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -907,7 +937,21 @@ export default function EditableJobTable({
           const r = row as RowData
           if (isDraft(r)) return 'draft-row'
           if (r.clearStatus) return 'locked-row'
+          if (modalEditMode) return 'clickable-row'
           return ''
+        }}
+        onRow={(row) => {
+          if (!modalEditMode) return {}
+          const r = row as RowData
+          if (isDraft(r)) return {}
+          return {
+            onClick: () => {
+              setFormModalJob(r as Job)
+              setFormModalMode('edit')
+              setFormModalOpen(true)
+            },
+            style: { cursor: 'pointer' },
+          }
         }}
       />
 
@@ -916,6 +960,22 @@ export default function EditableJobTable({
         <div style={{ marginTop: 12 }}>
           <Button icon={<PlusOutlined />} onClick={handleAddRow} type="dashed" block>
             เพิ่ม row
+          </Button>
+        </div>
+      )}
+      {modalEditMode && (
+        <div style={{ marginTop: 12 }}>
+          <Button
+            icon={<PlusOutlined />}
+            type="dashed"
+            block
+            onClick={() => {
+              setFormModalJob(null)
+              setFormModalMode('create')
+              setFormModalOpen(true)
+            }}
+          >
+            เพิ่มงานใหม่
           </Button>
         </div>
       )}
@@ -940,16 +1000,51 @@ export default function EditableJobTable({
         onSuccess={fetchJobs}
       />
 
+      {/* Job Form Modal */}
+      <JobFormModal
+        open={formModalOpen}
+        mode={formModalMode}
+        job={formModalJob}
+        driverId={driverId}
+        month={month}
+        isAdmin={isAdmin}
+        customers={customers}
+        factoryLocations={factoryLocations}
+        generalLocations={generalLocations}
+        onClose={() => setFormModalOpen(false)}
+        onCreated={(newJob) => {
+          setJobs((prev) => {
+            prev.push(newJob)
+            return prev
+          })
+        }}
+        onFieldSave={handleCellSave}
+        onRefreshReferenceData={fetchReferenceData}
+      />
+
       <style jsx global>{`
         .draft-row {
           background-color: #fafafa !important;
         }
-        .locked-row {
-          background-color: #f5f5f5 !important;
-          opacity: 0.7;
+        .locked-row td {
+          background-color: #f6ffed !important;
+        }
+        .locked-row:hover td {
+          background-color: #d9f7be !important;
+        }
+        .locked-row td.ant-table-cell-fix-left,
+        .locked-row td.ant-table-cell-fix-right {
+          background-color: #f6ffed !important;
+        }
+        .locked-row:hover td.ant-table-cell-fix-left,
+        .locked-row:hover td.ant-table-cell-fix-right {
+          background-color: #d9f7be !important;
         }
         .ant-table-cell {
           padding: 4px 8px !important;
+        }
+        .clickable-row:hover td {
+          background-color: #e6f4ff !important;
         }
       `}</style>
     </div>
