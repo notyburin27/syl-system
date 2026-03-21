@@ -1011,7 +1011,7 @@ export default function EditableJobTable({
         customers={customers}
         factoryLocations={factoryLocations}
         generalLocations={generalLocations}
-        onClose={() => setFormModalOpen(false)}
+        onClose={() => { setFormModalOpen(false); fetchJobsSilent() }}
         onCreated={(newJob) => {
           setJobs((prev) => {
             prev.push(newJob)

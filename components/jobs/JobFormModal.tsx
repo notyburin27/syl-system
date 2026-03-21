@@ -57,6 +57,21 @@ export default function JobFormModal({
 
   const isAdvance = Form.useWatch('jobType', form) === 'เบิกล่วงหน้า'
 
+  // Computed fields
+  const watchAdvance = Form.useWatch('advance', form) || 0
+  const watchToll = Form.useWatch('toll', form) || 0
+  const watchPickupFee = Form.useWatch('pickupFee', form) || 0
+  const watchReturnFee = Form.useWatch('returnFee', form) || 0
+  const watchLiftFee = Form.useWatch('liftFee', form) || 0
+  const watchStorageFee = Form.useWatch('storageFee', form) || 0
+  const watchTire = Form.useWatch('tire', form) || 0
+  const watchOther = Form.useWatch('other', form) || 0
+  const watchActualTransfer = Form.useWatch('actualTransfer', form) || 0
+
+  const driverOverall = Number(watchAdvance) + Number(watchToll) + Number(watchPickupFee) + Number(watchReturnFee) + Number(watchLiftFee) + Number(watchStorageFee) + Number(watchTire) + Number(watchOther)
+  const difference = driverOverall - Number(watchActualTransfer)
+  const totalTransfer = Number(watchActualTransfer) + difference
+
   useEffect(() => {
     if (open) {
       setCreatedJob(null)
@@ -129,6 +144,8 @@ export default function JobFormModal({
     ]
 
     if (numberFields.includes(field)) {
+      const str = String(rawValue ?? '').trim()
+      if (str !== '' && isNaN(Number(str))) return // invalid number, don't save
       value = parseNumber(rawValue)
     } else if (field === 'jobDate') {
       if (rawValue) {
@@ -257,11 +274,26 @@ export default function JobFormModal({
   const isCreated = !!activeJob
   const fieldsDisabled = mode === 'create' && !isCreated
 
-  const numberInput = (field: string, disabled?: boolean) => (
-    <Input
-      disabled={fieldsDisabled || disabled}
-      onBlur={() => isCreated && handleFieldBlur(field)}
-    />
+  const numberRule = {
+    validator: (_: unknown, value: string) => {
+      if (value === undefined || value === null || String(value).trim() === '') return Promise.resolve()
+      return isNaN(Number(value)) ? Promise.reject('กรุณากรอกตัวเลข') : Promise.resolve()
+    },
+  }
+
+  const numberInput = (field: string, label: string, disabled?: boolean) => (
+    <Form.Item label={label} name={field} rules={[numberRule]}>
+      <Input
+        allowClear
+        disabled={fieldsDisabled || disabled}
+        onBlur={() => isCreated && handleFieldBlur(field)}
+        onChange={(e) => {
+          if (e.target.value === '' && isCreated) {
+            setTimeout(() => handleFieldBlur(field), 0)
+          }
+        }}
+      />
+    </Form.Item>
   )
 
   const selectDropdown = (field: string, options: { value: string; label: string }[], extra?: React.ReactNode, disabled?: boolean) => (
@@ -313,14 +345,16 @@ export default function JobFormModal({
             <Button onClick={onClose}>ปิด</Button>
           </div>
         }
-        width={800}
+        width="100%"
+        style={{ top: 20 }}
+        styles={{ body: { maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' } }}
         destroyOnClose
       >
         <Form form={form} layout="vertical" size="small">
-          {/* ข้อมูลงาน */}
-          <Divider orientation="left" style={{ marginTop: 0 }}>ข้อมูลงาน</Divider>
+          {/* Section 1: ข้อมูล */}
+
           <Row gutter={12}>
-            <Col span={8}>
+            <Col span={3}>
               <Form.Item label="JOB/เลขที่" name="jobNumber">
                 <Input
                   disabled={mode === 'edit'}
@@ -328,7 +362,7 @@ export default function JobFormModal({
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={3}>
               <Form.Item label="วันที่" name="jobDate">
                 <DatePicker
                   format="DD/MM/YYYY"
@@ -344,14 +378,12 @@ export default function JobFormModal({
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={3}>
               <Form.Item label="ลักษณะงาน" name="jobType">
                 {selectDropdown('jobType', JOB_TYPES.map((t) => ({ value: t, label: t })))}
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={8}>
+            <Col span={3}>
               <Form.Item label="ลูกค้า" name="customerId">
                 {selectDropdown(
                   'customerId',
@@ -360,17 +392,12 @@ export default function JobFormModal({
                 )}
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={3}>
               <Form.Item label="SIZE" name="size">
                 {selectDropdown('size', SIZE_OPTIONS.map((s) => ({ value: s, label: s })), undefined, isAdvance)}
               </Form.Item>
             </Col>
-          </Row>
-
-          {/* สถานที่ */}
-          <Divider orientation="left">สถานที่</Divider>
-          <Row gutter={12}>
-            <Col span={8}>
+            <Col span={3}>
               <Form.Item label="สถานที่รับตู้" name="pickupLocationId">
                 {selectDropdown(
                   'pickupLocationId',
@@ -380,7 +407,7 @@ export default function JobFormModal({
                 )}
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={3}>
               <Form.Item label="โรงงาน" name="factoryLocationId">
                 {selectDropdown(
                   'factoryLocationId',
@@ -390,7 +417,7 @@ export default function JobFormModal({
                 )}
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={3}>
               <Form.Item label="สถานที่คืนตู้" name="returnLocationId">
                 {selectDropdown(
                   'returnLocationId',
@@ -401,125 +428,98 @@ export default function JobFormModal({
               </Form.Item>
             </Col>
           </Row>
-
-          {/* การเงินหลัก */}
-          <Divider orientation="left">การเงินหลัก</Divider>
-          <Row gutter={12}>
-            <Col span={6}>
-              <Form.Item label="คาดการณ์โอน" name="estimatedTransfer">
-                {numberInput('estimatedTransfer', isAdvance)}
-              </Form.Item>
-            </Col>
-            {isAdmin && (
-              <>
-                <Col span={6}>
-                  <Form.Item label="รายได้" name="income">
-                    {numberInput('income', isAdvance)}
-                  </Form.Item>
-                </Col>
-                <Col span={6}>
-                  <Form.Item label="ค่าเที่ยวคนขับ" name="driverWage">
-                    {numberInput('driverWage', isAdvance)}
-                  </Form.Item>
-                </Col>
-              </>
-            )}
-            <Col span={6}>
-              <Form.Item label="ยอดโอนจริง" name="actualTransfer">
-                {numberInput('actualTransfer', isAdvance)}
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* ค่าใช้จ่ายคนขับ */}
-          <Divider orientation="left">ค่าใช้จ่ายคนขับ</Divider>
-          <Row gutter={12}>
-            <Col span={6}>
-              <Form.Item label="เบิกล่วงหน้า" name="advance">
-                {numberInput('advance')}
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="ค่าทางด่วน" name="toll">
-                {numberInput('toll', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="ค่ารับตู้" name="pickupFee">
-                {numberInput('pickupFee', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="ค่าคืนตู้" name="returnFee">
-                {numberInput('returnFee', isAdvance)}
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={6}>
-              <Form.Item label="ค่ายกตู้" name="liftFee">
-                {numberInput('liftFee', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="ค่าฝากตู้" name="storageFee">
-                {numberInput('storageFee', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="ค่ายาง" name="tire">
-                {numberInput('tire', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="อื่นๆ" name="other">
-                {numberInput('other', isAdvance)}
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* น้ำมัน/ไมล์ */}
-          <Divider orientation="left">น้ำมัน/ไมล์</Divider>
-          <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item label="ไมล์รถ" name="mileage">
-                {numberInput('mileage', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="น้ำมัน OFF (ลิตร)" name="fuelOfficeLiters">
-                {numberInput('fuelOfficeLiters', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="น้ำมันสด (ลิตร)" name="fuelCashLiters">
-                {numberInput('fuelCashLiters', isAdvance)}
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item label="น้ำมันสด (฿)" name="fuelCashAmount">
-                {numberInput('fuelCashAmount', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="น้ำมันเครดิต (ลิตร)" name="fuelCreditLiters">
-                {numberInput('fuelCreditLiters', isAdvance)}
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="น้ำมันเครดิต (฿)" name="fuelCreditAmount">
-                {numberInput('fuelCreditAmount', isAdvance)}
-              </Form.Item>
-            </Col>
-          </Row>
-
           {mode === 'create' && !isCreated && (
-            <div style={{ textAlign: 'center', padding: '8px 0', color: '#999' }}>
+            <div style={{ textAlign: 'center', padding: '4px 0', color: '#999', fontSize: 12 }}>
               กรอก JOB/เลขที่ และ วันที่ เพื่อสร้างงาน — ช่องอื่นจะเปิดให้แก้ไขหลังสร้างแล้ว
             </div>
           )}
+
+          {/* Section 2: เงิน */}
+          <Divider style={{ margin: '8px 0' }} />
+
+          <Row gutter={12}>
+            <Col span={3}>
+              {numberInput('estimatedTransfer', 'คาดการณ์โอน', isAdvance)}
+            </Col>
+            {isAdmin && (
+              <>
+                <Col span={3}>
+                  {numberInput('income', 'รายได้', isAdvance)}
+                </Col>
+                <Col span={3}>
+                  {numberInput('driverWage', 'ค่าเที่ยวคนขับ', isAdvance)}
+                </Col>
+              </>
+            )}
+            <Col span={3}>
+              {numberInput('actualTransfer', 'ยอดโอนจริง', isAdvance)}
+            </Col>
+            <Col span={3}>
+              <Form.Item label="ส่วนต่าง">
+                <Input disabled value={difference ? (difference > 0 ? `+${difference.toFixed(2)}` : difference.toFixed(2)) : undefined} />
+              </Form.Item>
+            </Col>
+            <Col span={3}>
+              <Form.Item label="รวมยอดโอน">
+                <Input disabled value={totalTransfer || undefined} />
+              </Form.Item>
+            </Col>
+            <Col span={3} offset={24 - (isAdmin ? 21 : 15) - 3}>
+              {numberInput('advance', 'เบิกล่วงหน้า')}
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={3}>
+              {numberInput('toll', 'ค่าทางด่วน', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('pickupFee', 'ค่ารับตู้', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('returnFee', 'ค่าคืนตู้', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('liftFee', 'ค่ายกตู้', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('storageFee', 'ค่าฝากตู้', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('tire', 'ค่ายาง', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('other', 'อื่นๆ', isAdvance)}
+            </Col>
+            <Col span={3}>
+              <Form.Item label="รวมคนรถปิดงาน">
+                <Input disabled value={driverOverall || undefined} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Section 3: น้ำมัน */}
+          <Divider style={{ margin: '8px 0' }} />
+
+          <Row gutter={12}>
+            <Col span={3}>
+              {numberInput('mileage', 'ไมล์รถ', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('fuelOfficeLiters', 'น้ำมัน OFF (ลิตร)', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('fuelCashLiters', 'น้ำมันสด (ลิตร)', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('fuelCashAmount', 'น้ำมันสด (฿)', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('fuelCreditLiters', 'เครดิต (ลิตร)', isAdvance)}
+            </Col>
+            <Col span={3}>
+              {numberInput('fuelCreditAmount', 'เครดิต (฿)', isAdvance)}
+            </Col>
+          </Row>
         </Form>
       </Modal>
 
