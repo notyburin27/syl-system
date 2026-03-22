@@ -943,7 +943,7 @@ export default function EditableJobTable({
         onRow={(row) => {
           if (!modalEditMode) return {}
           const r = row as RowData
-          if (isDraft(r)) return {}
+          if (isDraft(r) || r.clearStatus) return {}
           return {
             onClick: () => {
               setFormModalJob(r as Job)
@@ -1011,7 +1011,7 @@ export default function EditableJobTable({
         customers={customers}
         factoryLocations={factoryLocations}
         generalLocations={generalLocations}
-        onClose={() => { setFormModalOpen(false); fetchJobsSilent() }}
+        onClose={() => { setFormModalOpen(false); fetchJobs() }}
         onCreated={(newJob) => {
           setJobs((prev) => {
             prev.push(newJob)

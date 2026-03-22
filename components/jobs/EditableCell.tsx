@@ -88,7 +88,7 @@ export default function EditableCell({
   // Checkbox type
   if (cellType === 'checkbox') {
     return (
-      <div style={cellStyle}>
+      <div style={cellStyle} onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={!!value}
           disabled={!editable || locked}
