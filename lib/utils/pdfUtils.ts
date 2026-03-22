@@ -77,10 +77,11 @@ export const generateSinglePDF = async (
   try {
     const htmlContent = await generatePDFFromTemplate(formData)
 
-    // Create filename with current date
-    const today = new Date()
-    const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
-    const filename = `${formTitle.replace(/\s+/g, '_')}_${dateStr}.pdf`
+    // Create filename with form date
+    const dateStr = formData.date
+      ? dayjs(formData.date).format('YYYY-MM-DD')
+      : dayjs().format('YYYY-MM-DD')
+    const filename = `ใบงาน ${dateStr}.pdf`
 
     const options = {
       margin: 0.5,
@@ -233,10 +234,12 @@ export const generateCombinedPDF = async (
       </html>
     `
 
-    // Create filename with current date
-    const today = new Date()
-    const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
-    const filename = `Combined_Transport_Documents_${dateStr}.pdf`
+    // Create filename with date from first form
+    const firstFormDate = forms[0]?.data?.date
+    const dateStr = firstFormDate
+      ? dayjs(firstFormDate).format('YYYY-MM-DD')
+      : dayjs().format('YYYY-MM-DD')
+    const filename = `ใบงาน ${dateStr}.pdf`
 
     const options = {
       margin: 0.5,
