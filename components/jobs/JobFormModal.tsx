@@ -450,10 +450,6 @@ export default function JobFormModal({
           </div>
         }
         width="100%"
-        style={{ top: 80 }}
-        styles={{
-          body: { maxHeight: "calc(100vh - 160px)", overflowY: "auto" },
-        }}
         destroyOnClose
       >
         <Form form={form} layout="vertical" size="small">
@@ -477,14 +473,25 @@ export default function JobFormModal({
               </Form.Item>
             </Col>
             <Col span={3}>
-              <Form.Item label="ลักษณะงาน" name="jobType" rules={[{ required: !isCreated && mode === "create", message: "กรุณาเลือกลักษณะงาน" }]}>
+              <Form.Item
+                label="ลักษณะงาน"
+                name="jobType"
+                rules={[
+                  {
+                    required: !isCreated && mode === "create",
+                    message: "กรุณาเลือกลักษณะงาน",
+                  },
+                ]}
+              >
                 <Select
                   showSearch
                   allowClear
                   popupMatchSelectWidth={false}
                   dropdownStyle={{ minWidth: 200 }}
                   filterOption={(input, option) =>
-                    ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase())
+                    ((option?.label as string) ?? "")
+                      .toLowerCase()
+                      .includes(input.toLowerCase())
                   }
                   options={JOB_TYPES.map((t) => ({ value: t, label: t }))}
                   onChange={() => {
