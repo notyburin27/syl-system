@@ -296,24 +296,6 @@ export default function JobFormModal({
     }
   };
 
-  // For create mode: triggers create when jobDate + jobType + jobNumber all filled
-  const handleCreateFieldBlur = async (field: string) => {
-    if (activeJob) {
-      // Already created, save normally
-      await handleFieldBlur(field);
-      return;
-    }
-
-    const jobNumber = form.getFieldValue("jobNumber");
-    const jobDate = form.getFieldValue("jobDate");
-    const jobType = form.getFieldValue("jobType");
-
-    if (field === "jobNumber" || field === "jobDate" || field === "jobType") {
-      if (jobNumber && jobDate && jobType) {
-        await handleCreate();
-      }
-    }
-  };
 
   const openQuickAdd = (
     type: "customer" | "location",
@@ -455,17 +437,19 @@ export default function JobFormModal({
         <Form form={form} layout="vertical" size="small">
           {/* Section 1: ข้อมูล */}
 
-          <Row gutter={12}>
+          <Row gutter={12} align="bottom">
             <Col span={3}>
-              <Form.Item label="วันที่" name="jobDate">
+              <Form.Item
+                label="วันที่"
+                name="jobDate"
+                rules={[{ required: !isCreated && mode === "create", message: "กรุณาเลือกวันที่" }]}
+              >
                 <DatePicker
                   format="DD/MM/YYYY"
                   style={{ width: "100%" }}
                   disabled={mode === "edit" && !isCreated}
                   onChange={() => {
-                    if (mode === "create" && !isCreated) {
-                      setTimeout(() => handleCreateFieldBlur("jobDate"), 0);
-                    } else if (isCreated) {
+                    if (isCreated) {
                       setTimeout(() => handleFieldBlur("jobDate"), 0);
                     }
                   }}
@@ -497,168 +481,183 @@ export default function JobFormModal({
                   onChange={() => {
                     if (isCreated) {
                       setTimeout(() => handleFieldBlur("jobType"), 0);
-                    } else if (mode === "create") {
-                      setTimeout(() => handleCreateFieldBlur("jobType"), 0);
                     }
                   }}
                 />
               </Form.Item>
             </Col>
             <Col span={3}>
-              <Form.Item label="JOB/เลขที่" name="jobNumber">
-                <Input
-                  disabled={mode === "edit"}
-                  onBlur={() => handleCreateFieldBlur("jobNumber")}
-                />
+              <Form.Item
+                label="JOB/เลขที่"
+                name="jobNumber"
+                rules={[{ required: !isCreated && mode === "create", message: "กรุณากรอก JOB/เลขที่" }]}
+              >
+                <Input disabled={mode === "edit"} />
               </Form.Item>
             </Col>
-            <Col span={3}>
-              <Form.Item label="ลูกค้า" name="customerId">
-                {selectDropdown(
-                  "customerId",
-                  customers.map((c) => ({ value: c.id, label: c.name })),
-                  addButton("customer", undefined, "customerId"),
-                )}
-              </Form.Item>
-            </Col>
-            <Col span={3}>
-              <Form.Item label="SIZE" name="size">
-                {selectDropdown(
-                  "size",
-                  SIZE_OPTIONS.map((s) => ({ value: s, label: s })),
-                  undefined,
-                  isAdvance,
-                )}
-              </Form.Item>
-            </Col>
-            <Col span={3}>
-              <Form.Item label="สถานที่รับตู้" name="pickupLocationId">
-                {selectDropdown(
-                  "pickupLocationId",
-                  generalLocations.map((l) => ({ value: l.id, label: l.name })),
-                  addButton("location", "general", "pickupLocationId"),
-                  isAdvance,
-                )}
-              </Form.Item>
-            </Col>
-            <Col span={3}>
-              <Form.Item label="โรงงาน" name="factoryLocationId">
-                {selectDropdown(
-                  "factoryLocationId",
-                  factoryLocations.map((l) => ({ value: l.id, label: l.name })),
-                  addButton("location", "factory", "factoryLocationId"),
-                  isAdvance,
-                )}
-              </Form.Item>
-            </Col>
-            <Col span={3}>
-              <Form.Item label="สถานที่คืนตู้" name="returnLocationId">
-                {selectDropdown(
-                  "returnLocationId",
-                  generalLocations.map((l) => ({ value: l.id, label: l.name })),
-                  addButton("location", "general", "returnLocationId"),
-                  isAdvance,
-                )}
-              </Form.Item>
-            </Col>
-          </Row>
-          {mode === "create" && !isCreated && (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "4px 0",
-                color: "#999",
-                fontSize: 12,
-              }}
-            >
-              กรอก วันที่, ลักษณะงาน และ JOB/เลขที่ เพื่อสร้างงาน —
-              ช่องอื่นจะเปิดให้แก้ไขหลังสร้างแล้ว
-            </div>
-          )}
-
-          {/* Section 2: เงิน */}
-          <Divider style={{ margin: "8px 0" }} />
-
-          <Row gutter={12}>
-            <Col span={3}>
-              {numberInput("estimatedTransfer", "คาดการณ์โอน", isAdvance)}
-            </Col>
-            {isAdmin && (
+            {mode === "create" && !isCreated && (
+              <Col span={3}>
+                <Form.Item label=" ">
+                  <Button
+                    type="primary"
+                    loading={saving}
+                    onClick={async () => {
+                      try {
+                        await form.validateFields(["jobDate", "jobType", "jobNumber"]);
+                        await handleCreate();
+                      } catch {
+                        // validation failed, do nothing
+                      }
+                    }}
+                    style={{ width: "100%" }}
+                  >
+                    สร้าง job
+                  </Button>
+                </Form.Item>
+              </Col>
+            )}
+            {isCreated && (
               <>
-                <Col span={3}>{numberInput("income", "รายได้", isAdvance)}</Col>
                 <Col span={3}>
-                  {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance)}
+                  <Form.Item label="ลูกค้า" name="customerId">
+                    {selectDropdown(
+                      "customerId",
+                      customers.map((c) => ({ value: c.id, label: c.name })),
+                      addButton("customer", undefined, "customerId"),
+                    )}
+                  </Form.Item>
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="SIZE" name="size">
+                    {selectDropdown(
+                      "size",
+                      SIZE_OPTIONS.map((s) => ({ value: s, label: s })),
+                      undefined,
+                      isAdvance,
+                    )}
+                  </Form.Item>
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="สถานที่รับตู้" name="pickupLocationId">
+                    {selectDropdown(
+                      "pickupLocationId",
+                      generalLocations.map((l) => ({ value: l.id, label: l.name })),
+                      addButton("location", "general", "pickupLocationId"),
+                      isAdvance,
+                    )}
+                  </Form.Item>
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="โรงงาน" name="factoryLocationId">
+                    {selectDropdown(
+                      "factoryLocationId",
+                      factoryLocations.map((l) => ({ value: l.id, label: l.name })),
+                      addButton("location", "factory", "factoryLocationId"),
+                      isAdvance,
+                    )}
+                  </Form.Item>
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="สถานที่คืนตู้" name="returnLocationId">
+                    {selectDropdown(
+                      "returnLocationId",
+                      generalLocations.map((l) => ({ value: l.id, label: l.name })),
+                      addButton("location", "general", "returnLocationId"),
+                      isAdvance,
+                    )}
+                  </Form.Item>
                 </Col>
               </>
             )}
-            <Col span={3}>
-              {numberInput("actualTransfer", "ยอดโอนจริง", isAdvance)}
-            </Col>
-            <Col span={3}>
-              <Form.Item label="ส่วนต่าง">
-                <Input
-                  disabled
-                  value={
-                    difference
-                      ? difference > 0
-                        ? `+${difference.toFixed(2)}`
-                        : difference.toFixed(2)
-                      : undefined
-                  }
-                />
-              </Form.Item>
-            </Col>
-            <Col span={3}>
-              <Form.Item label="รวมยอดโอน">
-                <Input disabled value={totalTransfer || undefined} />
-              </Form.Item>
-            </Col>
-            <Col span={3} offset={24 - (isAdmin ? 21 : 15) - 3}>
-              {numberInput("advance", "เบิกล่วงหน้า")}
-            </Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance)}</Col>
-            <Col span={3}>
-              {numberInput("pickupFee", "ค่ารับตู้", isAdvance)}
-            </Col>
-            <Col span={3}>
-              {numberInput("returnFee", "ค่าคืนตู้", isAdvance)}
-            </Col>
-            <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance)}</Col>
-            <Col span={3}>
-              {numberInput("storageFee", "ค่าฝากตู้", isAdvance)}
-            </Col>
-            <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance)}</Col>
-            <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance)}</Col>
-            <Col span={3}>
-              <Form.Item label="รวมคนรถปิดงาน">
-                <Input disabled value={driverOverall || undefined} />
-              </Form.Item>
-            </Col>
           </Row>
 
-          {/* Section 3: น้ำมัน */}
-          <Divider style={{ margin: "8px 0" }} />
+          {/* Section 2 + 3: แสดงหลังสร้าง job แล้ว */}
+          {isCreated && (
+            <>
+              <Divider style={{ margin: "8px 0" }} />
 
-          <Row gutter={12}>
-            <Col span={3}>{numberInput("mileage", "ไมล์รถ", isAdvance)}</Col>
-            <Col span={3}>
-              {numberInput("fuelOfficeLiters", "น้ำมัน OFF (ลิตร)", isAdvance)}
-            </Col>
-            <Col span={3}>
-              {numberInput("fuelCashLiters", "น้ำมันสด (ลิตร)", isAdvance)}
-            </Col>
-            <Col span={3}>
-              {numberInput("fuelCashAmount", "น้ำมันสด (฿)", isAdvance)}
-            </Col>
-            <Col span={3}>
-              {numberInput("fuelCreditLiters", "เครดิต (ลิตร)", isAdvance)}
-            </Col>
-            <Col span={3}>
-              {numberInput("fuelCreditAmount", "เครดิต (฿)", isAdvance)}
-            </Col>
-          </Row>
+              <Row gutter={12}>
+                <Col span={3}>
+                  {numberInput("estimatedTransfer", "คาดการณ์โอน", isAdvance)}
+                </Col>
+                {isAdmin && (
+                  <>
+                    <Col span={3}>{numberInput("income", "รายได้", isAdvance)}</Col>
+                    <Col span={3}>
+                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance)}
+                    </Col>
+                  </>
+                )}
+                <Col span={3}>
+                  {numberInput("actualTransfer", "ยอดโอนจริง", isAdvance)}
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="ส่วนต่าง">
+                    <Input
+                      disabled
+                      value={
+                        difference
+                          ? difference > 0
+                            ? `+${difference.toFixed(2)}`
+                            : difference.toFixed(2)
+                          : undefined
+                      }
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="รวมยอดโอน">
+                    <Input disabled value={totalTransfer || undefined} />
+                  </Form.Item>
+                </Col>
+                <Col span={3} offset={24 - (isAdmin ? 21 : 15) - 3}>
+                  {numberInput("advance", "เบิกล่วงหน้า")}
+                </Col>
+              </Row>
+              <Row gutter={12}>
+                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance)}</Col>
+                <Col span={3}>
+                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance)}
+                </Col>
+                <Col span={3}>
+                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance)}
+                </Col>
+                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance)}</Col>
+                <Col span={3}>
+                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance)}
+                </Col>
+                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance)}</Col>
+                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance)}</Col>
+                <Col span={3}>
+                  <Form.Item label="รวมคนรถปิดงาน">
+                    <Input disabled value={driverOverall || undefined} />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {/* Section 3: น้ำมัน */}
+              <Divider style={{ margin: "8px 0" }} />
+
+              <Row gutter={12}>
+                <Col span={3}>{numberInput("mileage", "ไมล์รถ", isAdvance)}</Col>
+                <Col span={3}>
+                  {numberInput("fuelOfficeLiters", "น้ำมัน OFF (ลิตร)", isAdvance)}
+                </Col>
+                <Col span={3}>
+                  {numberInput("fuelCashLiters", "น้ำมันสด (ลิตร)", isAdvance)}
+                </Col>
+                <Col span={3}>
+                  {numberInput("fuelCashAmount", "น้ำมันสด (฿)", isAdvance)}
+                </Col>
+                <Col span={3}>
+                  {numberInput("fuelCreditLiters", "เครดิต (ลิตร)", isAdvance)}
+                </Col>
+                <Col span={3}>
+                  {numberInput("fuelCreditAmount", "เครดิต (฿)", isAdvance)}
+                </Col>
+              </Row>
+            </>
+          )}
         </Form>
       </Modal>
 

@@ -787,7 +787,7 @@ export default function EditableJobTable({
     {
       title: 'สถานะ',
       fixed: 'right' as const,
-      width: editMode ? 140 : 100,
+      width: isAdmin ? 100 : 60,
       children: [
         {
           title: 'เคลียร์',
@@ -810,7 +810,7 @@ export default function EditableJobTable({
             )
           },
         },
-        ...(editMode
+        ...(isAdmin
           ? [
               {
                 title: '',
@@ -819,18 +819,15 @@ export default function EditableJobTable({
                 fixed: 'right' as const,
                 render: (_: unknown, row: RowData) => {
                   if (row.clearStatus) {
-                    if (isAdmin) {
-                      return (
-                        <Button
-                          type="link"
-                          size="small"
-                          icon={<UnlockOutlined />}
-                          onClick={() => !isDraft(row) && handleToggleClear(row.id)}
-                          title="ปลดล็อค"
-                        />
-                      )
-                    }
-                    return null
+                    return (
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<UnlockOutlined />}
+                        onClick={() => !isDraft(row) && handleToggleClear(row.id)}
+                        title="ปลดล็อค"
+                      />
+                    )
                   }
                   return (
                     <Button
