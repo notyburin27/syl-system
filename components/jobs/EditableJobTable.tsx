@@ -426,23 +426,23 @@ export default function EditableJobTable({
   // Computed fields
   const computeDriverOverall = (row: RowData) => {
     return (
-      (row.advance || 0) +
-      (row.toll || 0) +
-      (row.pickupFee || 0) +
-      (row.returnFee || 0) +
-      (row.liftFee || 0) +
-      (row.storageFee || 0) +
-      (row.tire || 0) +
-      (row.other || 0)
+      Number(row.advance || 0) +
+      Number(row.toll || 0) +
+      Number(row.pickupFee || 0) +
+      Number(row.returnFee || 0) +
+      Number(row.liftFee || 0) +
+      Number(row.storageFee || 0) +
+      Number(row.tire || 0) +
+      Number(row.other || 0)
     )
   }
 
   const computeDifference = (row: RowData) => {
-    return computeDriverOverall(row) - (row.actualTransfer || 0)
+    return computeDriverOverall(row) - Number(row.actualTransfer || 0)
   }
 
   const computeTotal = (row: RowData) => {
-    return (row.actualTransfer || 0) + computeDifference(row)
+    return Number(row.actualTransfer || 0) + computeDifference(row)
   }
 
   const isAdvanceType = (row: RowData) => row.jobType === 'เบิกล่วงหน้า'
@@ -890,7 +890,7 @@ export default function EditableJobTable({
           </Button>
           {!editMode && (
             <Button
-              type={modalEditMode ? 'primary' : 'default'}
+              type="primary"
               icon={<FormOutlined />}
               onClick={() => {
                 if (modalEditMode) {
@@ -903,9 +903,11 @@ export default function EditableJobTable({
             </Button>
           )}
           {!modalEditMode && (
+            // TODO: เปิดใช้งานเมื่อพร้อม
             <Button
-              type={editMode ? 'primary' : 'default'}
+              type="primary"
               icon={<EditOutlined />}
+              disabled
               onClick={() => {
                 if (editMode) {
                   setDraftRows((prev) => prev.filter((d) => d.jobNumber))
@@ -940,7 +942,7 @@ export default function EditableJobTable({
         onRow={(row) => {
           if (!modalEditMode) return {}
           const r = row as RowData
-          if (isDraft(r) || r.clearStatus) return {}
+          if (isDraft(r)) return {}
           return {
             onClick: () => {
               setFormModalJob(r as Job)

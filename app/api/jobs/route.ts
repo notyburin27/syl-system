@@ -41,7 +41,7 @@ export async function GET(req: Request) {
         factoryLocation: true,
         returnLocation: true,
       },
-      orderBy: { jobDate: "asc" },
+      orderBy: [{ jobDate: "asc" }, { createdAt: "asc" }],
     });
 
     return NextResponse.json(jobs);

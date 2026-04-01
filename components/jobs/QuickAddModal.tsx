@@ -83,7 +83,7 @@ export default function QuickAddModal({
       confirmLoading={loading}
       okText="เพิ่ม"
       cancelText="ยกเลิก"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         form={form}

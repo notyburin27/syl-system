@@ -32,13 +32,14 @@ export async function POST(req: Request) {
     });
 
     if (!latestJob) {
-      return NextResponse.json({ estimatedTransfer: 0 });
+      return NextResponse.json({ estimatedTransfer: null });
     }
 
-    const estimatedTransfer =
-      Number(latestJob.pickupFee || 0) + Number(latestJob.returnFee || 0);
+    const pickupFee = Number(latestJob.pickupFee || 0);
+    const returnFee = Number(latestJob.returnFee || 0);
+    const estimatedTransfer = pickupFee + returnFee;
 
-    return NextResponse.json({ estimatedTransfer });
+    return NextResponse.json({ estimatedTransfer, pickupFee, returnFee });
   } catch (error) {
     console.error("Error calculating estimated transfer:", error);
     return NextResponse.json(

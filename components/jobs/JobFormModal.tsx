@@ -12,6 +12,7 @@ import {
   App,
   Row,
   Col,
+  Checkbox,
 } from "antd";
 import {
   PlusOutlined,
@@ -66,6 +67,7 @@ export default function JobFormModal({
   >("idle");
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [createdJob, setCreatedJob] = useState<Job | null>(null);
+  const [clearStatus, setClearStatus] = useState(false);
 
   // Quick add modal
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -109,6 +111,7 @@ export default function JobFormModal({
     if (open) {
       setCreatedJob(null);
       setSaveStatus("idle");
+      setClearStatus(mode === "edit" && job ? !!job.clearStatus : false);
       if (mode === "edit" && job) {
         form.setFieldsValue({
           jobNumber: job.jobNumber,
@@ -137,6 +140,7 @@ export default function JobFormModal({
           fuelCashAmount: job.fuelCashAmount,
           fuelCreditLiters: job.fuelCreditLiters,
           fuelCreditAmount: job.fuelCreditAmount,
+          clearStatus: job.clearStatus,
         });
       } else {
         form.resetFields();
@@ -250,6 +254,39 @@ export default function JobFormModal({
     }
   };
 
+  const prefillEstimatedTransfer = async () => {
+    const currentVal = form.getFieldValue("estimatedTransfer");
+    if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
+    const jobType = form.getFieldValue("jobType");
+    const size = form.getFieldValue("size");
+    if (!jobType || !size) return;
+    try {
+      const res = await fetch("/api/jobs/calculate/estimated-transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobType,
+          size,
+          pickupLocationId: form.getFieldValue("pickupLocationId"),
+          returnLocationId: form.getFieldValue("returnLocationId"),
+        }),
+      });
+      const data = await res.json();
+      if (data.estimatedTransfer) {
+        form.setFieldsValue({
+          estimatedTransfer: data.estimatedTransfer,
+          pickupFee: data.pickupFee || undefined,
+          returnFee: data.returnFee || undefined,
+        });
+        await Promise.all([
+          handleFieldBlur("estimatedTransfer"),
+          handleFieldBlur("pickupFee"),
+          handleFieldBlur("returnFee"),
+        ]);
+      }
+    } catch {}
+  };
+
   // Create job (POST) — needs jobDate + jobType + jobNumber
   const handleCreate = async () => {
     const jobNumber = form.getFieldValue("jobNumber");
@@ -332,6 +369,7 @@ export default function JobFormModal({
   );
 
   const isCreated = !!activeJob;
+  const isCleared = clearStatus;
   const fieldsDisabled = mode === "create" && !isCreated;
 
   const numberRule = {
@@ -344,11 +382,11 @@ export default function JobFormModal({
     },
   };
 
-  const numberInput = (field: string, label: string, disabled?: boolean) => (
+  const numberInput = (field: string, label: string, disabled?: boolean, skipClearLock?: boolean) => (
     <Form.Item label={label} name={field} rules={[numberRule]}>
       <Input
         allowClear
-        disabled={fieldsDisabled || disabled}
+        disabled={fieldsDisabled || disabled || (!skipClearLock && isCleared)}
         onBlur={() => isCreated && handleFieldBlur(field)}
         onChange={(e) => {
           if (e.target.value === "" && isCreated) {
@@ -364,20 +402,24 @@ export default function JobFormModal({
     options: { value: string; label: string }[],
     extra?: React.ReactNode,
     disabled?: boolean,
+    withPrefill?: boolean,
   ) => (
     <Select
       showSearch
       allowClear
-      disabled={fieldsDisabled || disabled}
+      disabled={fieldsDisabled || disabled || isCleared}
       popupMatchSelectWidth={false}
-      dropdownStyle={{ minWidth: 200 }}
+      styles={{ popup: { root: { minWidth: 200 } } }}
       filterOption={(input, option) =>
         ((option?.label as string) ?? "")
           .toLowerCase()
           .includes(input.toLowerCase())
       }
       options={options}
-      onChange={() => isCreated && setTimeout(() => handleFieldBlur(field), 0)}
+      onChange={() => {
+        if (isCreated) setTimeout(() => handleFieldBlur(field), 0);
+        if (withPrefill) setTimeout(() => prefillEstimatedTransfer(), 0);
+      }}
       dropdownRender={
         extra
           ? (menu) => (
@@ -432,7 +474,7 @@ export default function JobFormModal({
           </div>
         }
         width="100%"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" size="small">
           {/* Section 1: ข้อมูล */}
@@ -447,7 +489,7 @@ export default function JobFormModal({
                 <DatePicker
                   format="DD/MM/YYYY"
                   style={{ width: "100%" }}
-                  disabled={mode === "edit" && !isCreated}
+                  disabled={(mode === "edit" && !isCreated) || isCleared}
                   onChange={() => {
                     if (isCreated) {
                       setTimeout(() => handleFieldBlur("jobDate"), 0);
@@ -470,8 +512,9 @@ export default function JobFormModal({
                 <Select
                   showSearch
                   allowClear
+                  disabled={isCleared}
                   popupMatchSelectWidth={false}
-                  dropdownStyle={{ minWidth: 200 }}
+                  styles={{ popup: { root: { minWidth: 200 } } }}
                   filterOption={(input, option) =>
                     ((option?.label as string) ?? "")
                       .toLowerCase()
@@ -479,9 +522,8 @@ export default function JobFormModal({
                   }
                   options={JOB_TYPES.map((t) => ({ value: t, label: t }))}
                   onChange={() => {
-                    if (isCreated) {
-                      setTimeout(() => handleFieldBlur("jobType"), 0);
-                    }
+                    if (isCreated) setTimeout(() => handleFieldBlur("jobType"), 0);
+                    setTimeout(() => prefillEstimatedTransfer(), 0);
                   }}
                 />
               </Form.Item>
@@ -534,6 +576,7 @@ export default function JobFormModal({
                       SIZE_OPTIONS.map((s) => ({ value: s, label: s })),
                       undefined,
                       isAdvance,
+                      true,
                     )}
                   </Form.Item>
                 </Col>
@@ -544,6 +587,7 @@ export default function JobFormModal({
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "pickupLocationId"),
                       isAdvance,
+                      true,
                     )}
                   </Form.Item>
                 </Col>
@@ -564,6 +608,7 @@ export default function JobFormModal({
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "returnLocationId"),
                       isAdvance,
+                      true,
                     )}
                   </Form.Item>
                 </Col>
@@ -596,7 +641,7 @@ export default function JobFormModal({
                     <Input
                       disabled
                       value={
-                        difference
+                        watchActualTransfer && difference
                           ? difference > 0
                             ? `+${difference.toFixed(2)}`
                             : difference.toFixed(2)
@@ -607,10 +652,23 @@ export default function JobFormModal({
                 </Col>
                 <Col span={3}>
                   <Form.Item label="รวมยอดโอน">
-                    <Input disabled value={totalTransfer || undefined} />
+                    <Input disabled value={watchActualTransfer ? totalTransfer || undefined : undefined} />
                   </Form.Item>
                 </Col>
-                <Col span={3} offset={24 - (isAdmin ? 21 : 15) - 3}>
+                <Col span={3}>
+                  <Form.Item label="เครียร์" name="clearStatus" valuePropName="checked">
+                    <Checkbox
+                      disabled={!isAdmin && clearStatus}
+                      onChange={async (e) => {
+                        if (!activeJob) return;
+                        await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
+                        setClearStatus(e.target.checked);
+                        handleSaveStatus("saved");
+                      }}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={3} offset={24 - (isAdmin ? 21 : 15) - 6}>
                   {numberInput("advance", "เบิกล่วงหน้า")}
                 </Col>
               </Row>
@@ -639,21 +697,21 @@ export default function JobFormModal({
               <Divider style={{ margin: "8px 0" }} />
 
               <Row gutter={12}>
-                <Col span={3}>{numberInput("mileage", "ไมล์รถ", isAdvance)}</Col>
+                <Col span={3}>{numberInput("mileage", "ไมล์รถ", isAdvance, true)}</Col>
                 <Col span={3}>
-                  {numberInput("fuelOfficeLiters", "น้ำมัน OFF (ลิตร)", isAdvance)}
+                  {numberInput("fuelOfficeLiters", "น้ำมัน OFF (ลิตร)", isAdvance, true)}
                 </Col>
                 <Col span={3}>
-                  {numberInput("fuelCashLiters", "น้ำมันสด (ลิตร)", isAdvance)}
+                  {numberInput("fuelCashLiters", "น้ำมันสด (ลิตร)", isAdvance, true)}
                 </Col>
                 <Col span={3}>
-                  {numberInput("fuelCashAmount", "น้ำมันสด (฿)", isAdvance)}
+                  {numberInput("fuelCashAmount", "น้ำมันสด (฿)", isAdvance, true)}
                 </Col>
                 <Col span={3}>
-                  {numberInput("fuelCreditLiters", "เครดิต (ลิตร)", isAdvance)}
+                  {numberInput("fuelCreditLiters", "เครดิต (ลิตร)", isAdvance, true)}
                 </Col>
                 <Col span={3}>
-                  {numberInput("fuelCreditAmount", "เครดิต (฿)", isAdvance)}
+                  {numberInput("fuelCreditAmount", "เครดิต (฿)", isAdvance, true)}
                 </Col>
               </Row>
             </>

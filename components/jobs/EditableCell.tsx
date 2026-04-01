@@ -79,7 +79,6 @@ export default function EditableCell({
     height: 32,
     display: 'flex',
     alignItems: 'center',
-    cursor: editable && !locked ? 'pointer' : locked ? 'not-allowed' : 'default',
     opacity: 1,
     position: 'relative',
     width: '100%',
@@ -188,7 +187,7 @@ export default function EditableCell({
           autoFocus
           defaultOpen
           popupMatchSelectWidth={false}
-          dropdownStyle={{ minWidth: 200 }}
+          styles={{ popup: { root: { minWidth: 200 } } }}
           filterOption={(input, option) =>
             (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
           }
