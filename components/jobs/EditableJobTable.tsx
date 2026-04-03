@@ -12,6 +12,7 @@ import {
   ImportOutlined,
   LoadingOutlined,
   CheckOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import EditableCell from './EditableCell'
@@ -93,6 +94,8 @@ export default function EditableJobTable({
   const [formModalOpen, setFormModalOpen] = useState(false)
   const [formModalMode, setFormModalMode] = useState<'create' | 'edit'>('create')
   const [formModalJob, setFormModalJob] = useState<Job | null>(null)
+
+  const [clearingId, setClearingId] = useState<string | null>(null)
 
   // Save status indicator
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -787,25 +790,30 @@ export default function EditableJobTable({
     {
       title: 'สถานะ',
       fixed: 'right' as const,
-      width: isAdmin ? 100 : 60,
+      width: isAdmin ? 80 : 40,
       children: [
         {
-          title: 'เคลียร์',
+          title: '',
           key: 'clearStatus',
-          width: 60,
+          width: 40,
           fixed: 'right' as const,
+          align: 'center' as const,
           render: (_: unknown, row: RowData) => {
             if (isDraft(row)) return null
             if (row.jobType === 'เบิกล่วงหน้า') return null
+            if (row.clearStatus) return null
+            const isClearing = clearingId === row.id
             return (
-              <EditableCell
-                value={row.clearStatus}
-                cellType="checkbox"
-                editable={!row.clearStatus || isAdmin}
-                locked={false}
-                onSave={async () => {
+              <Button
+                type="link"
+                size="small"
+                icon={isClearing ? <LoadingOutlined /> : <CheckCircleOutlined />}
+                disabled={isClearing}
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  setClearingId(row.id)
                   await handleToggleClear(row.id)
-                  return true
+                  setClearingId(null)
                 }}
               />
             )
@@ -820,12 +828,20 @@ export default function EditableJobTable({
                 fixed: 'right' as const,
                 render: (_: unknown, row: RowData) => {
                   if (row.clearStatus) {
+                    const isUnlocking = !isDraft(row) && clearingId === row.id
                     return (
                       <Button
                         type="link"
                         size="small"
-                        icon={<UnlockOutlined />}
-                        onClick={() => !isDraft(row) && handleToggleClear(row.id)}
+                        icon={isUnlocking ? <LoadingOutlined /> : <UnlockOutlined />}
+                        disabled={isUnlocking}
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          if (isDraft(row)) return
+                          setClearingId(row.id)
+                          await handleToggleClear(row.id)
+                          setClearingId(null)
+                        }}
                         title="ปลดล็อค"
                       />
                     )

@@ -12,12 +12,13 @@ import {
   App,
   Row,
   Col,
-  Checkbox,
 } from "antd";
 import {
   PlusOutlined,
   LoadingOutlined,
   CheckOutlined,
+  CheckCircleOutlined,
+  UnlockOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { Job, Customer, Location } from "@/types/job";
@@ -68,6 +69,7 @@ export default function JobFormModal({
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [createdJob, setCreatedJob] = useState<Job | null>(null);
   const [clearStatus, setClearStatus] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   // Quick add modal
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -735,19 +737,26 @@ export default function JobFormModal({
                     </Col>
                   </>
                 )}
-                <Col span={3}>
-                  <Form.Item label="เคลียร์" name="clearStatus" valuePropName="checked">
-                    <Checkbox
-                      disabled={!isAdmin && clearStatus}
-                      onChange={async (e) => {
-                        if (!activeJob) return;
-                        await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
-                        setClearStatus(e.target.checked);
-                        handleSaveStatus("saved");
-                      }}
-                    />
-                  </Form.Item>
-                </Col>
+                {!isAdvance && activeJob && (
+                  <Col span={3}>
+                    <Form.Item label="สถานะ">
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={clearing ? <LoadingOutlined /> : clearStatus ? <UnlockOutlined /> : <CheckCircleOutlined />}
+                        disabled={clearing || (!isAdmin && clearStatus)}
+                        title={clearStatus ? "ปลดล็อค" : "เคลียร์"}
+                        onClick={async () => {
+                          setClearing(true);
+                          await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
+                          setClearStatus((prev) => !prev);
+                          handleSaveStatus("saved");
+                          setClearing(false);
+                        }}
+                      />
+                    </Form.Item>
+                  </Col>
+                )}
               </Row>
               <Row gutter={12}>
                 <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance)}</Col>
