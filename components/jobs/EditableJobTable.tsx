@@ -355,7 +355,6 @@ export default function EditableJobTable({
           customerId: draft.customerId || undefined,
           driverId: draft.driverId,
           advance: draft.advance,
-          actualTransfer: draft.advance,
         }),
       })
       if (!res.ok) {
@@ -438,11 +437,13 @@ export default function EditableJobTable({
   }
 
   const computeDifference = (row: RowData) => {
-    return computeDriverOverall(row) - Number(row.actualTransfer || 0)
+    if (!row.actualTransfer) return null
+    return computeDriverOverall(row) - Number(row.actualTransfer)
   }
 
   const computeTotal = (row: RowData) => {
-    return Number(row.actualTransfer || 0) + computeDifference(row)
+    if (!row.actualTransfer) return null
+    return Number(row.actualTransfer) + (computeDifference(row) ?? 0)
   }
 
   const isAdvanceType = (row: RowData) => row.jobType === 'เบิกล่วงหน้า'
@@ -518,21 +519,11 @@ export default function EditableJobTable({
               }
             }
 
-            // Sync actual_transfer = advance for เบิกล่วงหน้า (draft)
-            if (field === 'advance' && isAdvanceType(row)) {
-              updateDraft(rowKey, 'actualTransfer', value)
-            }
-
             return true
           }
 
           // Existing job: PATCH
           const success = await handleCellSave((row as Job).id, field, value)
-
-          // Sync actual_transfer for เบิกล่วงหน้า
-          if (success && field === 'advance' && isAdvanceType(row)) {
-            await handleCellSave((row as Job).id, 'actualTransfer', value)
-          }
 
           return success
         }}
@@ -587,7 +578,7 @@ export default function EditableJobTable({
           title: 'JOB/เลขที่',
           dataIndex: 'jobNumber',
           key: 'jobNumber',
-          width: 130,
+          width: 155,
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'jobNumber', 'text', undefined, {
               disabled: isAdvanceType(row) && !isDraft(row),
@@ -739,7 +730,7 @@ export default function EditableJobTable({
           key: 'driverOverall',
           width: 130,
           render: (_: unknown, row: RowData) => (
-            <EditableCell value={computeDriverOverall(row)} cellType="computed" editable={false} locked={false} onSave={async () => true} />
+            <EditableCell value={isAdvanceType(row) ? null : computeDriverOverall(row)} cellType="computed" editable={false} locked={false} onSave={async () => true} />
           ),
         },
         {
@@ -747,7 +738,7 @@ export default function EditableJobTable({
           key: 'difference',
           width: 110,
           render: (_: unknown, row: RowData) => {
-            const diff = computeDifference(row)
+            const diff = isAdvanceType(row) ? null : computeDifference(row)
             return (
               <EditableCell
                 value={diff}
@@ -756,8 +747,10 @@ export default function EditableJobTable({
                 locked={false}
                 onSave={async () => true}
                 format={(v) => {
-                  const n = v as number
-                  return n > 0 ? `+${n.toFixed(2)}` : n.toFixed(2)
+                  if (v == null) return '-'
+                  const n = Math.round(v as number)
+                  const formatted = n.toLocaleString('th-TH')
+                  return n > 0 ? `+${formatted}` : formatted
                 }}
               />
             )
@@ -768,7 +761,14 @@ export default function EditableJobTable({
           key: 'totalTransfer',
           width: 120,
           render: (_: unknown, row: RowData) => (
-            <EditableCell value={computeTotal(row)} cellType="computed" editable={false} locked={false} onSave={async () => true} />
+            <EditableCell
+              value={isAdvanceType(row) ? null : computeTotal(row)}
+              cellType="computed"
+              editable={false}
+              locked={false}
+              onSave={async () => true}
+              format={(v) => v == null ? '-' : (v as number).toLocaleString('th-TH')}
+            />
           ),
         },
       ],
@@ -777,11 +777,11 @@ export default function EditableJobTable({
       title: 'น้ำมัน/ไมล์',
       children: [
         { title: 'ไมล์รถ', dataIndex: 'mileage', key: 'mileage', width: 90, render: (_: unknown, row: RowData) => renderCell(row, 'mileage', 'number', undefined, { precision: 0, disabled: isAdvanceType(row) }) },
-        { title: 'น้ำมัน OFF (ลิตร)', dataIndex: 'fuelOfficeLiters', key: 'fuelOfficeLiters', width: 120, render: (_: unknown, row: RowData) => renderCell(row, 'fuelOfficeLiters', 'number', undefined, { disabled: isAdvanceType(row) }) },
-        { title: 'น้ำมันสด (ลิตร)', dataIndex: 'fuelCashLiters', key: 'fuelCashLiters', width: 120, render: (_: unknown, row: RowData) => renderCell(row, 'fuelCashLiters', 'number', undefined, { disabled: isAdvanceType(row) }) },
-        { title: 'น้ำมันสด (฿)', dataIndex: 'fuelCashAmount', key: 'fuelCashAmount', width: 110, render: (_: unknown, row: RowData) => renderCell(row, 'fuelCashAmount', 'number', undefined, { disabled: isAdvanceType(row) }) },
-        { title: 'น้ำมันเครดิต (ลิตร)', dataIndex: 'fuelCreditLiters', key: 'fuelCreditLiters', width: 130, render: (_: unknown, row: RowData) => renderCell(row, 'fuelCreditLiters', 'number', undefined, { disabled: isAdvanceType(row) }) },
-        { title: 'น้ำมันเครดิต (฿)', dataIndex: 'fuelCreditAmount', key: 'fuelCreditAmount', width: 120, render: (_: unknown, row: RowData) => renderCell(row, 'fuelCreditAmount', 'number', undefined, { disabled: isAdvanceType(row) }) },
+        { title: 'น้ำมัน OFF (ลิตร)', dataIndex: 'fuelOfficeLiters', key: 'fuelOfficeLiters', width: 120, render: (_: unknown, row: RowData) => renderCell(row, 'fuelOfficeLiters', 'number', undefined, { precision: 2, disabled: isAdvanceType(row) }) },
+        { title: 'น้ำมันสด (ลิตร)', dataIndex: 'fuelCashLiters', key: 'fuelCashLiters', width: 120, render: (_: unknown, row: RowData) => renderCell(row, 'fuelCashLiters', 'number', undefined, { precision: 2, disabled: isAdvanceType(row) }) },
+        { title: 'น้ำมันสด (฿)', dataIndex: 'fuelCashAmount', key: 'fuelCashAmount', width: 110, render: (_: unknown, row: RowData) => renderCell(row, 'fuelCashAmount', 'number', undefined, { precision: 2, disabled: isAdvanceType(row) }) },
+        { title: 'น้ำมันเครดิต (ลิตร)', dataIndex: 'fuelCreditLiters', key: 'fuelCreditLiters', width: 130, render: (_: unknown, row: RowData) => renderCell(row, 'fuelCreditLiters', 'number', undefined, { precision: 2, disabled: isAdvanceType(row) }) },
+        { title: 'น้ำมันเครดิต (฿)', dataIndex: 'fuelCreditAmount', key: 'fuelCreditAmount', width: 120, render: (_: unknown, row: RowData) => renderCell(row, 'fuelCreditAmount', 'number', undefined, { precision: 2, disabled: isAdvanceType(row) }) },
       ],
     },
     {
@@ -796,6 +796,7 @@ export default function EditableJobTable({
           fixed: 'right' as const,
           render: (_: unknown, row: RowData) => {
             if (isDraft(row)) return null
+            if (row.jobType === 'เบิกล่วงหน้า') return null
             return (
               <EditableCell
                 value={row.clearStatus}
@@ -835,7 +836,8 @@ export default function EditableJobTable({
                       size="small"
                       danger
                       icon={<DeleteOutlined />}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         modal.confirm({
                           title: 'ยืนยันการลบ',
                           content: isDraft(row) ? 'ล้างข้อมูล row นี้?' : 'ต้องการลบงานนี้?',
@@ -935,6 +937,7 @@ export default function EditableJobTable({
         rowClassName={(row) => {
           const r = row as RowData
           if (isDraft(r)) return 'draft-row'
+          if (r.jobType === 'เบิกล่วงหน้า') return 'advance-row'
           if (r.clearStatus) return 'locked-row'
           if (modalEditMode) return 'clickable-row'
           return ''
@@ -1041,6 +1044,20 @@ export default function EditableJobTable({
         }
         .ant-table-cell {
           padding: 4px 8px !important;
+        }
+        .advance-row td {
+          background-color: #fff7e6 !important;
+        }
+        .advance-row:hover td {
+          background-color: #ffe7ba !important;
+        }
+        .advance-row td.ant-table-cell-fix-left,
+        .advance-row td.ant-table-cell-fix-right {
+          background-color: #fff7e6 !important;
+        }
+        .advance-row:hover td.ant-table-cell-fix-left,
+        .advance-row:hover td.ant-table-cell-fix-right {
+          background-color: #ffe7ba !important;
         }
         .clickable-row:hover td {
           background-color: #e6f4ff !important;

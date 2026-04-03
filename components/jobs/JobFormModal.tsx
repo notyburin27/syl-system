@@ -82,7 +82,22 @@ export default function JobFormModal({
   // Track which job we're editing (could be the passed job or a newly created one)
   const activeJob = createdJob || job;
 
-  const isAdvance = Form.useWatch("jobType", form) === "เบิกล่วงหน้า";
+  const jobTypeWatch = Form.useWatch("jobType", form);
+  const isAdvance = jobTypeWatch === "เบิกล่วงหน้า";
+
+  // Fetch and preview next ADV number when jobType switches to เบิกล่วงหน้า
+  useEffect(() => {
+    if (isAdvance && mode === "create" && !createdJob) {
+      fetch("/api/jobs/advance-number")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.jobNumber) form.setFieldValue("jobNumber", data.jobNumber);
+        })
+        .catch(() => {});
+    } else if (!isAdvance && mode === "create" && !createdJob) {
+      form.setFieldValue("jobNumber", undefined);
+    }
+  }, [isAdvance, mode, createdJob, form]);
 
   // Computed fields
   const watchAdvance = Form.useWatch("advance", form) || 0;
@@ -241,14 +256,6 @@ export default function JobFormModal({
     const success = await onFieldSave(targetJob.id, field, value);
     if (success) {
       handleSaveStatus("saved");
-      // Sync advance → actualTransfer for เบิกล่วงหน้า
-      if (
-        field === "advance" &&
-        form.getFieldValue("jobType") === "เบิกล่วงหน้า"
-      ) {
-        form.setFieldValue("actualTransfer", value);
-        await onFieldSave(targetJob.id, "actualTransfer", value);
-      }
     } else {
       handleSaveStatus("error");
     }
@@ -259,17 +266,14 @@ export default function JobFormModal({
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
     const size = form.getFieldValue("size");
-    if (!jobType || !size) return;
+    const pickupLocationId = form.getFieldValue("pickupLocationId");
+    const returnLocationId = form.getFieldValue("returnLocationId");
+    if (!jobType || !size || !pickupLocationId || !returnLocationId) return;
     try {
       const res = await fetch("/api/jobs/calculate/estimated-transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobType,
-          size,
-          pickupLocationId: form.getFieldValue("pickupLocationId"),
-          returnLocationId: form.getFieldValue("returnLocationId"),
-        }),
+        body: JSON.stringify({ jobType, size, pickupLocationId, returnLocationId }),
       });
       const data = await res.json();
       if (data.estimatedTransfer) {
@@ -287,13 +291,64 @@ export default function JobFormModal({
     } catch {}
   };
 
+  const prefillIncome = async () => {
+    const currentVal = form.getFieldValue("income");
+    if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
+    const jobType = form.getFieldValue("jobType");
+    const size = form.getFieldValue("size");
+    const pickupLocationId = form.getFieldValue("pickupLocationId");
+    const factoryLocationId = form.getFieldValue("factoryLocationId");
+    const returnLocationId = form.getFieldValue("returnLocationId");
+    const customerId = form.getFieldValue("customerId");
+    if (!jobType || !size || !pickupLocationId || !factoryLocationId || !returnLocationId || !customerId) return;
+    try {
+      const res = await fetch("/api/jobs/calculate/income", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobType,
+          size,
+          pickupLocationId,
+          factoryLocationId,
+          returnLocationId,
+          customerId,
+        }),
+      });
+      const data = await res.json();
+      if (data.income) {
+        form.setFieldValue("income", data.income);
+        await handleFieldBlur("income");
+      }
+    } catch {}
+  };
+
+  const prefillDriverWage = async () => {
+    const currentVal = form.getFieldValue("driverWage");
+    if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
+    const size = form.getFieldValue("size");
+    const factoryLocationId = form.getFieldValue("factoryLocationId");
+    if (!size || !factoryLocationId) return;
+    try {
+      const res = await fetch("/api/jobs/calculate/driver-wage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ size, factoryLocationId }),
+      });
+      const data = await res.json();
+      if (data.driverWage) {
+        form.setFieldValue("driverWage", data.driverWage);
+        await handleFieldBlur("driverWage");
+      }
+    } catch {}
+  };
+
   // Create job (POST) — needs jobDate + jobType + jobNumber
   const handleCreate = async () => {
     const jobNumber = form.getFieldValue("jobNumber");
     const jobDate = form.getFieldValue("jobDate");
     const jobType = form.getFieldValue("jobType");
 
-    if (!jobDate || !jobType || !jobNumber) {
+    if (!jobDate || !jobType || (!jobNumber && jobType !== "เบิกล่วงหน้า")) {
       return;
     }
 
@@ -306,6 +361,8 @@ export default function JobFormModal({
       return;
     }
 
+    const advance = isAdvance ? parseNumber(form.getFieldValue("advance")) : undefined;
+
     setSaving(true);
     try {
       const res = await fetch("/api/jobs", {
@@ -316,6 +373,7 @@ export default function JobFormModal({
           jobDate: jobDate.format("YYYY-MM-DD"),
           jobType,
           driverId,
+          ...(advance != null && { advance }),
         }),
       });
       if (!res.ok) {
@@ -325,6 +383,7 @@ export default function JobFormModal({
       }
       const newJob: Job = await res.json();
       setCreatedJob(newJob);
+      form.setFieldValue("jobNumber", newJob.jobNumber);
       onCreated(newJob);
     } catch {
       message.error("สร้างงานล้มเหลว");
@@ -386,6 +445,7 @@ export default function JobFormModal({
     <Form.Item label={label} name={field} rules={[numberRule]}>
       <Input
         allowClear
+        styles={{ input: { textAlign: "right" } }}
         disabled={fieldsDisabled || disabled || (!skipClearLock && isCleared)}
         onBlur={() => isCreated && handleFieldBlur(field)}
         onChange={(e) => {
@@ -402,7 +462,7 @@ export default function JobFormModal({
     options: { value: string; label: string }[],
     extra?: React.ReactNode,
     disabled?: boolean,
-    withPrefill?: boolean,
+    prefills?: Array<() => void>,
   ) => (
     <Select
       showSearch
@@ -418,7 +478,7 @@ export default function JobFormModal({
       options={options}
       onChange={() => {
         if (isCreated) setTimeout(() => handleFieldBlur(field), 0);
-        if (withPrefill) setTimeout(() => prefillEstimatedTransfer(), 0);
+        if (prefills) prefills.forEach((fn) => setTimeout(fn, 0));
       }}
       dropdownRender={
         extra
@@ -524,6 +584,7 @@ export default function JobFormModal({
                   onChange={() => {
                     if (isCreated) setTimeout(() => handleFieldBlur("jobType"), 0);
                     setTimeout(() => prefillEstimatedTransfer(), 0);
+                    setTimeout(() => prefillIncome(), 0);
                   }}
                 />
               </Form.Item>
@@ -532,11 +593,18 @@ export default function JobFormModal({
               <Form.Item
                 label="JOB/เลขที่"
                 name="jobNumber"
-                rules={[{ required: !isCreated && mode === "create", message: "กรุณากรอก JOB/เลขที่" }]}
+                rules={[{ required: !isCreated && mode === "create" && !isAdvance, message: "กรุณากรอก JOB/เลขที่" }]}
               >
-                <Input disabled={mode === "edit"} />
+                <Input disabled={mode === "edit" || isAdvance} />
               </Form.Item>
             </Col>
+            {mode === "create" && !isCreated && isAdvance && (
+              <Col span={3}>
+                <Form.Item label="เบิกล่วงหน้า" name="advance" rules={[numberRule]}>
+                  <Input allowClear styles={{ input: { textAlign: "right" } }} />
+                </Form.Item>
+              </Col>
+            )}
             {mode === "create" && !isCreated && (
               <Col span={3}>
                 <Form.Item label=" ">
@@ -545,7 +613,10 @@ export default function JobFormModal({
                     loading={saving}
                     onClick={async () => {
                       try {
-                        await form.validateFields(["jobDate", "jobType", "jobNumber"]);
+                        const fieldsToValidate = isAdvance
+                          ? ["jobDate", "jobType"]
+                          : ["jobDate", "jobType", "jobNumber"];
+                        await form.validateFields(fieldsToValidate);
                         await handleCreate();
                       } catch {
                         // validation failed, do nothing
@@ -553,12 +624,17 @@ export default function JobFormModal({
                     }}
                     style={{ width: "100%" }}
                   >
-                    สร้าง job
+                    สร้าง
                   </Button>
                 </Form.Item>
               </Col>
             )}
-            {isCreated && (
+            {isCreated && isAdvance && (
+              <Col span={3}>
+                {numberInput("advance", "เบิกล่วงหน้า", false, true)}
+              </Col>
+            )}
+            {isCreated && !isAdvance && (
               <>
                 <Col span={3}>
                   <Form.Item label="ลูกค้า" name="customerId">
@@ -566,6 +642,8 @@ export default function JobFormModal({
                       "customerId",
                       customers.map((c) => ({ value: c.id, label: c.name })),
                       addButton("customer", undefined, "customerId"),
+                      undefined,
+                      [prefillIncome],
                     )}
                   </Form.Item>
                 </Col>
@@ -576,7 +654,7 @@ export default function JobFormModal({
                       SIZE_OPTIONS.map((s) => ({ value: s, label: s })),
                       undefined,
                       isAdvance,
-                      true,
+                      [prefillEstimatedTransfer, prefillIncome, prefillDriverWage],
                     )}
                   </Form.Item>
                 </Col>
@@ -587,7 +665,7 @@ export default function JobFormModal({
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "pickupLocationId"),
                       isAdvance,
-                      true,
+                      [prefillEstimatedTransfer, prefillIncome],
                     )}
                   </Form.Item>
                 </Col>
@@ -598,6 +676,7 @@ export default function JobFormModal({
                       factoryLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "factory", "factoryLocationId"),
                       isAdvance,
+                      [prefillIncome, prefillDriverWage],
                     )}
                   </Form.Item>
                 </Col>
@@ -608,7 +687,7 @@ export default function JobFormModal({
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "returnLocationId"),
                       isAdvance,
-                      true,
+                      [prefillEstimatedTransfer, prefillIncome],
                     )}
                   </Form.Item>
                 </Col>
@@ -616,14 +695,37 @@ export default function JobFormModal({
             )}
           </Row>
 
-          {/* Section 2 + 3: แสดงหลังสร้าง job แล้ว */}
-          {isCreated && (
+          {/* Section 2 + 3: แสดงหลังสร้าง job แล้ว (ไม่แสดงถ้าเป็นเบิกล่วงหน้า) */}
+          {isCreated && !isAdvance && (
             <>
               <Divider style={{ margin: "8px 0" }} />
 
               <Row gutter={12}>
                 <Col span={3}>
                   {numberInput("estimatedTransfer", "คาดการณ์โอน", isAdvance)}
+                </Col>
+                <Col span={3}>
+                  {numberInput("actualTransfer", "ยอดโอนจริง", isAdvance)}
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="ส่วนต่าง">
+                    <Input
+                      disabled
+                      styles={{ input: { textAlign: "right" } }}
+                      value={
+                        !watchActualTransfer
+                          ? "-"
+                          : difference > 0
+                            ? `+${Math.round(difference)}`
+                            : String(Math.round(difference))
+                      }
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="รวมยอดโอน">
+                    <Input disabled styles={{ input: { textAlign: "right" } }} value={watchActualTransfer ? totalTransfer : "-"} />
+                  </Form.Item>
                 </Col>
                 {isAdmin && (
                   <>
@@ -634,29 +736,7 @@ export default function JobFormModal({
                   </>
                 )}
                 <Col span={3}>
-                  {numberInput("actualTransfer", "ยอดโอนจริง", isAdvance)}
-                </Col>
-                <Col span={3}>
-                  <Form.Item label="ส่วนต่าง">
-                    <Input
-                      disabled
-                      value={
-                        watchActualTransfer && difference
-                          ? difference > 0
-                            ? `+${difference.toFixed(2)}`
-                            : difference.toFixed(2)
-                          : undefined
-                      }
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={3}>
-                  <Form.Item label="รวมยอดโอน">
-                    <Input disabled value={watchActualTransfer ? totalTransfer || undefined : undefined} />
-                  </Form.Item>
-                </Col>
-                <Col span={3}>
-                  <Form.Item label="เครียร์" name="clearStatus" valuePropName="checked">
+                  <Form.Item label="เคลียร์" name="clearStatus" valuePropName="checked">
                     <Checkbox
                       disabled={!isAdmin && clearStatus}
                       onChange={async (e) => {
@@ -667,9 +747,6 @@ export default function JobFormModal({
                       }}
                     />
                   </Form.Item>
-                </Col>
-                <Col span={3} offset={24 - (isAdmin ? 21 : 15) - 6}>
-                  {numberInput("advance", "เบิกล่วงหน้า")}
                 </Col>
               </Row>
               <Row gutter={12}>
@@ -688,7 +765,7 @@ export default function JobFormModal({
                 <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance)}</Col>
                 <Col span={3}>
                   <Form.Item label="รวมคนรถปิดงาน">
-                    <Input disabled value={driverOverall || undefined} />
+                    <Input disabled styles={{ input: { textAlign: "right" } }} value={driverOverall || undefined} />
                   </Form.Item>
                 </Col>
               </Row>

@@ -67,10 +67,15 @@ export async function POST(req: Request) {
     // Auto-generate job number for เบิกล่วงหน้า
     let finalJobNumber = jobNumber;
     if (jobType === "เบิกล่วงหน้า" && !jobNumber) {
-      const count = await prisma.job.count({
-        where: { jobType: "เบิกล่วงหน้า" },
+      const existing = await prisma.job.findMany({
+        where: { jobNumber: { startsWith: "ADV-" } },
+        select: { jobNumber: true },
       });
-      finalJobNumber = `ADV-${String(count + 1).padStart(5, "0")}`;
+      const maxSeq = existing.reduce((max, j) => {
+        const n = parseInt(j.jobNumber.replace("ADV-", ""), 10);
+        return isNaN(n) ? max : Math.max(max, n);
+      }, 0);
+      finalJobNumber = `ADV-${String(maxSeq + 1).padStart(5, "0")}`;
     }
 
     if (!finalJobNumber) {

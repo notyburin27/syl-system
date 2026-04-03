@@ -19,25 +19,24 @@ export async function POST(req: Request) {
       customerId,
     } = body;
 
-    if (!jobType) {
-      return NextResponse.json({ income: 0 });
+    if (!jobType || !size || !pickupLocationId || !factoryLocationId || !returnLocationId || !customerId) {
+      return NextResponse.json({ income: null });
     }
 
-    // Find latest job with matching criteria
-    const where: Record<string, unknown> = { jobType };
-    if (size) where.size = size;
-    if (pickupLocationId) where.pickupLocationId = pickupLocationId;
-    if (factoryLocationId) where.factoryLocationId = factoryLocationId;
-    if (returnLocationId) where.returnLocationId = returnLocationId;
-    if (customerId) where.customerId = customerId;
-
     const latestJob = await prisma.job.findFirst({
-      where,
+      where: {
+        jobType,
+        size,
+        pickupLocationId,
+        factoryLocationId,
+        returnLocationId,
+        customerId,
+      },
       orderBy: { createdAt: "desc" },
       select: { income: true },
     });
 
-    return NextResponse.json({ income: latestJob?.income || 0 });
+    return NextResponse.json({ income: latestJob?.income ?? null });
   } catch (error) {
     console.error("Error calculating income:", error);
     return NextResponse.json(

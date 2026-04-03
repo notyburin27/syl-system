@@ -29,7 +29,7 @@ export default function EditableCell({
   onSave,
   onSaveStatus,
   format,
-  precision = 2,
+  precision = 0,
   dropdownRenderExtra,
   dateFormat = 'DD/MM/YYYY',
 }: EditableCellProps) {
@@ -101,9 +101,9 @@ export default function EditableCell({
 
   // Computed/disabled type
   if (cellType === 'computed') {
-    const displayVal = format ? format(value) : (typeof value === 'number' ? value.toFixed(precision) : (value ?? '-'))
+    const displayVal = format ? format(value) : (typeof value === 'number' ? value.toLocaleString('th-TH', { minimumFractionDigits: precision, maximumFractionDigits: precision }) : (value ?? '-'))
     return (
-      <div style={{ ...cellStyle, cursor: 'default', color: '#666' }}>
+      <div style={{ ...cellStyle, cursor: 'default', color: '#666', justifyContent: 'flex-end' }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {String(displayVal)}
         </span>
@@ -122,7 +122,8 @@ export default function EditableCell({
       const opt = options.find((o) => o.value === value)
       displayVal = opt?.label || String(value ?? '')
     } else if (cellType === 'number') {
-      displayVal = (value != null && value !== 0) ? (typeof value === 'number' ? value.toFixed(precision) : String(value)) : ''
+      const num = typeof value === 'number' ? value : Number(value)
+      displayVal = (value != null && value !== '' && !isNaN(num) && num !== 0) ? num.toLocaleString('th-TH', { minimumFractionDigits: precision, maximumFractionDigits: precision }) : ''
     } else {
       displayVal = String(value ?? '')
     }
@@ -138,7 +139,7 @@ export default function EditableCell({
             }
           }}
         >
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: cellType === 'number' ? 'right' : 'left' }}>
             {displayVal || <span style={{ color: '#ccc' }}>-</span>}
           </span>
         </div>

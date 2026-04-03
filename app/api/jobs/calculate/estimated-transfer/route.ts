@@ -12,8 +12,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { jobType, size, pickupLocationId, returnLocationId } = body;
 
-    if (!jobType || !size) {
-      return NextResponse.json({ estimatedTransfer: 0 });
+    if (!jobType || !size || !pickupLocationId || !returnLocationId) {
+      return NextResponse.json({ estimatedTransfer: null });
     }
 
     // Find latest job with matching criteria
@@ -21,8 +21,8 @@ export async function POST(req: Request) {
       where: {
         jobType,
         size,
-        ...(pickupLocationId ? { pickupLocationId } : {}),
-        ...(returnLocationId ? { returnLocationId } : {}),
+        pickupLocationId,
+        returnLocationId,
       },
       orderBy: { createdAt: "desc" },
       select: {

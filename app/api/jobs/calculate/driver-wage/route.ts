@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const { size, factoryLocationId } = body;
 
     if (!size || !factoryLocationId) {
-      return NextResponse.json({ driverWage: 0 });
+      return NextResponse.json({ driverWage: null });
     }
 
     // Find latest job with matching size + factory
@@ -28,11 +28,7 @@ export async function POST(req: Request) {
       },
     });
 
-    if (!latestJob) {
-      return NextResponse.json({ driverWage: 0 });
-    }
-
-    return NextResponse.json({ driverWage: Number(latestJob.driverWage || 0) });
+    return NextResponse.json({ driverWage: latestJob?.driverWage ?? null });
   } catch (error) {
     console.error("Error calculating driver wage:", error);
     return NextResponse.json(

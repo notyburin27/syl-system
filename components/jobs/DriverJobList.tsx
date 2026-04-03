@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Card, Row, Col, DatePicker, Spin, Empty, Statistic } from 'antd'
-import { TruckOutlined } from '@ant-design/icons'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Card, Row, Col, DatePicker, Spin, Empty, Statistic, Input } from 'antd'
+import { TruckOutlined, SearchOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import type { DriverJobSummary } from '@/types/job'
 import dayjs from 'dayjs'
@@ -12,6 +12,7 @@ export default function DriverJobList() {
   const [summaries, setSummaries] = useState<DriverJobSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [month, setMonth] = useState(dayjs())
+  const [searchText, setSearchText] = useState('')
 
   const fetchSummary = useCallback(async (m: dayjs.Dayjs) => {
     setLoading(true)
@@ -33,6 +34,13 @@ export default function DriverJobList() {
     fetchSummary(month)
   }, [month, fetchSummary])
 
+  const filteredSummaries = useMemo(() => {
+    if (!searchText.trim()) return summaries
+    return summaries.filter((s) =>
+      s.driverName.toLowerCase().includes(searchText.trim().toLowerCase())
+    )
+  }, [summaries, searchText])
+
   const handleCardClick = (driverId: string) => {
     const monthStr = month.format('YYYY-MM')
     router.push(`/jobs/${driverId}?month=${monthStr}`)
@@ -42,25 +50,35 @@ export default function DriverJobList() {
     <div>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ margin: 0, fontSize: 24 }}>รายการงานขนส่ง</h1>
-        <DatePicker
-          picker="month"
-          value={month}
-          onChange={(val) => val && setMonth(val)}
-          format="MMMM YYYY"
-          allowClear={false}
-          style={{ width: 200 }}
-        />
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Input
+            placeholder="ค้นหาชื่อคนขับ"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+            style={{ width: 200 }}
+          />
+          <DatePicker
+            picker="month"
+            value={month}
+            onChange={(val) => val && setMonth(val)}
+            format="MMMM YYYY"
+            allowClear={false}
+            style={{ width: 200 }}
+          />
+        </div>
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60 }}>
           <Spin size="large" />
         </div>
-      ) : summaries.length === 0 ? (
-        <Empty description="ไม่มีข้อมูลคนขับ" />
+      ) : filteredSummaries.length === 0 ? (
+        <Empty description={summaries.length === 0 ? 'ไม่มีข้อมูลคนขับ' : 'ไม่พบคนขับที่ค้นหา'} />
       ) : (
         <Row gutter={[16, 16]}>
-          {summaries.map((s) => (
+          {filteredSummaries.map((s) => (
             <Col xs={24} sm={12} md={8} lg={6} key={s.driverId}>
               <Card
                 hoverable
