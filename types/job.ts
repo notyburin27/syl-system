@@ -18,6 +18,8 @@ export interface DriverBankAccount {
 export interface Driver {
   id: string;
   name: string;
+  vehicleNumber: string | null;
+  vehicleRegistration: string | null;
   isActive: boolean;
   bankAccounts: DriverBankAccount[];
   createdAt: string;

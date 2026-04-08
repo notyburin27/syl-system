@@ -170,11 +170,13 @@ model Customer {
 }
 
 model Driver {
-  id           String              @id @default(cuid())
-  name         String              @unique
-  isActive     Boolean             @default(true)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  id                  String              @id @default(cuid())
+  name                String              @unique
+  vehicleNumber       String?
+  vehicleRegistration String?
+  isActive            Boolean             @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   bankAccounts DriverBankAccount[]
   jobs         Job[]

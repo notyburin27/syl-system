@@ -47,7 +47,11 @@ export default function DriverManager() {
   const handleOpenModal = (driver?: Driver) => {
     if (driver) {
       setEditingDriver(driver)
-      form.setFieldsValue({ name: driver.name })
+      form.setFieldsValue({
+        name: driver.name,
+        vehicleNumber: driver.vehicleNumber,
+        vehicleRegistration: driver.vehicleRegistration,
+      })
     } else {
       setEditingDriver(null)
       form.resetFields()
@@ -55,7 +59,7 @@ export default function DriverManager() {
     setModalOpen(true)
   }
 
-  const handleSubmit = async (values: { name: string }) => {
+  const handleSubmit = async (values: { name: string; vehicleNumber?: string; vehicleRegistration?: string }) => {
     setSubmitLoading(true)
     try {
       const url = editingDriver ? `/api/drivers/${editingDriver.id}` : '/api/drivers'
@@ -215,6 +219,8 @@ export default function DriverManager() {
 
   const columns = [
     { title: 'ชื่อคนขับ', dataIndex: 'name', key: 'name' },
+    { title: 'เบอร์รถ', dataIndex: 'vehicleNumber', key: 'vehicleNumber', render: (v: string | null) => v || '-' },
+    { title: 'ทะเบียนรถ', dataIndex: 'vehicleRegistration', key: 'vehicleRegistration', render: (v: string | null) => v || '-' },
     {
       title: 'จำนวนบัญชี',
       key: 'bankCount',
@@ -308,6 +314,12 @@ export default function DriverManager() {
             rules={[{ required: true, message: 'กรุณากรอกชื่อคนขับ' }]}
           >
             <Input placeholder="ชื่อคนขับ" />
+          </Form.Item>
+          <Form.Item name="vehicleNumber" label="เบอร์รถ">
+            <Input placeholder="เบอร์รถ" />
+          </Form.Item>
+          <Form.Item name="vehicleRegistration" label="ทะเบียนรถ">
+            <Input placeholder="ทะเบียนรถ" />
           </Form.Item>
         </Form>
       </Modal>

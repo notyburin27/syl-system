@@ -14,7 +14,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name } = body;
+    const { name, vehicleNumber, vehicleRegistration } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -25,7 +25,11 @@ export async function PATCH(
 
     const driver = await prisma.driver.update({
       where: { id },
-      data: { name: name.trim() },
+      data: {
+        name: name.trim(),
+        vehicleNumber: vehicleNumber?.trim() || null,
+        vehicleRegistration: vehicleRegistration?.trim() || null,
+      },
       include: { bankAccounts: true },
     });
     return NextResponse.json(driver);

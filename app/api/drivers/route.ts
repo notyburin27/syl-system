@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name } = body;
+    const { name, vehicleNumber, vehicleRegistration } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -42,7 +42,11 @@ export async function POST(req: Request) {
     }
 
     const driver = await prisma.driver.create({
-      data: { name: name.trim() },
+      data: {
+        name: name.trim(),
+        vehicleNumber: vehicleNumber?.trim() || null,
+        vehicleRegistration: vehicleRegistration?.trim() || null,
+      },
       include: { bankAccounts: true },
     });
     return NextResponse.json(driver, { status: 201 });

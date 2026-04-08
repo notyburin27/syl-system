@@ -43,15 +43,18 @@ export default function ProtectedLayoutClient({
   // Get selected key based on current path
   const getSelectedKey = () => {
     if (pathname?.startsWith("/admin/users")) return "users";
-    if (pathname?.startsWith("/statement-converter")) return "statement-converter";
+    if (pathname?.startsWith("/statement-converter"))
+      return "statement-converter";
     if (pathname?.startsWith("/stock/products")) return "stock-products";
     if (pathname?.startsWith("/stock/import")) return "stock-import";
     if (pathname?.startsWith("/stock/export")) return "stock-export";
     if (pathname?.startsWith("/stock/buyers")) return "stock-buyers";
     if (pathname === "/stock") return "stock-dashboard";
-    if (pathname?.startsWith("/jobs/settings/customers")) return "jobs-customers";
+    if (pathname?.startsWith("/jobs/settings/customers"))
+      return "jobs-customers";
     if (pathname?.startsWith("/jobs/settings/drivers")) return "jobs-drivers";
-    if (pathname?.startsWith("/jobs/settings/locations")) return "jobs-locations";
+    if (pathname?.startsWith("/jobs/settings/locations"))
+      return "jobs-locations";
     if (pathname?.startsWith("/jobs")) return "jobs-list";
     if (pathname?.startsWith("/transport-documents")) return "documents";
     return "documents";
@@ -76,7 +79,7 @@ export default function ProtectedLayoutClient({
       },
       {
         key: "jobs-settings",
-        label: "ตั้งค่าข้อมูลอ้างอิง",
+        label: "ตั้งค่าข้อมูล",
         children: [
           {
             key: "jobs-customers",
