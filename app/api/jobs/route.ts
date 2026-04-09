@@ -103,7 +103,6 @@ export async function POST(req: Request) {
         pickupLocationId: rest.pickupLocationId || null,
         factoryLocationId: rest.factoryLocationId || null,
         returnLocationId: rest.returnLocationId || null,
-        estimatedTransfer: rest.estimatedTransfer ?? null,
         income: rest.income ?? null,
         actualTransfer: rest.actualTransfer ?? null,
         advance: rest.advance ?? null,

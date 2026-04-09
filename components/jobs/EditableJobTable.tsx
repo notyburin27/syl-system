@@ -320,7 +320,6 @@ export default function EditableJobTable({
           pickupLocationId: draft.pickupLocationId,
           factoryLocationId: draft.factoryLocationId,
           returnLocationId: draft.returnLocationId,
-          estimatedTransfer: draft.estimatedTransfer,
           income: draft.income,
           driverWage: draft.driverWage,
           actualTransfer: draft.actualTransfer,
@@ -675,7 +674,7 @@ export default function EditableJobTable({
           width: 120,
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'estimatedTransfer', 'number', undefined, {
-              disabled: isAdvanceType(row),
+              disabled: true,
             }),
         },
         ...(isAdmin

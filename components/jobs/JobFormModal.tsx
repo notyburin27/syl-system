@@ -139,7 +139,6 @@ export default function JobFormModal({
           pickupLocationId: job.pickupLocationId || undefined,
           factoryLocationId: job.factoryLocationId || undefined,
           returnLocationId: job.returnLocationId || undefined,
-          estimatedTransfer: job.estimatedTransfer,
           income: job.income,
           driverWage: job.driverWage,
           actualTransfer: job.actualTransfer,
@@ -193,7 +192,6 @@ export default function JobFormModal({
 
     // Parse based on field type
     const numberFields = [
-      "estimatedTransfer",
       "income",
       "driverWage",
       "actualTransfer",
@@ -264,8 +262,6 @@ export default function JobFormModal({
   };
 
   const prefillEstimatedTransfer = async () => {
-    const currentVal = form.getFieldValue("estimatedTransfer");
-    if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
     const size = form.getFieldValue("size");
     const pickupLocationId = form.getFieldValue("pickupLocationId");
@@ -284,11 +280,18 @@ export default function JobFormModal({
           pickupFee: data.pickupFee || undefined,
           returnFee: data.returnFee || undefined,
         });
-        await Promise.all([
-          handleFieldBlur("estimatedTransfer"),
-          handleFieldBlur("pickupFee"),
-          handleFieldBlur("returnFee"),
-        ]);
+        // prefill actualTransfer if empty
+        const currentActual = form.getFieldValue("actualTransfer");
+        if (currentActual === undefined || currentActual === null || String(currentActual).trim() === "") {
+          form.setFieldValue("actualTransfer", data.estimatedTransfer);
+          if (isCreated) await handleFieldBlur("actualTransfer");
+        }
+        if (isCreated) {
+          await Promise.all([
+            handleFieldBlur("pickupFee"),
+            handleFieldBlur("returnFee"),
+          ]);
+        }
       }
     } catch {}
   };
@@ -704,7 +707,12 @@ export default function JobFormModal({
 
               <Row gutter={12}>
                 <Col span={3}>
-                  {numberInput("estimatedTransfer", "คาดการณ์โอน", isAdvance)}
+                  <Form.Item label="คาดการณ์โอน" name="estimatedTransfer">
+                    <Input
+                      disabled
+                      styles={{ input: { textAlign: "right" } }}
+                    />
+                  </Form.Item>
                 </Col>
                 <Col span={3}>
                   {numberInput("actualTransfer", "ยอดโอนจริง", isAdvance)}

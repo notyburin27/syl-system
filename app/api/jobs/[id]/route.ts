@@ -39,7 +39,6 @@ export async function PATCH(
       "pickupLocationId",
       "factoryLocationId",
       "returnLocationId",
-      "estimatedTransfer",
       "income",
       "driverWage",
       "actualTransfer",

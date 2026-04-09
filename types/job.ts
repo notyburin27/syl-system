@@ -51,7 +51,7 @@ export interface Job {
   factoryLocation?: Location | null;
   returnLocationId: string | null;
   returnLocation?: Location | null;
-  estimatedTransfer: number | null;
+  estimatedTransfer?: number | null; // computed, not stored
   income: number | null;
   driverWage: number | null;
   actualTransfer: number | null;
