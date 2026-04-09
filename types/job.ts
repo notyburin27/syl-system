@@ -79,6 +79,7 @@ export interface Job {
 export interface DriverJobSummary {
   driverId: string;
   driverName: string;
+  vehicleNumber: string | null;
   jobCount: number;
   totalIncome: number;
   totalTransfer: number;

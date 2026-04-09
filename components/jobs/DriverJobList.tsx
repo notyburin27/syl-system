@@ -87,7 +87,9 @@ export default function DriverJobList() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                   <TruckOutlined style={{ fontSize: 24, color: '#1890ff' }} />
-                  <span style={{ fontSize: 18, fontWeight: 500 }}>{s.driverName}</span>
+                  <span style={{ fontSize: 18, fontWeight: 500 }}>
+                    {s.driverName}{s.vehicleNumber ? ` (${s.vehicleNumber})` : ''}
+                  </span>
                 </div>
                 <Row gutter={16}>
                   <Col span={8}>

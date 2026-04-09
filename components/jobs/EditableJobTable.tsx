@@ -29,6 +29,7 @@ dayjs.locale('th')
 interface EditableJobTableProps {
   driverId: string
   driverName: string
+  vehicleNumber?: string | null
   month: string // format: YYYY-MM
   isAdmin: boolean
 }
@@ -79,6 +80,7 @@ function getRowKey(row: RowData): string {
 export default function EditableJobTable({
   driverId,
   driverName,
+  vehicleNumber,
   month,
   isAdmin,
 }: EditableJobTableProps) {
@@ -882,7 +884,7 @@ export default function EditableJobTable({
             กลับ
           </Button>
           <h2 style={{ margin: 0 }}>
-            {driverName} — {dayjs(month + '-01').format('MMMM YYYY')}
+            {driverName}{vehicleNumber ? ` (${vehicleNumber})` : ''} — {dayjs(month + '-01').format('MMMM YYYY')}
           </h2>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

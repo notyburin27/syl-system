@@ -56,6 +56,7 @@ export async function GET(req: Request) {
         return {
           driverId: driver.id,
           driverName: driver.name,
+          vehicleNumber: driver.vehicleNumber,
           jobCount,
           totalIncome,
           totalTransfer,

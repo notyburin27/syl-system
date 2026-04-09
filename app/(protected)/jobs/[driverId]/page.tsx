@@ -18,7 +18,7 @@ export default async function DriverJobPage({ params, searchParams }: Props) {
 
   const driver = await prisma.driver.findUnique({
     where: { id: driverId },
-    select: { name: true },
+    select: { name: true, vehicleNumber: true },
   })
 
   if (!driver) redirect('/jobs')
@@ -30,6 +30,7 @@ export default async function DriverJobPage({ params, searchParams }: Props) {
     <EditableJobTable
       driverId={driverId}
       driverName={driver.name}
+      vehicleNumber={driver.vehicleNumber}
       month={currentMonth}
       isAdmin={isAdmin}
     />
