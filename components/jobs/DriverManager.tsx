@@ -328,9 +328,9 @@ export default function DriverManager() {
         open={importDriverOpen}
         title="Import คนขับ"
         apiEndpoint="/api/drivers/import"
-        headers={['name']}
-        headerLabels={{ name: 'ชื่อคนขับ' }}
-        exampleRow={['สมชาย ใจดี']}
+        headers={['name', 'vehicleNumber', 'vehicleRegistration']}
+        headerLabels={{ name: 'ชื่อคนขับ', vehicleNumber: 'เบอร์รถ', vehicleRegistration: 'ทะเบียนรถ' }}
+        exampleRow={['สมชาย ใจดี', '001', 'กข-1234']}
         templateFileName="driver_import_template.csv"
         onClose={() => setImportDriverOpen(false)}
         onSuccess={fetchDrivers}

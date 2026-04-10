@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 
 interface ImportRow {
   name: string;
+  vehicleNumber?: string;
+  vehicleRegistration?: string;
 }
 
 interface ValidationError {
@@ -80,7 +82,13 @@ export async function POST(req: Request) {
 
     const created = await prisma.$transaction(
       rows.map((row) =>
-        prisma.driver.create({ data: { name: row.name.trim() } })
+        prisma.driver.create({
+          data: {
+            name: row.name.trim(),
+            vehicleNumber: row.vehicleNumber?.trim() || null,
+            vehicleRegistration: row.vehicleRegistration?.trim() || null,
+          },
+        })
       )
     );
 
