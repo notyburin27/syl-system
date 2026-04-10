@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { JOB_TYPES, SIZE_OPTIONS } from "@/types/job";
 
 interface ImportRow {
   jobDate: string;
@@ -37,16 +38,6 @@ interface ValidationError {
   message: string;
 }
 
-const JOB_TYPES = [
-  "ขาเข้า",
-  "ขาออก",
-  "ทอยตู้",
-  "พื้นเรียบ",
-  "โรงสี",
-  "เบิกล่วงหน้า",
-];
-
-const SIZE_OPTIONS = ["20DC", "40DC", "20RF", "40RF", "2x20DC", "truck"];
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -56,11 +47,18 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { rows, driverId, validate } = body as {
+    const { rows: rawRows, driverId, validate } = body as {
       rows: ImportRow[];
       driverId: string;
       validate?: boolean; // true = validate only, false/undefined = validate + create
     };
+
+    // Normalize jobType: accept Thai label or English value
+    const jobTypeLabelMap = new Map<string, string>(JOB_TYPES.map((t) => [t.label, t.value]));
+    const rows: ImportRow[] = rawRows.map((row) => ({
+      ...row,
+      jobType: jobTypeLabelMap.get(row.jobType) ?? row.jobType,
+    }));
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json(
@@ -155,7 +153,7 @@ export async function POST(req: Request) {
           field: "jobType",
           message: "กรุณาระบุลักษณะงาน",
         });
-      } else if (!JOB_TYPES.includes(row.jobType)) {
+      } else if (!JOB_TYPES.some((t) => t.value === row.jobType || t.label === row.jobType)) {
         errors.push({
           row: rowNum,
           field: "jobType",
@@ -178,8 +176,8 @@ export async function POST(req: Request) {
         });
       }
 
-      // Required: jobNumber (except เบิกล่วงหน้า)
-      if (row.jobType !== "เบิกล่วงหน้า") {
+      // Required: jobNumber (except advance)
+      if (row.jobType !== "advance") {
         if (!row.jobNumber) {
           errors.push({
             row: rowNum,
@@ -206,7 +204,7 @@ export async function POST(req: Request) {
       }
 
       // Optional: size validation
-      if (row.size && !SIZE_OPTIONS.includes(row.size)) {
+      if (row.size && !(SIZE_OPTIONS as readonly string[]).includes(row.size)) {
         errors.push({
           row: rowNum,
           field: "size",
@@ -284,16 +282,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate job numbers for เบิกล่วงหน้า
+    // Generate job numbers for advance
     let advanceCounter = await prisma.job.count({
-      where: { jobType: "เบิกล่วงหน้า" },
+      where: { jobType: "advance" },
     });
 
     // Create all jobs in a transaction
     const createdJobs = await prisma.$transaction(
       rows.map((row) => {
         let jobNumber = row.jobNumber;
-        if (row.jobType === "เบิกล่วงหน้า" && !jobNumber) {
+        if (row.jobType === "advance" && !jobNumber) {
           advanceCounter++;
           jobNumber = `ADV-${String(advanceCounter).padStart(5, "0")}`;
         }
@@ -319,7 +317,7 @@ export async function POST(req: Request) {
             income: row.income ?? 0,
             driverWage: row.driverWage ?? 0,
             actualTransfer:
-              row.jobType === "เบิกล่วงหน้า"
+              row.jobType === "advance"
                 ? row.advance ?? 0
                 : row.actualTransfer ?? 0,
             advance: row.advance ?? 0,

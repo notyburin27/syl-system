@@ -10,25 +10,23 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { size, factoryLocationId } = body;
+    const { jobType, size, factoryLocationId } = body;
 
-    if (!size || !factoryLocationId) {
+    if (!jobType || !size || !factoryLocationId) {
       return NextResponse.json({ driverWage: null });
     }
 
-    // Find latest job with matching size + factory
-    const latestJob = await prisma.job.findFirst({
+    const rate = await prisma.rateDriverWage.findUnique({
       where: {
-        size,
-        factoryLocationId,
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        driverWage: true,
+        jobType_size_factoryLocationId: {
+          jobType,
+          size,
+          factoryLocationId,
+        },
       },
     });
 
-    return NextResponse.json({ driverWage: latestJob?.driverWage ?? null });
+    return NextResponse.json({ driverWage: rate?.driverWage ?? null });
   } catch (error) {
     console.error("Error calculating driver wage:", error);
     return NextResponse.json(

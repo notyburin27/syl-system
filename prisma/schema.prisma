@@ -163,7 +163,8 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  jobs Job[]
+  jobs        Job[]
+  incomeRates RateIncome[]
 
   @@index([name])
   @@map("customers")
@@ -206,9 +207,13 @@ model Location {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  pickupJobs  Job[] @relation("PickupLocation")
-  factoryJobs Job[] @relation("FactoryLocation")
-  returnJobs  Job[] @relation("ReturnLocation")
+  pickupJobs           Job[]           @relation("PickupLocation")
+  factoryJobs          Job[]           @relation("FactoryLocation")
+  returnJobs           Job[]           @relation("ReturnLocation")
+  rateTransferPickup   RateTransfer[]  @relation("RateTransferPickup")
+  rateTransferReturn   RateTransfer[]  @relation("RateTransferReturn")
+  rateIncomeFactory    RateIncome[]    @relation("RateIncomeFactory")
+  rateDriverWageFactory RateDriverWage[] @relation("RateDriverWageFactory")
 
   @@index([name])
   @@index([type])
@@ -273,4 +278,56 @@ model Job {
   @@index([driverId])
   @@index([createdById])
   @@map("jobs")
+}
+
+// ==================== Rate Tables ====================
+
+model RateTransfer {
+  id               String   @id @default(cuid())
+  jobType          String
+  size             String
+  pickupLocationId String
+  returnLocationId String
+  pickupFee        Decimal  @db.Decimal(10, 2)
+  returnFee        Decimal  @db.Decimal(10, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  pickupLocation Location @relation("RateTransferPickup", fields: [pickupLocationId], references: [id])
+  returnLocation Location @relation("RateTransferReturn", fields: [returnLocationId], references: [id])
+
+  @@unique([jobType, size, pickupLocationId, returnLocationId])
+  @@map("rate_transfer")
+}
+
+model RateIncome {
+  id                String   @id @default(cuid())
+  jobType           String
+  size              String
+  factoryLocationId String
+  customerId        String
+  income            Decimal  @db.Decimal(10, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  factoryLocation Location @relation("RateIncomeFactory", fields: [factoryLocationId], references: [id])
+  customer        Customer @relation(fields: [customerId], references: [id])
+
+  @@unique([jobType, size, factoryLocationId, customerId])
+  @@map("rate_income")
+}
+
+model RateDriverWage {
+  id                String   @id @default(cuid())
+  jobType           String
+  size              String
+  factoryLocationId String
+  driverWage        Decimal  @db.Decimal(10, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  factoryLocation Location @relation("RateDriverWageFactory", fields: [factoryLocationId], references: [id])
+
+  @@unique([jobType, size, factoryLocationId])
+  @@map("rate_driver_wage")
 }

@@ -64,9 +64,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { jobType, jobNumber, customerId, driverId, jobDate, ...rest } = body;
 
-    // Auto-generate job number for เบิกล่วงหน้า
+    // Auto-generate job number for advance
     let finalJobNumber = jobNumber;
-    if (jobType === "เบิกล่วงหน้า" && !jobNumber) {
+    if (jobType === "advance" && !jobNumber) {
       const existing = await prisma.job.findMany({
         where: { jobNumber: { startsWith: "ADV-" } },
         select: { jobNumber: true },

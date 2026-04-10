@@ -355,7 +355,7 @@ export default function EditableJobTable({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobDate: draft.jobDate,
-          jobType: 'เบิกล่วงหน้า',
+          jobType: 'advance',
           customerId: draft.customerId || undefined,
           driverId: draft.driverId,
           advance: draft.advance,
@@ -450,7 +450,7 @@ export default function EditableJobTable({
     return Number(row.actualTransfer) + (computeDifference(row) ?? 0)
   }
 
-  const isAdvanceType = (row: RowData) => row.jobType === 'เบิกล่วงหน้า'
+  const isAdvanceType = (row: RowData) => row.jobType === 'advance'
 
   // Helper to render editable cell
   const renderCell = (
@@ -516,7 +516,7 @@ export default function EditableJobTable({
               const draft = draftRows.find((d) => d._tempId === rowKey)
               if (draft) {
                 const updated = { ...draft, [field]: value }
-                if (updated.jobType === 'เบิกล่วงหน้า' && updated.jobDate && updated.advance) {
+                if (updated.jobType === 'advance' && updated.jobDate && updated.advance) {
                   updateDraft(rowKey, 'actualTransfer', updated.advance)
                   await handleCreateAdvanceJob(updated)
                 }
@@ -602,7 +602,7 @@ export default function EditableJobTable({
           key: 'jobType',
           width: 100,
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'jobType', 'select', JOB_TYPES.map((t) => ({ value: t, label: t }))),
+            renderCell(row, 'jobType', 'select', JOB_TYPES.map((t) => ({ value: t.value, label: t.label }))),
         },
         {
           title: 'ลูกค้า',
@@ -801,7 +801,7 @@ export default function EditableJobTable({
           align: 'center' as const,
           render: (_: unknown, row: RowData) => {
             if (isDraft(row)) return null
-            if (row.jobType === 'เบิกล่วงหน้า') return null
+            if (row.jobType === 'advance') return null
             if (row.clearStatus) return null
             const isClearing = clearingId === row.id
             return (
@@ -954,7 +954,7 @@ export default function EditableJobTable({
         rowClassName={(row) => {
           const r = row as RowData
           if (isDraft(r)) return 'draft-row'
-          if (r.jobType === 'เบิกล่วงหน้า') return 'advance-row'
+          if (r.jobType === 'advance') return 'advance-row'
           if (r.clearStatus) return 'locked-row'
           if (modalEditMode) return 'clickable-row'
           return ''

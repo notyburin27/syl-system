@@ -85,7 +85,7 @@ export default function JobFormModal({
   const activeJob = createdJob || job;
 
   const jobTypeWatch = Form.useWatch("jobType", form);
-  const isAdvance = jobTypeWatch === "เบิกล่วงหน้า";
+  const isAdvance = jobTypeWatch === "advance";
 
   // Fetch and preview next ADV number when jobType switches to เบิกล่วงหน้า
   useEffect(() => {
@@ -301,23 +301,14 @@ export default function JobFormModal({
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
     const size = form.getFieldValue("size");
-    const pickupLocationId = form.getFieldValue("pickupLocationId");
     const factoryLocationId = form.getFieldValue("factoryLocationId");
-    const returnLocationId = form.getFieldValue("returnLocationId");
     const customerId = form.getFieldValue("customerId");
-    if (!jobType || !size || !pickupLocationId || !factoryLocationId || !returnLocationId || !customerId) return;
+    if (!jobType || !size || !factoryLocationId || !customerId) return;
     try {
       const res = await fetch("/api/jobs/calculate/income", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobType,
-          size,
-          pickupLocationId,
-          factoryLocationId,
-          returnLocationId,
-          customerId,
-        }),
+        body: JSON.stringify({ jobType, size, factoryLocationId, customerId }),
       });
       const data = await res.json();
       if (data.income) {
@@ -330,14 +321,15 @@ export default function JobFormModal({
   const prefillDriverWage = async () => {
     const currentVal = form.getFieldValue("driverWage");
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
+    const jobType = form.getFieldValue("jobType");
     const size = form.getFieldValue("size");
     const factoryLocationId = form.getFieldValue("factoryLocationId");
-    if (!size || !factoryLocationId) return;
+    if (!jobType || !size || !factoryLocationId) return;
     try {
       const res = await fetch("/api/jobs/calculate/driver-wage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ size, factoryLocationId }),
+        body: JSON.stringify({ jobType, size, factoryLocationId }),
       });
       const data = await res.json();
       if (data.driverWage) {
@@ -353,7 +345,7 @@ export default function JobFormModal({
     const jobDate = form.getFieldValue("jobDate");
     const jobType = form.getFieldValue("jobType");
 
-    if (!jobDate || !jobType || (!jobNumber && jobType !== "เบิกล่วงหน้า")) {
+    if (!jobDate || !jobType || (!jobNumber && jobType !== "advance")) {
       return;
     }
 
@@ -585,7 +577,7 @@ export default function JobFormModal({
                       .toLowerCase()
                       .includes(input.toLowerCase())
                   }
-                  options={JOB_TYPES.map((t) => ({ value: t, label: t }))}
+                  options={JOB_TYPES.map((t) => ({ value: t.value, label: t.label }))}
                   onChange={() => {
                     if (isCreated) setTimeout(() => handleFieldBlur("jobType"), 0);
                     setTimeout(() => prefillEstimatedTransfer(), 0);

@@ -10,33 +10,24 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const {
-      jobType,
-      size,
-      pickupLocationId,
-      factoryLocationId,
-      returnLocationId,
-      customerId,
-    } = body;
+    const { jobType, size, factoryLocationId, customerId } = body;
 
-    if (!jobType || !size || !pickupLocationId || !factoryLocationId || !returnLocationId || !customerId) {
+    if (!jobType || !size || !factoryLocationId || !customerId) {
       return NextResponse.json({ income: null });
     }
 
-    const latestJob = await prisma.job.findFirst({
+    const rate = await prisma.rateIncome.findUnique({
       where: {
-        jobType,
-        size,
-        pickupLocationId,
-        factoryLocationId,
-        returnLocationId,
-        customerId,
+        jobType_size_factoryLocationId_customerId: {
+          jobType,
+          size,
+          factoryLocationId,
+          customerId,
+        },
       },
-      orderBy: { createdAt: "desc" },
-      select: { income: true },
     });
 
-    return NextResponse.json({ income: latestJob?.income ?? null });
+    return NextResponse.json({ income: rate?.income ?? null });
   } catch (error) {
     console.error("Error calculating income:", error);
     return NextResponse.json(

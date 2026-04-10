@@ -86,12 +86,12 @@ export interface DriverJobSummary {
 }
 
 export const JOB_TYPES = [
-  "ขาเข้า",
-  "ขาออก",
-  "ทอยตู้",
-  "พื้นเรียบ",
-  "โรงสี",
-  "เบิกล่วงหน้า",
+  { value: "inbound",  label: "ขาเข้า" },
+  { value: "outbound", label: "ขาออก" },
+  { value: "towing",   label: "ทอยตู้" },
+  { value: "flatbed",  label: "พื้นเรียบ" },
+  { value: "mill",     label: "โรงสี" },
+  { value: "advance",  label: "เบิกล่วงหน้า" },
 ] as const;
 
 export const SIZE_OPTIONS = [
@@ -103,5 +103,9 @@ export const SIZE_OPTIONS = [
   "truck",
 ] as const;
 
-export type JobType = (typeof JOB_TYPES)[number];
+export type JobType = (typeof JOB_TYPES)[number]["value"];
 export type SizeOption = (typeof SIZE_OPTIONS)[number];
+
+export function getJobTypeLabel(value: string): string {
+  return JOB_TYPES.find((t) => t.value === value)?.label ?? value;
+}

@@ -16,27 +16,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ estimatedTransfer: null });
     }
 
-    // Find latest job with matching criteria
-    const latestJob = await prisma.job.findFirst({
+    const rate = await prisma.rateTransfer.findUnique({
       where: {
-        jobType,
-        size,
-        pickupLocationId,
-        returnLocationId,
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        pickupFee: true,
-        returnFee: true,
+        jobType_size_pickupLocationId_returnLocationId: {
+          jobType,
+          size,
+          pickupLocationId,
+          returnLocationId,
+        },
       },
     });
 
-    if (!latestJob) {
+    if (!rate) {
       return NextResponse.json({ estimatedTransfer: null });
     }
 
-    const pickupFee = Number(latestJob.pickupFee || 0);
-    const returnFee = Number(latestJob.returnFee || 0);
+    const pickupFee = Number(rate.pickupFee);
+    const returnFee = Number(rate.returnFee);
     const estimatedTransfer = pickupFee + returnFee;
 
     return NextResponse.json({ estimatedTransfer, pickupFee, returnFee });
