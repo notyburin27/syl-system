@@ -107,9 +107,8 @@ export default function ImportCSVModal({
 
   const downloadTemplate = () => {
     const headerRow = headers.join(',')
-    const labelRow = headers.map((h) => headerLabels[h] || h).join(',')
     const example = exampleRow.join(',')
-    const csv = `${headerRow}\n${labelRow}\n${example}`
+    const csv = `${headerRow}\n${example}`
 
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
