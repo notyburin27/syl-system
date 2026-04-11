@@ -9,6 +9,9 @@ interface ImportRow {
   factoryLocationName?: string;
   customerName?: string;
   income?: string;
+  fuelPriceMin?: string;
+  fuelPriceMax?: string;
+  surcharge?: string;
 }
 
 interface ValidationError {
@@ -58,10 +61,36 @@ export async function POST(req: Request) {
       if (row.income == null || row.income === "") errors.push({ row: rowNum, field: "income", message: "กรุณาระบุรายได้" });
       else if (isNaN(Number(row.income))) errors.push({ row: rowNum, field: "income", message: "รายได้ต้องเป็นตัวเลข" });
 
-      const key = `${row.jobType}|${row.size}|${row.factoryLocationName}|${row.customerName}`;
-      const dups = keyCount.get(key);
-      if (dups && dups.length > 1 && dups[0] !== rowNum)
-        errors.push({ row: rowNum, field: "jobType", message: `ข้อมูลซ้ำในไฟล์ (แถว ${dups.join(", ")})` });
+      // ถ้ามี surcharge fields ใด field หนึ่ง ต้องมีครบทั้ง 3
+      const hasSurchargeFields =
+        (row.fuelPriceMin != null && row.fuelPriceMin !== "") ||
+        (row.fuelPriceMax != null && row.fuelPriceMax !== "") ||
+        (row.surcharge != null && row.surcharge !== "");
+
+      if (hasSurchargeFields) {
+        if (row.fuelPriceMin == null || row.fuelPriceMin === "")
+          errors.push({ row: rowNum, field: "fuelPriceMin", message: "กรุณาระบุราคาน้ำมันต่ำสุด" });
+        else if (isNaN(Number(row.fuelPriceMin)))
+          errors.push({ row: rowNum, field: "fuelPriceMin", message: "ราคาน้ำมันต่ำสุดต้องเป็นตัวเลข" });
+
+        if (row.fuelPriceMax == null || row.fuelPriceMax === "")
+          errors.push({ row: rowNum, field: "fuelPriceMax", message: "กรุณาระบุราคาน้ำมันสูงสุด" });
+        else if (isNaN(Number(row.fuelPriceMax)))
+          errors.push({ row: rowNum, field: "fuelPriceMax", message: "ราคาน้ำมันสูงสุดต้องเป็นตัวเลข" });
+
+        if (row.surcharge == null || row.surcharge === "")
+          errors.push({ row: rowNum, field: "surcharge", message: "กรุณาระบุค่าปรับ" });
+        else if (isNaN(Number(row.surcharge)))
+          errors.push({ row: rowNum, field: "surcharge", message: "ค่าปรับต้องเป็นตัวเลข" });
+
+        if (
+          row.fuelPriceMin && row.fuelPriceMax &&
+          !isNaN(Number(row.fuelPriceMin)) && !isNaN(Number(row.fuelPriceMax)) &&
+          Number(row.fuelPriceMin) >= Number(row.fuelPriceMax)
+        ) {
+          errors.push({ row: rowNum, field: "fuelPriceMin", message: "ราคาน้ำมันต่ำสุดต้องน้อยกว่าราคาสูงสุด" });
+        }
+      }
     });
 
     if (validate) {
@@ -73,7 +102,24 @@ export async function POST(req: Request) {
     }
 
     let created = 0;
+    // Group rows by RateIncome key เพื่อ upsert ครั้งเดียวต่อ record
+    const rateIncomeMap = new Map<string, { row: ImportRow; surcharges: ImportRow[] }>();
+
     for (const row of rows) {
+      const key = `${row.jobType}|${row.size}|${row.factoryLocationName}|${row.customerName}`;
+      if (!rateIncomeMap.has(key)) {
+        rateIncomeMap.set(key, { row, surcharges: [] });
+      }
+      const hasSurcharge =
+        row.fuelPriceMin != null && row.fuelPriceMin !== "" &&
+        row.fuelPriceMax != null && row.fuelPriceMax !== "" &&
+        row.surcharge != null && row.surcharge !== "";
+      if (hasSurcharge) {
+        rateIncomeMap.get(key)!.surcharges.push(row);
+      }
+    }
+
+    for (const { row, surcharges } of rateIncomeMap.values()) {
       const factoryLocation = await prisma.location.upsert({
         where: { name: row.factoryLocationName! },
         update: {},
@@ -85,7 +131,7 @@ export async function POST(req: Request) {
         create: { name: row.customerName! },
       });
 
-      await prisma.rateIncome.upsert({
+      const rateIncome = await prisma.rateIncome.upsert({
         where: {
           jobType_size_factoryLocationId_customerId: {
             jobType: row.jobType!,
@@ -103,6 +149,22 @@ export async function POST(req: Request) {
           income: Number(row.income),
         },
       });
+
+      // ถ้ามี surcharge rows → ลบของเดิมทั้งหมดแล้วสร้างใหม่
+      if (surcharges.length > 0) {
+        await prisma.rateIncomeFuelSurcharge.deleteMany({
+          where: { rateIncomeId: rateIncome.id },
+        });
+        await prisma.rateIncomeFuelSurcharge.createMany({
+          data: surcharges.map((s) => ({
+            rateIncomeId: rateIncome.id,
+            fuelPriceMin: Number(s.fuelPriceMin),
+            fuelPriceMax: Number(s.fuelPriceMax),
+            surcharge: Number(s.surcharge),
+          })),
+        });
+      }
+
       created++;
     }
 

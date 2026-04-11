@@ -310,11 +310,42 @@ model RateIncome {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  factoryLocation Location @relation("RateIncomeFactory", fields: [factoryLocationId], references: [id])
-  customer        Customer @relation(fields: [customerId], references: [id])
+  factoryLocation  Location                  @relation("RateIncomeFactory", fields: [factoryLocationId], references: [id])
+  customer         Customer                  @relation(fields: [customerId], references: [id])
+  fuelSurcharges   RateIncomeFuelSurcharge[]
 
   @@unique([jobType, size, factoryLocationId, customerId])
   @@map("rate_income")
+}
+
+// ช่วงราคาน้ำมัน → surcharge เพิ่มจาก income ฐาน (ผูกกับ RateIncome แต่ละ record)
+model RateIncomeFuelSurcharge {
+  id           String  @id @default(cuid())
+  rateIncomeId String
+  fuelPriceMin Decimal @db.Decimal(10, 2) // ราคาน้ำมัน >= (บาท/ลิตร)
+  fuelPriceMax Decimal @db.Decimal(10, 2) // ราคาน้ำมัน < (บาท/ลิตร)
+  surcharge    Decimal @db.Decimal(10, 2) // ค่าเพิ่ม/ลด จากราคาฐาน
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rateIncome RateIncome @relation(fields: [rateIncomeId], references: [id], onDelete: Cascade)
+
+  @@map("rate_income_fuel_surcharge")
+}
+
+// บันทึกราคาน้ำมัน รายวัน
+model FuelPriceLog {
+  id             String   @id @default(cuid())
+  effectiveDate  DateTime @db.Date // วันที่มีผล
+  pricePerLiter  Decimal  @db.Decimal(10, 2) // ราคา บาท/ลิตร
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([effectiveDate])
+  @@index([effectiveDate])
+  @@map("fuel_price_log")
 }
 
 model RateDriverWage {

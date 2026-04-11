@@ -23,7 +23,12 @@ interface ImportCSVModalProps {
   apiEndpoint: string
   headers: string[]
   headerLabels: Record<string, string>
-  exampleRow: string[]
+  /** headers ที่ไม่บังคับ — จะแสดง (optional) ใน template */
+  optionalHeaders?: string[]
+  /** ใช้ exampleRows แทน exampleRow เพื่อรองรับหลายแถวตัวอย่าง */
+  exampleRows?: string[][]
+  /** @deprecated ใช้ exampleRows แทน */
+  exampleRow?: string[]
   templateFileName: string
   onClose: () => void
   onSuccess: () => void
@@ -61,6 +66,8 @@ export default function ImportCSVModal({
   apiEndpoint,
   headers,
   headerLabels,
+  optionalHeaders = [],
+  exampleRows,
   exampleRow,
   templateFileName,
   onClose,
@@ -107,8 +114,8 @@ export default function ImportCSVModal({
 
   const downloadTemplate = () => {
     const headerRow = headers.join(',')
-    const example = exampleRow.join(',')
-    const csv = `${headerRow}\n${example}`
+    const rows = exampleRows ?? (exampleRow ? [exampleRow] : [])
+    const csv = [headerRow, ...rows.map((r) => r.join(','))].join('\n')
 
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -191,11 +198,13 @@ export default function ImportCSVModal({
   ]
 
   const previewColumns = headers.map((header) => ({
-    title: headerLabels[header] || header,
+    title: optionalHeaders.includes(header)
+      ? `${headerLabels[header] || header} (optional)`
+      : headerLabels[header] || header,
     dataIndex: header,
     key: header,
     ellipsis: true,
-    render: (value: unknown) => (value !== undefined && value !== null ? String(value) : '-'),
+    render: (value: unknown) => (value !== undefined && value !== null && value !== '' ? String(value) : '-'),
   }))
 
   const isValid = validated && errors.length === 0

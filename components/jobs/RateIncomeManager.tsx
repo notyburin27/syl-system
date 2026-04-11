@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
+import RateIncomeFuelSurchargeManager from './RateIncomeFuelSurchargeManager'
 import type { Customer, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS } from '@/types/job'
+import { SettingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 
 interface RateIncome {
@@ -31,6 +33,7 @@ export default function RateIncomeManager() {
   const [form] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [surchargeTarget, setSurchargeTarget] = useState<RateIncome | null>(null)
 
   // Filters
   const [filterJobType, setFilterJobType] = useState<string | undefined>()
@@ -123,9 +126,10 @@ export default function RateIncomeManager() {
     { title: 'รายได้', dataIndex: 'income', key: 'income', width: 110, render: (v: number) => Number(v).toLocaleString() },
     { title: 'วันที่สร้าง', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v: string) => dayjs(v).format('DD/MM/YYYY') },
     {
-      title: 'จัดการ', key: 'actions', width: 90,
+      title: 'จัดการ', key: 'actions', width: 120,
       render: (_: unknown, r: RateIncome) => (
         <Space>
+          <Button type="link" size="small" icon={<SettingOutlined />} title="ช่วงราคาน้ำมัน" onClick={() => setSurchargeTarget(r)} />
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
             <Button type="link" size="small" danger icon={<DeleteOutlined />} />
@@ -200,13 +204,26 @@ export default function RateIncomeManager() {
         </Form>
       </Modal>
 
+      <RateIncomeFuelSurchargeManager
+        open={!!surchargeTarget}
+        onClose={() => setSurchargeTarget(null)}
+        rateIncomeId={surchargeTarget?.id ?? ''}
+        rateIncomeLabel={surchargeTarget ? `${surchargeTarget.jobType} / ${surchargeTarget.size} / ${surchargeTarget.factoryLocation.name} / ${surchargeTarget.customer.name}` : ''}
+      />
+
       <ImportCSVModal
         open={importOpen}
         title="Import อัตรารายได้"
         apiEndpoint="/api/rates/income/import"
-        headers={['jobType', 'size', 'factoryLocationName', 'customerName', 'income']}
-        headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', factoryLocationName: 'โรงงาน', customerName: 'ลูกค้า', income: 'รายได้' }}
-        exampleRow={['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '5000']}
+        headers={['jobType', 'size', 'factoryLocationName', 'customerName', 'income', 'fuelPriceMin', 'fuelPriceMax', 'surcharge']}
+        headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', factoryLocationName: 'โรงงาน', customerName: 'ลูกค้า', income: 'รายได้', fuelPriceMin: 'ราคาน้ำมัน ≥', fuelPriceMax: 'ราคาน้ำมัน <', surcharge: 'ค่าปรับ income' }}
+        optionalHeaders={['fuelPriceMin', 'fuelPriceMax', 'surcharge']}
+        exampleRows={[
+          ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '', '', ''],
+          ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '0', '42.50', '0'],
+          ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '42.50', '47.50', '1000'],
+          ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '47.50', '999', '2000'],
+        ]}
         templateFileName="rate_income_template.csv"
         onClose={() => setImportOpen(false)}
         onSuccess={fetchRates}

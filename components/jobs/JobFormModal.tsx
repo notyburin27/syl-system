@@ -303,12 +303,19 @@ export default function JobFormModal({
     const size = form.getFieldValue("size");
     const factoryLocationId = form.getFieldValue("factoryLocationId");
     const customerId = form.getFieldValue("customerId");
+    const jobDateVal = form.getFieldValue("jobDate");
     if (!jobType || !size || !factoryLocationId || !customerId) return;
     try {
       const res = await fetch("/api/jobs/calculate/income", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobType, size, factoryLocationId, customerId }),
+        body: JSON.stringify({
+          jobType,
+          size,
+          factoryLocationId,
+          customerId,
+          jobDate: jobDateVal ? jobDateVal.format?.("YYYY-MM-DD") ?? jobDateVal : undefined,
+        }),
       });
       const data = await res.json();
       if (data.income) {
