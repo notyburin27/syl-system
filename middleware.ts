@@ -4,8 +4,12 @@ import type { NextRequest } from "next/server"
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow login page and API auth routes
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth")) {
+  // Allow login page, API auth routes, and LINE webhook (authenticated by signature)
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/line/webhook")
+  ) {
     return NextResponse.next()
   }
 
@@ -32,6 +36,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public files
      */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*|login).*)",
+    "/((?!api/auth|api/line/webhook|_next/static|_next/image|favicon.ico|.*\\..*|login).*)",
   ],
 }

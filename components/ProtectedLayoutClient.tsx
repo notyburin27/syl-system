@@ -11,6 +11,7 @@ import {
   ShoppingOutlined,
   TruckOutlined,
   DownOutlined,
+  PictureOutlined,
 } from "@ant-design/icons";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -59,6 +60,7 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/jobs/settings/locations")) return "jobs-locations";
     if (pathname?.startsWith("/jobs")) return "jobs-list";
     if (pathname?.startsWith("/transport-documents")) return "documents";
+    if (pathname?.startsWith("/line-images")) return "line-images";
     return "documents";
   };
 
@@ -161,8 +163,20 @@ export default function ProtectedLayoutClient({
           icon: <TeamOutlined />,
           label: <Link href="/admin/users">จัดการผู้ใช้</Link>,
         },
+        {
+          key: "line-images",
+          icon: <PictureOutlined />,
+          label: <Link href="/line-images">รูปภาพ LINE</Link>,
+        },
       ]
-    : [jobsMenu];
+    : [
+        jobsMenu,
+        {
+          key: "line-images",
+          icon: <PictureOutlined />,
+          label: <Link href="/line-images">รูปภาพ LINE</Link>,
+        },
+      ];
 
   return (
     <Layout style={{ minHeight: "100vh" }}>

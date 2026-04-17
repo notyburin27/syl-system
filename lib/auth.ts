@@ -122,8 +122,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return Response.redirect(new URL(defaultPage, nextUrl))
       }
 
-      // Staff can only access /jobs routes
-      if (isStaff && !pathname.startsWith("/jobs") && !pathname.startsWith("/api")) {
+      // Staff can only access /jobs and /line-images routes
+      if (isStaff && !pathname.startsWith("/jobs") && !pathname.startsWith("/line-images") && !pathname.startsWith("/api")) {
         return Response.redirect(new URL("/jobs", nextUrl))
       }
 

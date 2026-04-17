@@ -362,3 +362,22 @@ model RateDriverWage {
   @@unique([jobType, size, factoryLocationId])
   @@map("rate_driver_wage")
 }
+
+// ==================== LINE Bot Module ====================
+
+model LineImage {
+  id                String   @id @default(cuid())
+  imageUrl          String
+  senderId          String
+  senderDisplayName String
+  groupId           String
+  groupName         String
+  sentAt            DateTime
+  messageId         String   @unique
+  createdAt         DateTime @default(now())
+
+  @@index([sentAt])
+  @@index([senderId])
+  @@index([groupId])
+  @@map("line_images")
+}
