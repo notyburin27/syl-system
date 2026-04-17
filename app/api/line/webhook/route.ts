@@ -95,26 +95,27 @@ export async function POST(req: NextRequest) {
 
   const payload = JSON.parse(rawBody) as { events: LineMessageEvent[] }
 
-  for (const event of payload.events) {
-    if (
-      event.type !== "message" ||
-      event.message?.type !== "image" ||
-      event.source.type !== "group" ||
-      !event.source.groupId ||
-      !event.source.userId
-    ) {
-      continue
-    }
+  // กรองเฉพาะ image events จาก group
+  const imageEvents = payload.events.filter(
+    (event) =>
+      event.type === "message" &&
+      event.message?.type === "image" &&
+      event.source.type === "group" &&
+      event.source.groupId &&
+      event.source.userId
+  )
 
-    const groupId = event.source.groupId
-    const userId = event.source.userId
-    const messageId = event.message.id
+  // process ทุกรูปพร้อมกัน (parallel)
+  await Promise.allSettled(
+    imageEvents.map(async (event) => {
+      const groupId = event.source.groupId!
+      const userId = event.source.userId!
+      const messageId = event.message!.id
 
-    // Idempotency check
-    const existing = await prisma.lineImage.findUnique({ where: { messageId } })
-    if (existing) continue
+      // Idempotency check
+      const existing = await prisma.lineImage.findUnique({ where: { messageId } })
+      if (existing) return
 
-    try {
       const [imageBuffer, senderDisplayName, groupName] = await Promise.all([
         downloadLineImage(messageId),
         getSenderDisplayName(userId, groupId),
@@ -134,10 +135,8 @@ export async function POST(req: NextRequest) {
           sentAt: new Date(event.timestamp),
         },
       })
-    } catch (err) {
-      console.error(`Failed to process LINE image messageId=${messageId}:`, err)
-    }
-  }
+    })
+  )
 
   return NextResponse.json({ status: "ok" })
 }
