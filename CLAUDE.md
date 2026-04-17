@@ -46,8 +46,21 @@ prisma/             # Database schema
 
 ## Commands
 ```bash
-npx prisma migrate dev    # Apply schema changes
-npx prisma generate       # Generate Prisma client
-npm run dev               # Start dev server
-npm run build             # Production build
+make dev              # Copy .env.stag → .env.local แล้วรัน dev server
+make dev-prod         # Copy .env.prod → .env.local แล้วรัน dev server
+make migrate-stag     # Push Prisma schema ไป staging DB
+make migrate-prod     # Push Prisma schema ไป production DB
+npx prisma generate   # Generate Prisma client
+npm run build         # Production build
 ```
+
+## Environment Files
+- `.env.stag` — Staging environment (ใช้กับ `make dev`)
+- `.env.prod` — Production environment (ใช้กับ `make dev-prod`)
+- `.env.local` — Auto-generated จาก make commands (ห้าม commit)
+
+## LINE Bot
+- Webhook: `POST /api/line/webhook` (ไม่ต้อง session auth ใช้ LINE signature แทน)
+- รูปภาพถูก upload ขึ้น DigitalOcean Spaces folder `line-images/YYYY-MM/`
+- DB เก็บแค่ URL + metadata (sender, group, timestamp)
+- UI เรียกดูได้ที่ `/line-images` (ทั้ง ADMIN และ STAFF เข้าได้)
