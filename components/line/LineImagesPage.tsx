@@ -30,16 +30,19 @@ export default function LineImagesPage() {
   const [group, setGroup] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/line/senders").then((r) => r.json()),
-      fetch("/api/line/groups").then((r) => r.json()),
-    ])
-      .then(([s, g]) => {
-        setSenders(s)
-        setGroups(g)
-      })
-      .catch(() => message.error("ไม่สามารถโหลดข้อมูลผู้ส่งและกลุ่มได้"))
+    fetch("/api/line/groups")
+      .then((r) => r.json())
+      .then(setGroups)
+      .catch(() => message.error("ไม่สามารถโหลดข้อมูลกลุ่มได้"))
   }, [message])
+
+  useEffect(() => {
+    const params = group ? `?group=${group}` : ""
+    fetch(`/api/line/senders${params}`)
+      .then((r) => r.json())
+      .then(setSenders)
+      .catch(() => message.error("ไม่สามารถโหลดข้อมูลผู้ส่งได้"))
+  }, [group, message])
 
   const fetchImages = useCallback(async () => {
     setLoading(true)
@@ -79,7 +82,7 @@ export default function LineImagesPage() {
         />
         <Select
           value={group}
-          onChange={setGroup}
+          onChange={(val) => { setGroup(val); setSender(undefined) }}
           allowClear
           placeholder="เลือกกลุ่ม"
           style={{ minWidth: 200 }}
