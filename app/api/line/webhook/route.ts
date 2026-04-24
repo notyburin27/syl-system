@@ -50,6 +50,12 @@ async function getSenderDisplayName(userId: string, groupId: string): Promise<st
 }
 
 async function getGroupName(groupId: string): Promise<string> {
+  const existing = await prisma.lineImage.findFirst({
+    where: { groupId, NOT: { groupName: groupId } },
+    select: { groupName: true },
+  })
+  if (existing) return existing.groupName
+
   try {
     const res = await fetch(
       `https://api.line.me/v2/bot/group/${groupId}/summary`,
@@ -59,7 +65,7 @@ async function getGroupName(groupId: string): Promise<string> {
     )
     if (!res.ok) return groupId
     const data = await res.json()
-    return (data.groupName as string) ?? groupId
+    return (data.groupName as string) || groupId
   } catch {
     return groupId
   }
