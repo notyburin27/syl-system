@@ -20,9 +20,6 @@ const nextConfig = {
   // Disable React strict mode
   reactStrictMode: false,
 
-  // Output for production deployment
-  output: 'standalone',
-
   // Webpack configuration to handle bcrypt and optional dependencies
   webpack: (config, { isServer }) => {
     if (!isServer) {
