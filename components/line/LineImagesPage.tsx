@@ -19,6 +19,10 @@ import type { LineImage, LineSender, LineGroup } from "@/types/line"
 
 const { Text } = Typography
 
+function proxyUrl(url: string) {
+  return `/api/line/image-proxy?url=${encodeURIComponent(url)}`
+}
+
 export default function LineImagesPage() {
   const { message } = App.useApp()
   const [images, setImages] = useState<LineImage[]>([])
@@ -122,9 +126,10 @@ export default function LineImagesPage() {
                   <Card
                     cover={
                       <Image
-                        src={img.imageUrl}
+                        src={proxyUrl(img.imageUrl)}
                         alt={img.senderDisplayName}
                         style={{ objectFit: "cover", height: 150, width: "100%" }}
+                        preview={{ src: proxyUrl(img.imageUrl) }}
                       />
                     }
                     size="small"
