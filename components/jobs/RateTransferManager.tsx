@@ -5,7 +5,7 @@ import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Location } from '@/types/job'
-import { JOB_TYPES, SIZE_OPTIONS } from '@/types/job'
+import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
 import dayjs from 'dayjs'
 
 interface RateTransfer {
@@ -117,7 +117,7 @@ export default function RateTransferManager() {
   const locOptions = generalLocations.map(l => ({ value: l.id, label: l.name }))
 
   const columns = [
-    { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110 },
+    { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
     { title: 'สถานที่รับตู้', key: 'pickup', render: (_: unknown, r: RateTransfer) => r.pickupLocation.name },
     { title: 'สถานที่คืนตู้', key: 'return', render: (_: unknown, r: RateTransfer) => r.returnLocation.name },

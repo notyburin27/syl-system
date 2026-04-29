@@ -352,12 +352,12 @@ model RateDriverWage {
   id                String   @id @default(cuid())
   jobType           String
   size              String
-  factoryLocationId String
+  factoryLocationId String?
   driverWage        Decimal  @db.Decimal(10, 2)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  factoryLocation Location @relation("RateDriverWageFactory", fields: [factoryLocationId], references: [id])
+  factoryLocation Location? @relation("RateDriverWageFactory", fields: [factoryLocationId], references: [id])
 
   @@unique([jobType, size, factoryLocationId])
   @@map("rate_driver_wage")

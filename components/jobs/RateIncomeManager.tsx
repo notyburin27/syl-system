@@ -6,7 +6,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutli
 import ImportCSVModal from './ImportCSVModal'
 import RateIncomeFuelSurchargeManager from './RateIncomeFuelSurchargeManager'
 import type { Customer, Location } from '@/types/job'
-import { JOB_TYPES, SIZE_OPTIONS } from '@/types/job'
+import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
 import { SettingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 
@@ -119,10 +119,10 @@ export default function RateIncomeManager() {
   const customerOptions = customers.map(c => ({ value: c.id, label: c.name }))
 
   const columns = [
-    { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110 },
-    { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
-    { title: 'โรงงาน', key: 'factory', render: (_: unknown, r: RateIncome) => r.factoryLocation.name },
     { title: 'ลูกค้า', key: 'customer', render: (_: unknown, r: RateIncome) => r.customer.name },
+    { title: 'โรงงาน', key: 'factory', render: (_: unknown, r: RateIncome) => r.factoryLocation.name },
+    { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
+    { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
     { title: 'รายได้', dataIndex: 'income', key: 'income', width: 110, render: (v: number) => Number(v).toLocaleString() },
     { title: 'วันที่สร้าง', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v: string) => dayjs(v).format('DD/MM/YYYY') },
     {

@@ -22,17 +22,19 @@ export async function POST(req: Request) {
   try {
     const { jobType, size, factoryLocationId, driverWage } = await req.json();
 
-    if (!jobType || !size || !factoryLocationId || driverWage == null) {
+    const isTowing = jobType === "towing";
+    if (!jobType || !size || (!isTowing && !factoryLocationId) || driverWage == null) {
       return NextResponse.json({ error: "กรุณากรอกข้อมูลให้ครบ" }, { status: 400 });
     }
 
-    const existing = await prisma.rateDriverWage.findUnique({
-      where: { jobType_size_factoryLocationId: { jobType, size, factoryLocationId } },
+    const resolvedFactoryId = isTowing ? null : factoryLocationId;
+    const existing = await prisma.rateDriverWage.findFirst({
+      where: { jobType, size, factoryLocationId: resolvedFactoryId === null ? { equals: null } : resolvedFactoryId },
     });
     if (existing) return NextResponse.json({ error: "มีข้อมูลนี้อยู่แล้ว" }, { status: 400 });
 
     const rate = await prisma.rateDriverWage.create({
-      data: { jobType, size, factoryLocationId, driverWage },
+      data: { jobType, size, factoryLocationId: resolvedFactoryId, driverWage },
       include: {
         factoryLocation: { select: { id: true, name: true } },
       },

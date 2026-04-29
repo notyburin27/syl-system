@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     const keyCount = new Map<string, number[]>();
     rows.forEach((r, i) => {
-      const key = `${r.jobType}|${r.size}|${r.factoryLocationName}`;
+      const key = `${r.jobType}|${r.size}|${r.factoryLocationName ?? ""}`;
       const arr = keyCount.get(key) || [];
       arr.push(i + 1);
       keyCount.set(key, arr);
@@ -44,6 +44,8 @@ export async function POST(req: Request) {
 
     rows.forEach((row, index) => {
       const rowNum = index + 1;
+      const isTowing = row.jobType === "towing";
+
       if (!row.jobType) errors.push({ row: rowNum, field: "jobType", message: "กรุณาระบุลักษณะงาน" });
       else if (!JOB_TYPES.some((t) => t.value === row.jobType))
         errors.push({ row: rowNum, field: "jobType", message: `ลักษณะงาน "${row.jobType}" ไม่ถูกต้อง` });
@@ -52,11 +54,11 @@ export async function POST(req: Request) {
       else if (!(SIZE_OPTIONS as readonly string[]).includes(row.size))
         errors.push({ row: rowNum, field: "size", message: `SIZE "${row.size}" ไม่ถูกต้อง` });
 
-      if (!row.factoryLocationName) errors.push({ row: rowNum, field: "factoryLocationName", message: "กรุณาระบุโรงงาน" });
+      if (!isTowing && !row.factoryLocationName) errors.push({ row: rowNum, field: "factoryLocationName", message: "กรุณาระบุโรงงาน" });
       if (row.driverWage == null || row.driverWage === "") errors.push({ row: rowNum, field: "driverWage", message: "กรุณาระบุค่าเที่ยว" });
       else if (isNaN(Number(row.driverWage))) errors.push({ row: rowNum, field: "driverWage", message: "ค่าเที่ยวต้องเป็นตัวเลข" });
 
-      const key = `${row.jobType}|${row.size}|${row.factoryLocationName}`;
+      const key = `${row.jobType}|${row.size}|${row.factoryLocationName ?? ""}`;
       const dups = keyCount.get(key);
       if (dups && dups.length > 1 && dups[0] !== rowNum)
         errors.push({ row: rowNum, field: "jobType", message: `ข้อมูลซ้ำในไฟล์ (แถว ${dups.join(", ")})` });
@@ -72,28 +74,28 @@ export async function POST(req: Request) {
 
     let created = 0;
     for (const row of rows) {
-      const factoryLocation = await prisma.location.upsert({
-        where: { name: row.factoryLocationName! },
-        update: {},
-        create: { name: row.factoryLocationName!, type: "factory" },
-      });
+      const isTowing = row.jobType === "towing";
+      let factoryLocationId: string | null = null;
 
-      await prisma.rateDriverWage.upsert({
-        where: {
-          jobType_size_factoryLocationId: {
-            jobType: row.jobType!,
-            size: row.size!,
-            factoryLocationId: factoryLocation.id,
-          },
-        },
-        update: { driverWage: Number(row.driverWage) },
-        create: {
-          jobType: row.jobType!,
-          size: row.size!,
-          factoryLocationId: factoryLocation.id,
-          driverWage: Number(row.driverWage),
-        },
+      if (!isTowing && row.factoryLocationName) {
+        const factoryLocation = await prisma.location.upsert({
+          where: { name: row.factoryLocationName },
+          update: {},
+          create: { name: row.factoryLocationName, type: "factory" },
+        });
+        factoryLocationId = factoryLocation.id;
+      }
+
+      const existing = await prisma.rateDriverWage.findFirst({
+        where: { jobType: row.jobType!, size: row.size!, factoryLocationId: factoryLocationId === null ? { equals: null } : factoryLocationId },
       });
+      if (existing) {
+        await prisma.rateDriverWage.update({ where: { id: existing.id }, data: { driverWage: Number(row.driverWage) } });
+      } else {
+        await prisma.rateDriverWage.create({
+          data: { jobType: row.jobType!, size: row.size!, factoryLocationId, driverWage: Number(row.driverWage) },
+        });
+      }
       created++;
     }
 

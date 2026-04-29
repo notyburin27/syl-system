@@ -11,7 +11,7 @@ export async function GET() {
       factoryLocation: { select: { id: true, name: true } },
       customer: { select: { id: true, name: true } },
     },
-    orderBy: [{ jobType: "asc" }, { size: "asc" }],
+    orderBy: [{ customer: { name: "asc" } }, { factoryLocation: { name: "asc" } }, { jobType: "asc" }, { size: "asc" }],
   });
   return NextResponse.json(rates);
 }
