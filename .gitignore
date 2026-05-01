@@ -5,8 +5,8 @@ node_modules
 
 # Testing
 /coverage
-cypress/videos
-cypress/screenshots
+/playwright-report
+/test-results
 
 # Next.js
 /.next/
@@ -36,6 +36,7 @@ yarn-error.log*
 .env.production.local
 .env.stag
 .env.prod
+.env.test
 
 # Vercel
 .vercel

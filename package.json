@@ -10,9 +10,10 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "cypress:open": "cypress open",
-    "cypress:run": "cypress run",
-    "test:e2e": "start-server-and-test start http://localhost:3000 cypress:run"
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@ant-design/cssinjs": "^2.0.1",
@@ -40,12 +41,12 @@
     "zod": "^3.22.0"
   },
   "devDependencies": {
-    "cypress": "^15.12.0",
+    "@playwright/test": "^1.59.1",
+    "dotenv": "^17.4.2",
     "eslint": "^8.57.0",
     "eslint-config-next": "^15.0.0",
     "ignore-loader": "^0.1.2",
     "prisma": "^7.5.0",
-    "start-server-and-test": "^2.1.5",
     "tsx": "^4.0.0"
   }
 }
