@@ -6,8 +6,7 @@ import { JOB_TYPES, SIZE_OPTIONS } from "@/types/job";
 interface ImportRow {
   jobType?: string;
   size?: string;
-  pickupLocationName?: string;
-  returnLocationName?: string;
+  locationName?: string;
   pickupFee?: string;
   returnFee?: string;
 }
@@ -39,7 +38,7 @@ export async function POST(req: Request) {
     // Check duplicates within file
     const keyCount = new Map<string, number[]>();
     rows.forEach((r, i) => {
-      const key = `${r.jobType}|${r.size}|${r.pickupLocationName}|${r.returnLocationName}`;
+      const key = `${r.jobType}|${r.size}|${r.locationName}`;
       const arr = keyCount.get(key) || [];
       arr.push(i + 1);
       keyCount.set(key, arr);
@@ -55,14 +54,13 @@ export async function POST(req: Request) {
       else if (!(SIZE_OPTIONS as readonly string[]).includes(row.size))
         errors.push({ row: rowNum, field: "size", message: `SIZE "${row.size}" ไม่ถูกต้อง` });
 
-      if (!row.pickupLocationName) errors.push({ row: rowNum, field: "pickupLocationName", message: "กรุณาระบุสถานที่รับตู้" });
-      if (!row.returnLocationName) errors.push({ row: rowNum, field: "returnLocationName", message: "กรุณาระบุสถานที่คืนตู้" });
+      if (!row.locationName) errors.push({ row: rowNum, field: "locationName", message: "กรุณาระบุสถานที่" });
       if (row.pickupFee == null || row.pickupFee === "") errors.push({ row: rowNum, field: "pickupFee", message: "กรุณาระบุค่ารับตู้" });
       else if (isNaN(Number(row.pickupFee))) errors.push({ row: rowNum, field: "pickupFee", message: "ค่ารับตู้ต้องเป็นตัวเลข" });
       if (row.returnFee == null || row.returnFee === "") errors.push({ row: rowNum, field: "returnFee", message: "กรุณาระบุค่าคืนตู้" });
       else if (isNaN(Number(row.returnFee))) errors.push({ row: rowNum, field: "returnFee", message: "ค่าคืนตู้ต้องเป็นตัวเลข" });
 
-      const key = `${row.jobType}|${row.size}|${row.pickupLocationName}|${row.returnLocationName}`;
+      const key = `${row.jobType}|${row.size}|${row.locationName}`;
       const dups = keyCount.get(key);
       if (dups && dups.length > 1 && dups[0] !== rowNum)
         errors.push({ row: rowNum, field: "jobType", message: `ข้อมูลซ้ำในไฟล์ (แถว ${dups.join(", ")})` });
@@ -76,35 +74,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ valid: false, errors, totalRows: rows.length }, { status: 400 });
     }
 
-    // Resolve/create locations and insert rates
     let created = 0;
     for (const row of rows) {
-      const pickupLocation = await prisma.location.upsert({
-        where: { name: row.pickupLocationName! },
+      const location = await prisma.location.upsert({
+        where: { name: row.locationName! },
         update: {},
-        create: { name: row.pickupLocationName!, type: "general" },
-      });
-      const returnLocation = await prisma.location.upsert({
-        where: { name: row.returnLocationName! },
-        update: {},
-        create: { name: row.returnLocationName!, type: "general" },
+        create: { name: row.locationName!, type: "general" },
       });
 
       await prisma.rateTransfer.upsert({
         where: {
-          jobType_size_pickupLocationId_returnLocationId: {
+          jobType_size_locationId: {
             jobType: row.jobType!,
             size: row.size!,
-            pickupLocationId: pickupLocation.id,
-            returnLocationId: returnLocation.id,
+            locationId: location.id,
           },
         },
         update: { pickupFee: Number(row.pickupFee), returnFee: Number(row.returnFee) },
         create: {
           jobType: row.jobType!,
           size: row.size!,
-          pickupLocationId: pickupLocation.id,
-          returnLocationId: returnLocation.id,
+          locationId: location.id,
           pickupFee: Number(row.pickupFee),
           returnFee: Number(row.returnFee),
         },

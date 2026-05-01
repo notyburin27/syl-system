@@ -18,8 +18,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { id },
       data: { pickupFee, returnFee },
       include: {
-        pickupLocation: { select: { id: true, name: true } },
-        returnLocation: { select: { id: true, name: true } },
+        location: { select: { id: true, name: true } },
       },
     });
     return NextResponse.json(rate);

@@ -8,8 +8,7 @@ export async function GET() {
 
   const rates = await prisma.rateTransfer.findMany({
     include: {
-      pickupLocation: { select: { id: true, name: true } },
-      returnLocation: { select: { id: true, name: true } },
+      location: { select: { id: true, name: true } },
     },
     orderBy: [{ jobType: "asc" }, { size: "asc" }],
   });
@@ -21,22 +20,21 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { jobType, size, pickupLocationId, returnLocationId, pickupFee, returnFee } = await req.json();
+    const { jobType, size, locationId, pickupFee, returnFee } = await req.json();
 
-    if (!jobType || !size || !pickupLocationId || !returnLocationId || pickupFee == null || returnFee == null) {
+    if (!jobType || !size || !locationId || pickupFee == null || returnFee == null) {
       return NextResponse.json({ error: "กรุณากรอกข้อมูลให้ครบ" }, { status: 400 });
     }
 
     const existing = await prisma.rateTransfer.findUnique({
-      where: { jobType_size_pickupLocationId_returnLocationId: { jobType, size, pickupLocationId, returnLocationId } },
+      where: { jobType_size_locationId: { jobType, size, locationId } },
     });
     if (existing) return NextResponse.json({ error: "มีข้อมูลนี้อยู่แล้ว" }, { status: 400 });
 
     const rate = await prisma.rateTransfer.create({
-      data: { jobType, size, pickupLocationId, returnLocationId, pickupFee, returnFee },
+      data: { jobType, size, locationId, pickupFee, returnFee },
       include: {
-        pickupLocation: { select: { id: true, name: true } },
-        returnLocation: { select: { id: true, name: true } },
+        location: { select: { id: true, name: true } },
       },
     });
     return NextResponse.json(rate, { status: 201 });

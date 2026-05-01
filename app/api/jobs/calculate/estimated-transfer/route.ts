@@ -10,32 +10,26 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { jobType, size, pickupLocationId, returnLocationId } = body;
+    const { jobType, size, locationId } = body;
 
-    if (!jobType || !size || !pickupLocationId || !returnLocationId) {
-      return NextResponse.json({ estimatedTransfer: null });
+    if (!jobType || !size || !locationId) {
+      return NextResponse.json({ pickupFee: null, returnFee: null });
     }
 
     const rate = await prisma.rateTransfer.findUnique({
       where: {
-        jobType_size_pickupLocationId_returnLocationId: {
-          jobType,
-          size,
-          pickupLocationId,
-          returnLocationId,
-        },
+        jobType_size_locationId: { jobType, size, locationId },
       },
     });
 
     if (!rate) {
-      return NextResponse.json({ estimatedTransfer: null });
+      return NextResponse.json({ pickupFee: null, returnFee: null });
     }
 
-    const pickupFee = Number(rate.pickupFee);
-    const returnFee = Number(rate.returnFee);
-    const estimatedTransfer = pickupFee + returnFee;
-
-    return NextResponse.json({ estimatedTransfer, pickupFee, returnFee });
+    return NextResponse.json({
+      pickupFee: Number(rate.pickupFee),
+      returnFee: Number(rate.returnFee),
+    });
   } catch (error) {
     console.error("Error calculating estimated transfer:", error);
     return NextResponse.json(

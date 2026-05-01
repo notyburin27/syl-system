@@ -12,13 +12,11 @@ interface RateTransfer {
   id: string
   jobType: string
   size: string
-  pickupLocationId: string
-  returnLocationId: string
+  locationId: string
   pickupFee: number
   returnFee: number
   createdAt: string
-  pickupLocation: { id: string; name: string }
-  returnLocation: { id: string; name: string }
+  location: { id: string; name: string }
 }
 
 export default function RateTransferManager() {
@@ -35,8 +33,7 @@ export default function RateTransferManager() {
   // Filters
   const [filterJobType, setFilterJobType] = useState<string | undefined>()
   const [filterSize, setFilterSize] = useState<string | undefined>()
-  const [filterPickup, setFilterPickup] = useState<string | undefined>()
-  const [filterReturn, setFilterReturn] = useState<string | undefined>()
+  const [filterLocation, setFilterLocation] = useState<string | undefined>()
 
   const fetchRates = useCallback(async () => {
     setLoading(true)
@@ -59,10 +56,9 @@ export default function RateTransferManager() {
   const filteredRates = useMemo(() => rates.filter(r => {
     if (filterJobType && r.jobType !== filterJobType) return false
     if (filterSize && r.size !== filterSize) return false
-    if (filterPickup && r.pickupLocationId !== filterPickup) return false
-    if (filterReturn && r.returnLocationId !== filterReturn) return false
+    if (filterLocation && r.locationId !== filterLocation) return false
     return true
-  }), [rates, filterJobType, filterSize, filterPickup, filterReturn])
+  }), [rates, filterJobType, filterSize, filterLocation])
 
   const handleOpenModal = (rate?: RateTransfer) => {
     if (rate) {
@@ -100,14 +96,14 @@ export default function RateTransferManager() {
   }
 
   const handleExport = () => {
-    const headers = ['jobType', 'size', 'pickupLocationName', 'returnLocationName', 'pickupFee', 'returnFee']
-    const labels = ['ลักษณะงาน', 'SIZE', 'สถานที่รับตู้', 'สถานที่คืนตู้', 'ค่ารับตู้', 'ค่าคืนตู้']
+    const headers = ['jobType', 'size', 'locationName', 'pickupFee', 'returnFee']
+    const labels = ['ลักษณะงาน', 'SIZE', 'สถานที่', 'ค่ารับตู้', 'ค่าคืนตู้']
     const rows = filteredRates.map(r => [
-      r.jobType, r.size, r.pickupLocation.name, r.returnLocation.name,
+      r.jobType, r.size, r.location.name,
       Number(r.pickupFee), Number(r.returnFee),
     ])
     const csv = [headers.join(','), labels.join(','), ...rows.map(r => r.join(','))].join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url; link.download = 'rate_transfer.csv'; link.click()
@@ -119,8 +115,7 @@ export default function RateTransferManager() {
   const columns = [
     { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
-    { title: 'สถานที่รับตู้', key: 'pickup', render: (_: unknown, r: RateTransfer) => r.pickupLocation.name },
-    { title: 'สถานที่คืนตู้', key: 'return', render: (_: unknown, r: RateTransfer) => r.returnLocation.name },
+    { title: 'สถานที่', key: 'location', render: (_: unknown, r: RateTransfer) => r.location.name },
     { title: 'ค่ารับตู้', dataIndex: 'pickupFee', key: 'pickupFee', width: 100, render: (v: number) => Number(v).toLocaleString() },
     { title: 'ค่าคืนตู้', dataIndex: 'returnFee', key: 'returnFee', width: 100, render: (v: number) => Number(v).toLocaleString() },
     { title: 'วันที่สร้าง', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v: string) => dayjs(v).format('DD/MM/YYYY') },
@@ -161,14 +156,9 @@ export default function RateTransferManager() {
             value={filterSize} onChange={setFilterSize} />
         </Col>
         <Col>
-          <Select allowClear showSearch placeholder="สถานที่รับตู้" style={{ width: 180 }}
+          <Select allowClear showSearch placeholder="สถานที่" style={{ width: 180 }}
             options={locOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
-            value={filterPickup} onChange={setFilterPickup} popupMatchSelectWidth={false} />
-        </Col>
-        <Col>
-          <Select allowClear showSearch placeholder="สถานที่คืนตู้" style={{ width: 180 }}
-            options={locOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
-            value={filterReturn} onChange={setFilterReturn} popupMatchSelectWidth={false} />
+            value={filterLocation} onChange={setFilterLocation} popupMatchSelectWidth={false} />
         </Col>
       </Row>
 
@@ -189,11 +179,8 @@ export default function RateTransferManager() {
               <Form.Item name="size" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
                 <Select showSearch options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
               </Form.Item>
-              <Form.Item name="pickupLocationId" label="สถานที่รับตู้" rules={[{ required: true, message: 'กรุณาเลือกสถานที่รับตู้' }]}>
-                <Select showSearch options={locOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกสถานที่รับตู้" popupMatchSelectWidth={false} />
-              </Form.Item>
-              <Form.Item name="returnLocationId" label="สถานที่คืนตู้" rules={[{ required: true, message: 'กรุณาเลือกสถานที่คืนตู้' }]}>
-                <Select showSearch options={locOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกสถานที่คืนตู้" popupMatchSelectWidth={false} />
+              <Form.Item name="locationId" label="สถานที่" rules={[{ required: true, message: 'กรุณาเลือกสถานที่' }]}>
+                <Select showSearch options={locOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกสถานที่" popupMatchSelectWidth={false} />
               </Form.Item>
             </>
           )}
@@ -210,9 +197,9 @@ export default function RateTransferManager() {
         open={importOpen}
         title="Import อัตราคาดการณ์โอน"
         apiEndpoint="/api/rates/transfer/import"
-        headers={['jobType', 'size', 'pickupLocationName', 'returnLocationName', 'pickupFee', 'returnFee']}
-        headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', pickupLocationName: 'สถานที่รับตู้', returnLocationName: 'สถานที่คืนตู้', pickupFee: 'ค่ารับตู้', returnFee: 'ค่าคืนตู้' }}
-        exampleRow={['ขาเข้า', '20DC', 'ท่าเรือแหลมฉบัง', 'ท่าเรือแหลมฉบัง', '500', '500']}
+        headers={['jobType', 'size', 'locationName', 'pickupFee', 'returnFee']}
+        headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', locationName: 'สถานที่', pickupFee: 'ค่ารับตู้', returnFee: 'ค่าคืนตู้' }}
+        exampleRow={['ขาเข้า', '20DC', 'ท่าเรือแหลมฉบัง', '500', '500']}
         templateFileName="rate_transfer_template.csv"
         onClose={() => setImportOpen(false)}
         onSuccess={fetchRates}

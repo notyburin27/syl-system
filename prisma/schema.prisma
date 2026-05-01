@@ -207,12 +207,11 @@ model Location {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  pickupJobs           Job[]           @relation("PickupLocation")
-  factoryJobs          Job[]           @relation("FactoryLocation")
-  returnJobs           Job[]           @relation("ReturnLocation")
-  rateTransferPickup   RateTransfer[]  @relation("RateTransferPickup")
-  rateTransferReturn   RateTransfer[]  @relation("RateTransferReturn")
-  rateIncomeFactory    RateIncome[]    @relation("RateIncomeFactory")
+  pickupJobs            Job[]           @relation("PickupLocation")
+  factoryJobs           Job[]           @relation("FactoryLocation")
+  returnJobs            Job[]           @relation("ReturnLocation")
+  rateTransfers         RateTransfer[]  @relation("RateTransferLocation")
+  rateIncomeFactory     RateIncome[]    @relation("RateIncomeFactory")
   rateDriverWageFactory RateDriverWage[] @relation("RateDriverWageFactory")
 
   @@index([name])
@@ -283,20 +282,18 @@ model Job {
 // ==================== Rate Tables ====================
 
 model RateTransfer {
-  id               String   @id @default(cuid())
-  jobType          String
-  size             String
-  pickupLocationId String
-  returnLocationId String
-  pickupFee        Decimal  @db.Decimal(10, 2)
-  returnFee        Decimal  @db.Decimal(10, 2)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id         String   @id @default(cuid())
+  jobType    String
+  size       String
+  locationId String
+  pickupFee  Decimal  @db.Decimal(10, 2)
+  returnFee  Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  pickupLocation Location @relation("RateTransferPickup", fields: [pickupLocationId], references: [id])
-  returnLocation Location @relation("RateTransferReturn", fields: [returnLocationId], references: [id])
+  location Location @relation("RateTransferLocation", fields: [locationId], references: [id])
 
-  @@unique([jobType, size, pickupLocationId, returnLocationId])
+  @@unique([jobType, size, locationId])
   @@map("rate_transfer")
 }
 
