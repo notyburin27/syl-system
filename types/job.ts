@@ -54,6 +54,8 @@ export interface Job {
   estimatedTransfer?: number | null; // computed, not stored
   income: number | null;
   driverWage: number | null;
+  estimatedPickupFee: number | null;
+  estimatedReturnFee: number | null;
   actualTransfer: number | null;
   advance: number | null;
   toll: number | null;

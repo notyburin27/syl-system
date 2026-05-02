@@ -41,6 +41,8 @@ export async function PATCH(
       "returnLocationId",
       "income",
       "driverWage",
+      "estimatedPickupFee",
+      "estimatedReturnFee",
       "actualTransfer",
       "advance",
       "toll",

@@ -10,6 +10,7 @@ import {
   UnlockOutlined,
   ArrowLeftOutlined,
   ImportOutlined,
+  DownloadOutlined,
   LoadingOutlined,
   CheckOutlined,
   CheckCircleOutlined,
@@ -98,6 +99,28 @@ export default function EditableJobTable({
   const [formModalJob, setFormModalJob] = useState<Job | null>(null)
 
   const [clearingId, setClearingId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams({ driverId, driverName, month, vehicleNumber: vehicleNumber ?? '' })
+      const res = await fetch(`/api/jobs/export?${params}`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const namePart = vehicleNumber ? `${driverName} ${vehicleNumber}` : driverName
+      a.download = `รายการงานวิ่ง - ${namePart} - ${month}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      message.error('เกิดข้อผิดพลาดในการ export')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // Save status indicator
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -428,6 +451,8 @@ export default function EditableJobTable({
 
   // Computed fields
   const computeDriverOverall = (row: RowData) => {
+    const hasAny = row.advance || row.toll || row.pickupFee || row.returnFee || row.liftFee || row.storageFee || row.tire || row.other
+    if (!hasAny) return null
     return (
       Number(row.advance || 0) +
       Number(row.toll || 0) +
@@ -442,7 +467,9 @@ export default function EditableJobTable({
 
   const computeDifference = (row: RowData) => {
     if (!row.actualTransfer) return null
-    return computeDriverOverall(row) - Number(row.actualTransfer)
+    const overall = computeDriverOverall(row)
+    if (overall === null) return null
+    return overall - Number(row.actualTransfer)
   }
 
   const computeTotal = (row: RowData) => {
@@ -667,16 +694,6 @@ export default function EditableJobTable({
     {
       title: 'การเงินหลัก',
       children: [
-        {
-          title: 'คาดการณ์โอน',
-          dataIndex: 'estimatedTransfer',
-          key: 'estimatedTransfer',
-          width: 120,
-          render: (_: unknown, row: RowData) =>
-            renderCell(row, 'estimatedTransfer', 'number', undefined, {
-              disabled: true,
-            }),
-        },
         ...(isAdmin
           ? [
               {
@@ -702,7 +719,7 @@ export default function EditableJobTable({
             ]
           : []),
         {
-          title: 'ยอดโอนจริง',
+          title: 'ยอดโอนครั้งแรก',
           dataIndex: 'actualTransfer',
           key: 'actualTransfer',
           width: 120,
@@ -904,6 +921,9 @@ export default function EditableJobTable({
               บันทึกล้มเหลว
             </span>
           )}
+          <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>
+            Export Excel
+          </Button>
           <Button data-testid="import-csv-btn" icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
             Import CSV
           </Button>

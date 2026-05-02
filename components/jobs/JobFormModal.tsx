@@ -130,6 +130,13 @@ export default function JobFormModal({
       setSaveStatus("idle");
       setClearStatus(mode === "edit" && job ? !!job.clearStatus : false);
       if (mode === "edit" && job) {
+        const estimatedPickup = job.estimatedPickupFee ?? undefined
+        const estimatedReturn = job.estimatedReturnFee ?? undefined
+        const estimated = estimatedPickup != null && estimatedReturn != null
+          ? Number(estimatedPickup) + Number(estimatedReturn)
+          : estimatedPickup != null ? Number(estimatedPickup)
+          : estimatedReturn != null ? Number(estimatedReturn)
+          : undefined
         form.setFieldsValue({
           jobNumber: job.jobNumber,
           jobDate: job.jobDate ? dayjs(job.jobDate) : null,
@@ -141,6 +148,9 @@ export default function JobFormModal({
           returnLocationId: job.returnLocationId || undefined,
           income: job.income,
           driverWage: job.driverWage,
+          estimatedPickupFee: estimatedPickup,
+          estimatedReturnFee: estimatedReturn,
+          estimatedTransfer: estimated,
           actualTransfer: job.actualTransfer,
           advance: job.advance,
           toll: job.toll,
@@ -194,6 +204,8 @@ export default function JobFormModal({
     const numberFields = [
       "income",
       "driverWage",
+      "estimatedPickupFee",
+      "estimatedReturnFee",
       "actualTransfer",
       "advance",
       "toll",
@@ -261,35 +273,45 @@ export default function JobFormModal({
     }
   };
 
-  const prefillEstimatedTransfer = async () => {
+  const prefillEstimatedTransfer = async (trigger?: "pickupLocationId" | "returnLocationId" | "size" | "jobType") => {
     const jobType = form.getFieldValue("jobType");
     const size = form.getFieldValue("size");
+    if (!jobType || !size) return;
+
     const pickupLocationId = form.getFieldValue("pickupLocationId");
     const returnLocationId = form.getFieldValue("returnLocationId");
-    if (!jobType || !size || !pickupLocationId || !returnLocationId) return;
+    if (!pickupLocationId && !returnLocationId) return;
+
+    // ถ้า trigger จาก pickupLocationId ให้ยิงเฉพาะ pickup
+    // ถ้า trigger จาก returnLocationId ให้ยิงเฉพาะ return
+    // ถ้า trigger จาก size/jobType ให้ยิงทั้งคู่ที่มีค่า
+    const sendPickup = trigger === "pickupLocationId" || trigger === "size" || trigger === "jobType" ? pickupLocationId : undefined;
+    const sendReturn = trigger === "returnLocationId" || trigger === "size" || trigger === "jobType" ? returnLocationId : undefined;
+
+    if (!sendPickup && !sendReturn) return;
+
     try {
       const res = await fetch("/api/jobs/calculate/estimated-transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobType, size, pickupLocationId, returnLocationId }),
+        body: JSON.stringify({ jobType, size, pickupLocationId: sendPickup, returnLocationId: sendReturn }),
       });
       const data = await res.json();
-      if (data.estimatedTransfer) {
-        form.setFieldsValue({
-          estimatedTransfer: data.estimatedTransfer,
-          pickupFee: data.pickupFee || undefined,
-          returnFee: data.returnFee || undefined,
-        });
-        // prefill actualTransfer if empty
-        const currentActual = form.getFieldValue("actualTransfer");
-        if (currentActual === undefined || currentActual === null || String(currentActual).trim() === "") {
-          form.setFieldValue("actualTransfer", data.estimatedTransfer);
-          if (isCreated) await handleFieldBlur("actualTransfer");
-        }
+      const feeUpdates: Record<string, number | undefined> = {};
+      if (sendPickup && data.pickupFee !== null) feeUpdates.estimatedPickupFee = data.pickupFee;
+      if (sendReturn && data.returnFee !== null) feeUpdates.estimatedReturnFee = data.returnFee;
+
+      if (Object.keys(feeUpdates).length > 0) {
+        form.setFieldsValue(feeUpdates);
+        const currentPickup = feeUpdates.estimatedPickupFee ?? Number(form.getFieldValue("estimatedPickupFee") || 0);
+        const currentReturn = feeUpdates.estimatedReturnFee ?? Number(form.getFieldValue("estimatedReturnFee") || 0);
+        const estimated = currentPickup + currentReturn;
+        form.setFieldsValue({ estimatedTransfer: estimated, actualTransfer: estimated });
         if (isCreated) {
           await Promise.all([
-            handleFieldBlur("pickupFee"),
-            handleFieldBlur("returnFee"),
+            "estimatedPickupFee" in feeUpdates ? handleFieldBlur("estimatedPickupFee") : Promise.resolve(),
+            "estimatedReturnFee" in feeUpdates ? handleFieldBlur("estimatedReturnFee") : Promise.resolve(),
+            handleFieldBlur("actualTransfer"),
           ]);
         }
       }
@@ -330,8 +352,9 @@ export default function JobFormModal({
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
     const size = form.getFieldValue("size");
-    const factoryLocationId = form.getFieldValue("factoryLocationId");
-    if (!jobType || !size || !factoryLocationId) return;
+    const factoryLocationId = form.getFieldValue("factoryLocationId") ?? null;
+    if (!jobType || !size) return;
+    if (jobType !== "towing" && !factoryLocationId) return;
     try {
       const res = await fetch("/api/jobs/calculate/driver-wage", {
         method: "POST",
@@ -508,14 +531,7 @@ export default function JobFormModal({
         open={open}
         onCancel={onClose}
         footer={
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
               {saveStatus === "saving" && (
                 <span style={{ color: "#1890ff", fontSize: 13 }}>
                   <LoadingOutlined style={{ marginRight: 4 }} />
@@ -533,9 +549,25 @@ export default function JobFormModal({
                   บันทึกล้มเหลว
                 </span>
               )}
+              {!isAdvance && activeJob && (
+                <Button
+                  data-testid="job-clear-status-btn"
+                  type="default"
+                  size="small"
+                  icon={clearing ? <LoadingOutlined /> : clearStatus ? <UnlockOutlined /> : <CheckCircleOutlined />}
+                  disabled={clearing || (!isAdmin && clearStatus)}
+                  onClick={async () => {
+                    setClearing(true);
+                    await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
+                    setClearStatus((prev) => !prev);
+                    handleSaveStatus("saved");
+                    setClearing(false);
+                  }}
+                >
+                  {clearStatus ? "ปลดล็อค" : "เคลียร์"}
+                </Button>
+              )}
             </div>
-            <Button data-testid="job-form-close-btn" onClick={onClose}>ปิด</Button>
-          </div>
         }
         width="100%"
         destroyOnHidden
@@ -589,7 +621,7 @@ export default function JobFormModal({
                     options={JOB_TYPES.map((t) => ({ value: t.value, label: t.label }))}
                     onChange={() => {
                       if (isCreated) setTimeout(() => handleFieldBlur("jobType"), 0);
-                      setTimeout(() => prefillEstimatedTransfer(), 0);
+                      setTimeout(() => prefillEstimatedTransfer("jobType"), 0);
                       setTimeout(() => prefillIncome(), 0);
                     }}
                   />
@@ -661,7 +693,7 @@ export default function JobFormModal({
                       SIZE_OPTIONS.map((s) => ({ value: s, label: s })),
                       undefined,
                       isAdvance,
-                      [prefillEstimatedTransfer, prefillIncome, prefillDriverWage],
+                      [() => prefillEstimatedTransfer("size"), prefillIncome, prefillDriverWage],
                     )}
                   </Form.Item>
                 </Col>
@@ -672,7 +704,7 @@ export default function JobFormModal({
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "pickupLocationId"),
                       isAdvance,
-                      [prefillEstimatedTransfer, prefillIncome],
+                      [() => prefillEstimatedTransfer("pickupLocationId"), prefillIncome],
                     )}
                   </Form.Item>
                 </Col>
@@ -694,7 +726,7 @@ export default function JobFormModal({
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "returnLocationId"),
                       isAdvance,
-                      [prefillEstimatedTransfer, prefillIncome],
+                      [() => prefillEstimatedTransfer("returnLocationId"), prefillIncome],
                     )}
                   </Form.Item>
                 </Col>
@@ -709,6 +741,16 @@ export default function JobFormModal({
 
               <Row gutter={12}>
                 <Col span={3}>
+                  <Form.Item label="คาดการณ์ค่ารับตู้" name="estimatedPickupFee">
+                    <Input disabled styles={{ input: { textAlign: "right" } }} />
+                  </Form.Item>
+                </Col>
+                <Col span={3}>
+                  <Form.Item label="คาดการณ์ค่าคืนตู้" name="estimatedReturnFee">
+                    <Input disabled styles={{ input: { textAlign: "right" } }} />
+                  </Form.Item>
+                </Col>
+                <Col span={3}>
                   <Form.Item label="คาดการณ์โอน" name="estimatedTransfer">
                     <Input
                       disabled
@@ -717,7 +759,7 @@ export default function JobFormModal({
                   </Form.Item>
                 </Col>
                 <Col span={3}>
-                  {numberInput("actualTransfer", "ยอดโอนจริง", isAdvance)}
+                  {numberInput("actualTransfer", "ยอดโอนครั้งแรก", isAdvance)}
                 </Col>
                 <Col span={3}>
                   <Form.Item label="ส่วนต่าง">
@@ -725,7 +767,7 @@ export default function JobFormModal({
                       disabled
                       styles={{ input: { textAlign: "right" } }}
                       value={
-                        !watchActualTransfer
+                        !watchActualTransfer || !driverOverall
                           ? "-"
                           : difference > 0
                             ? `+${Math.round(difference)}`
@@ -747,27 +789,6 @@ export default function JobFormModal({
                     </Col>
                   </>
                 )}
-                {!isAdvance && activeJob && (
-                  <Col span={3}>
-                    <Form.Item label="สถานะ">
-                      <Button
-                        data-testid="job-clear-status-btn"
-                        type="link"
-                        size="small"
-                        icon={clearing ? <LoadingOutlined /> : clearStatus ? <UnlockOutlined /> : <CheckCircleOutlined />}
-                        disabled={clearing || (!isAdmin && clearStatus)}
-                        title={clearStatus ? "ปลดล็อค" : "เคลียร์"}
-                        onClick={async () => {
-                          setClearing(true);
-                          await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
-                          setClearStatus((prev) => !prev);
-                          handleSaveStatus("saved");
-                          setClearing(false);
-                        }}
-                      />
-                    </Form.Item>
-                  </Col>
-                )}
               </Row>
               <Row gutter={12}>
                 <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance)}</Col>
@@ -785,7 +806,7 @@ export default function JobFormModal({
                 <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance)}</Col>
                 <Col span={3}>
                   <Form.Item label="รวมคนรถปิดงาน">
-                    <Input disabled styles={{ input: { textAlign: "right" } }} value={driverOverall || undefined} />
+                    <Input disabled styles={{ input: { textAlign: "right" } }} value={driverOverall || "-"} />
                   </Form.Item>
                 </Col>
               </Row>

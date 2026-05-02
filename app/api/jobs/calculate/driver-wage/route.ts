@@ -12,17 +12,15 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { jobType, size, factoryLocationId } = body;
 
-    if (!jobType || !size || !factoryLocationId) {
+    if (!jobType || !size) {
       return NextResponse.json({ driverWage: null });
     }
 
-    const rate = await prisma.rateDriverWage.findUnique({
+    const rate = await prisma.rateDriverWage.findFirst({
       where: {
-        jobType_size_factoryLocationId: {
-          jobType,
-          size,
-          factoryLocationId,
-        },
+        jobType,
+        size,
+        factoryLocationId: factoryLocationId ?? null,
       },
     });
 

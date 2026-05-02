@@ -65,7 +65,7 @@ const CSV_HEADER_LABELS: Record<string, string> = {
   estimatedTransfer: 'คาดการณ์โอน',
   income: 'รายได้',
   driverWage: 'ค่าเที่ยวคนขับรถ',
-  actualTransfer: 'ยอดโอนจริง',
+  actualTransfer: 'ยอดโอนครั้งแรก',
   advance: 'เบิกล่วงหน้า',
   toll: 'ค่าทางด่วน',
   pickupFee: 'ค่ารับตู้',

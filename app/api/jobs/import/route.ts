@@ -313,7 +313,6 @@ export async function POST(req: Request) {
             returnLocationId: row.returnLocationName
               ? locationMap.get(row.returnLocationName)?.id || null
               : null,
-            estimatedTransfer: row.estimatedTransfer ?? 0,
             income: row.income ?? 0,
             driverWage: row.driverWage ?? 0,
             actualTransfer:
