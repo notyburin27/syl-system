@@ -130,9 +130,9 @@ export default function RateDriverWageManager() {
       title: 'จัดการ', key: 'actions', width: 90,
       render: (_: unknown, r: RateDriverWage) => (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} />
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} data-testid={`rate-driver-wage-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} data-testid={`rate-driver-wage-delete-btn-${r.id}`} />
           </Popconfirm>
         </Space>
       ),
@@ -146,7 +146,7 @@ export default function RateDriverWageManager() {
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>เพิ่ม</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="rate-driver-wage-add-btn">เพิ่ม</Button>
         </Space>
       </div>
 
@@ -180,21 +180,21 @@ export default function RateDriverWageManager() {
           {!editingRate && (
             <>
               <Form.Item name="jobType" label="ลักษณะงาน" rules={[{ required: true, message: 'กรุณาเลือกลักษณะงาน' }]}>
-                <Select showSearch options={DRIVER_WAGE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน"
+                <Select id="rate-driver-wage-job-type" showSearch options={DRIVER_WAGE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน"
                   onChange={(v) => { setSelectedJobType(v); form.setFieldsValue({ factoryLocationId: undefined, size: undefined }) }} />
               </Form.Item>
               <Form.Item name="size" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
-                <Select showSearch options={getSizeOptions(selectedJobType).map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
+                <Select id="rate-driver-wage-size" showSearch options={getSizeOptions(selectedJobType).map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
               </Form.Item>
               {selectedJobType !== TOWING_JOB_TYPE && (
                 <Form.Item name="factoryLocationId" label="โรงงาน" rules={[{ required: true, message: 'กรุณาเลือกโรงงาน' }]}>
-                  <Select showSearch options={factoryOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกโรงงาน" popupMatchSelectWidth={false} />
+                  <Select id="rate-driver-wage-factory" showSearch options={factoryOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกโรงงาน" popupMatchSelectWidth={false} />
                 </Form.Item>
               )}
             </>
           )}
           <Form.Item name="driverWage" label="ค่าเที่ยว" rules={[{ required: true, message: 'กรุณากรอกค่าเที่ยว' }]}>
-            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" data-testid="rate-driver-wage-amount-input" />
           </Form.Item>
         </Form>
       </Modal>

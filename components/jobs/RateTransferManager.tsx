@@ -123,9 +123,9 @@ export default function RateTransferManager() {
       title: 'จัดการ', key: 'actions', width: 90,
       render: (_: unknown, r: RateTransfer) => (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} />
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} data-testid={`rate-transfer-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} data-testid={`rate-transfer-delete-btn-${r.id}`} />
           </Popconfirm>
         </Space>
       ),
@@ -139,14 +139,14 @@ export default function RateTransferManager() {
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>เพิ่ม</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="rate-transfer-add-btn">เพิ่ม</Button>
         </Space>
       </div>
 
       {/* Filter bar */}
       <Row gutter={8} style={{ marginBottom: 12 }}>
         <Col>
-          <Select allowClear placeholder="ลักษณะงาน" style={{ width: 130 }}
+          <Select id="rate-transfer-filter-job-type" allowClear placeholder="ลักษณะงาน" style={{ width: 130 }}
             options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))}
             value={filterJobType} onChange={setFilterJobType} />
         </Col>
@@ -174,21 +174,21 @@ export default function RateTransferManager() {
           {!editingRate && (
             <>
               <Form.Item name="jobType" label="ลักษณะงาน" rules={[{ required: true, message: 'กรุณาเลือกลักษณะงาน' }]}>
-                <Select showSearch options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน" />
+                <Select id="rate-transfer-job-type" showSearch options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน" />
               </Form.Item>
               <Form.Item name="size" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
-                <Select showSearch options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
+                <Select id="rate-transfer-size" showSearch options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
               </Form.Item>
               <Form.Item name="locationId" label="สถานที่" rules={[{ required: true, message: 'กรุณาเลือกสถานที่' }]}>
-                <Select showSearch options={locOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกสถานที่" popupMatchSelectWidth={false} />
+                <Select id="rate-transfer-location" showSearch options={locOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกสถานที่" popupMatchSelectWidth={false} />
               </Form.Item>
             </>
           )}
           <Form.Item name="pickupFee" label="ค่ารับตู้" rules={[{ required: true, message: 'กรุณากรอกค่ารับตู้' }]}>
-            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" data-testid="rate-transfer-pickup-fee-input" />
           </Form.Item>
           <Form.Item name="returnFee" label="ค่าคืนตู้" rules={[{ required: true, message: 'กรุณากรอกค่าคืนตู้' }]}>
-            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" data-testid="rate-transfer-return-fee-input" />
           </Form.Item>
         </Form>
       </Modal>

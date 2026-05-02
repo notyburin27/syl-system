@@ -111,9 +111,9 @@ export default function FuelPriceLogManager() {
       width: 90,
       render: (_: unknown, r: FuelPriceLog) => (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} />
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} data-testid={`fuel-price-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} data-testid={`fuel-price-delete-btn-${r.id}`} />
           </Popconfirm>
         </Space>
       ),
@@ -124,7 +124,7 @@ export default function FuelPriceLogManager() {
     <>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>บันทึกราคาน้ำมัน</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>เพิ่ม</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="fuel-price-add-btn">เพิ่ม</Button>
       </div>
 
       <Table columns={columns} dataSource={logs} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20 }} />
@@ -137,13 +137,13 @@ export default function FuelPriceLogManager() {
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item name="effectiveDate" label="วันที่มีผล" rules={[{ required: true, message: 'กรุณาเลือกวันที่' }]}>
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="เลือกวันที่" />
+            <DatePicker id="fuel-price-effective-date" style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="เลือกวันที่" />
           </Form.Item>
           <Form.Item name="pricePerLiter" label="ราคาน้ำมัน (บาท/ลิตร)" rules={[{ required: true, message: 'กรุณากรอกราคาน้ำมัน' }]}>
-            <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="0.00" />
+            <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="0.00" data-testid="fuel-price-per-liter-input" />
           </Form.Item>
           <Form.Item name="note" label="หมายเหตุ">
-            <Input placeholder="หมายเหตุ (ถ้ามี)" />
+            <Input placeholder="หมายเหตุ (ถ้ามี)" data-testid="fuel-price-note-input" />
           </Form.Item>
         </Form>
       </Modal>

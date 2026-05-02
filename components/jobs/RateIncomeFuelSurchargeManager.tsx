@@ -116,9 +116,9 @@ export default function RateIncomeFuelSurchargeManager({
       width: 90,
       render: (_: unknown, r: Surcharge) => (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenForm(r)} />
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenForm(r)} data-testid={`surcharge-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} data-testid={`surcharge-delete-btn-${r.id}`} />
           </Popconfirm>
         </Space>
       ),
@@ -138,7 +138,7 @@ export default function RateIncomeFuelSurchargeManager({
           {rateIncomeLabel}
         </Typography.Text>
         <div style={{ marginBottom: 12, textAlign: 'right' }}>
-          <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleOpenForm()}>เพิ่มช่วงราคา</Button>
+          <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleOpenForm()} data-testid="surcharge-add-btn">เพิ่มช่วงราคา</Button>
         </div>
         <Table
           columns={columns}
@@ -169,21 +169,21 @@ export default function RateIncomeFuelSurchargeManager({
             label="ราคาน้ำมัน ≥ (บาท/ลิตร)"
             rules={[{ required: true, message: 'กรุณากรอกราคาต่ำสุด' }]}
           >
-            <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="เช่น 30.00" />
+            <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="เช่น 30.00" data-testid="surcharge-fuel-min-input" />
           </Form.Item>
           <Form.Item
             name="fuelPriceMax"
             label="ราคาน้ำมัน < (บาท/ลิตร)"
             rules={[{ required: true, message: 'กรุณากรอกราคาสูงสุด' }]}
           >
-            <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="เช่น 35.00" />
+            <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="เช่น 35.00" data-testid="surcharge-fuel-max-input" />
           </Form.Item>
           <Form.Item
             name="surcharge"
             label="ค่าปรับ income (บาท) — ใส่ - หากลดราคา"
             rules={[{ required: true, message: 'กรุณากรอกค่าปรับ' }]}
           >
-            <InputNumber style={{ width: '100%' }} step={100} placeholder="เช่น 500 หรือ -200" />
+            <InputNumber style={{ width: '100%' }} step={100} placeholder="เช่น 500 หรือ -200" data-testid="surcharge-amount-input" />
           </Form.Item>
         </Form>
       </Modal>

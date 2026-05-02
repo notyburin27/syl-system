@@ -129,10 +129,10 @@ export default function RateIncomeManager() {
       title: 'จัดการ', key: 'actions', width: 120,
       render: (_: unknown, r: RateIncome) => (
         <Space>
-          <Button type="link" size="small" icon={<SettingOutlined />} title="ช่วงราคาน้ำมัน" onClick={() => setSurchargeTarget(r)} />
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} />
+          <Button type="link" size="small" icon={<SettingOutlined />} title="ช่วงราคาน้ำมัน" onClick={() => setSurchargeTarget(r)} data-testid={`rate-income-surcharge-btn-${r.id}`} />
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} data-testid={`rate-income-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} data-testid={`rate-income-delete-btn-${r.id}`} />
           </Popconfirm>
         </Space>
       ),
@@ -146,7 +146,7 @@ export default function RateIncomeManager() {
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>เพิ่ม</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="rate-income-add-btn">เพิ่ม</Button>
         </Space>
       </div>
 
@@ -185,21 +185,21 @@ export default function RateIncomeManager() {
           {!editingRate && (
             <>
               <Form.Item name="jobType" label="ลักษณะงาน" rules={[{ required: true, message: 'กรุณาเลือกลักษณะงาน' }]}>
-                <Select showSearch options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน" />
+                <Select id="rate-income-job-type" showSearch options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน" />
               </Form.Item>
               <Form.Item name="size" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
-                <Select showSearch options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
+                <Select id="rate-income-size" showSearch options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
               </Form.Item>
               <Form.Item name="factoryLocationId" label="โรงงาน" rules={[{ required: true, message: 'กรุณาเลือกโรงงาน' }]}>
-                <Select showSearch options={factoryOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกโรงงาน" popupMatchSelectWidth={false} />
+                <Select id="rate-income-factory" showSearch options={factoryOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกโรงงาน" popupMatchSelectWidth={false} />
               </Form.Item>
               <Form.Item name="customerId" label="ลูกค้า" rules={[{ required: true, message: 'กรุณาเลือกลูกค้า' }]}>
-                <Select showSearch options={customerOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกลูกค้า" popupMatchSelectWidth={false} />
+                <Select id="rate-income-customer" showSearch options={customerOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกลูกค้า" popupMatchSelectWidth={false} />
               </Form.Item>
             </>
           )}
           <Form.Item name="income" label="รายได้" rules={[{ required: true, message: 'กรุณากรอกรายได้' }]}>
-            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" data-testid="rate-income-amount-input" />
           </Form.Item>
         </Form>
       </Modal>
