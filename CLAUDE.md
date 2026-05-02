@@ -59,6 +59,20 @@ npm run build         # Production build
 - `.env.prod` — Production environment (ใช้กับ `make dev-prod`)
 - `.env.local` — Auto-generated จาก make commands (ห้าม commit)
 
+## E2E Testing (Playwright)
+
+### data-testid กับ antd components
+- **Button, Input**: ใส่ `data-testid` โดยตรงได้ → `<Button data-testid="...">`
+- **Modal**: อย่าใส่ `data-testid` บน `<Modal>` เพราะ antd render root div อยู่ตลอดแม้ `open={false}` ทำให้ `toBeVisible()` fail ให้ใช้ `page.getByRole('dialog')` แทน
+- **DatePicker**: ใส่ `id` prop → `<DatePicker id="my-picker">` แล้ว test ใช้ `page.locator('#my-picker')` (antd render `id` ลงบน input โดยตรง)
+- **Select**: ใส่ `id` prop → `<Select id="my-select">` แล้ว test ใช้ `page.locator('#my-select')` (antd render `id` ลงบน hidden input โดยตรง, click ที่ selector ได้เลย)
+- **อย่าครอบ DatePicker/Select ด้วย `<div data-testid>`** เพราะ click บน div ไม่ส่ง focus ไปยัง antd form store ทำให้ validation fail เงียบๆ
+
+### แนวทางทั่วไป
+- ใช้ `getByTestId` สำหรับ elements ที่ role/text ไม่ unique หรือ selector เปราะ (antd class)
+- ใช้ `getByRole` + `name` สำหรับปุ่มที่มีข้อความชัดเจน
+- ใช้ `getByPlaceholder` สำหรับ input ที่มี placeholder
+
 ## LINE Bot
 - Webhook: `POST /api/line/webhook` (ไม่ต้อง session auth ใช้ LINE signature แทน)
 - รูปภาพถูก upload ขึ้น DigitalOcean Spaces folder `line-images/YYYY-MM/`

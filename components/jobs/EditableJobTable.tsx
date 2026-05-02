@@ -879,7 +879,7 @@ export default function EditableJobTable({
       {/* Header */}
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => router.push('/jobs')}>
+          <Button data-testid="back-to-jobs-btn" icon={<ArrowLeftOutlined />} onClick={() => router.push('/jobs')}>
             กลับ
           </Button>
           <h2 style={{ margin: 0 }}>
@@ -904,11 +904,12 @@ export default function EditableJobTable({
               บันทึกล้มเหลว
             </span>
           )}
-          <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
+          <Button data-testid="import-csv-btn" icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
             Import CSV
           </Button>
           {!editMode && (
             <Button
+              data-testid="toggle-modal-edit-btn"
               type="primary"
               icon={<FormOutlined />}
               onClick={() => {
@@ -924,6 +925,7 @@ export default function EditableJobTable({
           {!modalEditMode && (
             // TODO: เปิดใช้งานเมื่อพร้อม
             <Button
+              data-testid="toggle-table-edit-btn"
               type="primary"
               icon={<EditOutlined />}
               disabled
@@ -977,7 +979,7 @@ export default function EditableJobTable({
       {/* Add Row Button */}
       {editMode && (
         <div style={{ marginTop: 12 }}>
-          <Button icon={<PlusOutlined />} onClick={handleAddRow} type="dashed" block>
+          <Button data-testid="add-row-btn" icon={<PlusOutlined />} onClick={handleAddRow} type="dashed" block>
             เพิ่ม row
           </Button>
         </div>
@@ -985,6 +987,7 @@ export default function EditableJobTable({
       {modalEditMode && (
         <div style={{ marginTop: 12 }}>
           <Button
+            data-testid="add-job-btn"
             icon={<PlusOutlined />}
             type="dashed"
             block

@@ -179,6 +179,7 @@ export default function DriverManager() {
         render: (_: unknown, account: DriverBankAccount) => (
           <Space>
             <Button
+              data-testid={`edit-bank-btn-${account.id}`}
               type="link"
               size="small"
               icon={<EditOutlined />}
@@ -191,7 +192,7 @@ export default function DriverManager() {
               okText="ลบ"
               cancelText="ยกเลิก"
             >
-              <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+              <Button data-testid={`delete-bank-btn-${account.id}`} type="link" size="small" danger icon={<DeleteOutlined />} />
             </Popconfirm>
           </Space>
         ),
@@ -202,7 +203,7 @@ export default function DriverManager() {
       <div>
         <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <strong>บัญชีธนาคาร</strong>
-          <Button size="small" icon={<PlusOutlined />} onClick={() => handleOpenBankModal(record.id)}>
+          <Button data-testid={`add-bank-btn-${record.id}`} size="small" icon={<PlusOutlined />} onClick={() => handleOpenBankModal(record.id)}>
             เพิ่มบัญชี
           </Button>
         </div>
@@ -252,6 +253,7 @@ export default function DriverManager() {
       render: (_: unknown, record: Driver) => (
         <Space>
           <Button
+            data-testid={`edit-driver-btn-${record.id}`}
             type="link"
             size="small"
             icon={<EditOutlined />}
@@ -264,7 +266,7 @@ export default function DriverManager() {
             okText="ลบ"
             cancelText="ยกเลิก"
           >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            <Button data-testid={`delete-driver-btn-${record.id}`} type="link" size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
       ),
@@ -276,19 +278,20 @@ export default function DriverManager() {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>จัดการคนขับรถ</h2>
         <Space>
-          <Button icon={<ImportOutlined />} onClick={() => setImportDriverOpen(true)}>
+          <Button data-testid="import-driver-btn" icon={<ImportOutlined />} onClick={() => setImportDriverOpen(true)}>
             Import คนขับ
           </Button>
-          <Button icon={<ImportOutlined />} onClick={() => setImportBankOpen(true)}>
+          <Button data-testid="import-bank-btn" icon={<ImportOutlined />} onClick={() => setImportBankOpen(true)}>
             Import บัญชีธนาคาร
           </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
+          <Button data-testid="add-driver-btn" type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
             เพิ่มคนขับ
           </Button>
         </Space>
       </div>
 
       <Table
+        data-testid="drivers-table"
         columns={columns}
         dataSource={drivers}
         rowKey="id"
@@ -313,13 +316,13 @@ export default function DriverManager() {
             label="ชื่อคนขับ"
             rules={[{ required: true, message: 'กรุณากรอกชื่อคนขับ' }]}
           >
-            <Input placeholder="ชื่อคนขับ" />
+            <Input data-testid="driver-name-input" placeholder="ชื่อคนขับ" />
           </Form.Item>
           <Form.Item name="vehicleNumber" label="เบอร์รถ">
-            <Input placeholder="เบอร์รถ" />
+            <Input data-testid="driver-vehicle-number-input" placeholder="เบอร์รถ" />
           </Form.Item>
           <Form.Item name="vehicleRegistration" label="ทะเบียนรถ">
-            <Input placeholder="ทะเบียนรถ" />
+            <Input data-testid="driver-vehicle-registration-input" placeholder="ทะเบียนรถ" />
           </Form.Item>
         </Form>
       </Modal>
@@ -369,21 +372,21 @@ export default function DriverManager() {
             label="ชื่อธนาคาร"
             rules={[{ required: true, message: 'กรุณากรอกชื่อธนาคาร' }]}
           >
-            <Input placeholder="เช่น กสิกร, กรุงเทพ, ไทยพาณิชย์" />
+            <Input data-testid="bank-name-input" placeholder="เช่น กสิกร, กรุงเทพ, ไทยพาณิชย์" />
           </Form.Item>
           <Form.Item
             name="accountNo"
             label="เลขบัญชี"
             rules={[{ required: true, message: 'กรุณากรอกเลขบัญชี' }]}
           >
-            <Input placeholder="เลขบัญชี" />
+            <Input data-testid="bank-account-no-input" placeholder="เลขบัญชี" />
           </Form.Item>
           <Form.Item
             name="accountName"
             label="ชื่อบัญชี"
             rules={[{ required: true, message: 'กรุณากรอกชื่อบัญชี' }]}
           >
-            <Input placeholder="ชื่อบัญชี" />
+            <Input data-testid="bank-account-name-input" placeholder="ชื่อบัญชี" />
           </Form.Item>
         </Form>
       </Modal>

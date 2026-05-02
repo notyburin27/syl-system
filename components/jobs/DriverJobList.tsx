@@ -52,6 +52,7 @@ export default function DriverJobList() {
         <h1 style={{ margin: 0, fontSize: 24 }}>รายการงานขนส่ง</h1>
         <div style={{ display: 'flex', gap: 12 }}>
           <Input
+            data-testid="driver-search-input"
             placeholder="ค้นหาชื่อคนขับ"
             prefix={<SearchOutlined />}
             value={searchText}
@@ -59,35 +60,38 @@ export default function DriverJobList() {
             allowClear
             style={{ width: 200 }}
           />
-          <DatePicker
-            picker="month"
-            value={month}
-            onChange={(val) => val && setMonth(val)}
-            format="MMMM YYYY"
-            allowClear={false}
-            style={{ width: 200 }}
-          />
+          <div data-testid="month-picker">
+            <DatePicker
+              picker="month"
+              value={month}
+              onChange={(val) => val && setMonth(val)}
+              format="MMMM YYYY"
+              allowClear={false}
+              style={{ width: 200 }}
+            />
+          </div>
         </div>
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60 }}>
-          <Spin size="large" />
+          <Spin size="large" data-testid="jobs-loading" />
         </div>
       ) : filteredSummaries.length === 0 ? (
         <Empty description={summaries.length === 0 ? 'ไม่มีข้อมูลคนขับ' : 'ไม่พบคนขับที่ค้นหา'} />
       ) : (
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} data-testid="driver-cards-list">
           {filteredSummaries.map((s) => (
             <Col xs={24} sm={12} md={8} lg={6} key={s.driverId}>
               <Card
                 hoverable
+                data-testid={`driver-card-${s.driverId}`}
                 onClick={() => handleCardClick(s.driverId)}
                 styles={{ body: { padding: 20 } }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                   <TruckOutlined style={{ fontSize: 24, color: '#1890ff' }} />
-                  <span style={{ fontSize: 18, fontWeight: 500 }}>
+                  <span data-testid={`driver-card-name-${s.driverId}`} style={{ fontSize: 18, fontWeight: 500 }}>
                     {s.driverName}{s.vehicleNumber ? ` (${s.vehicleNumber})` : ''}
                   </span>
                 </div>
@@ -97,6 +101,7 @@ export default function DriverJobList() {
                       title="งาน"
                       value={s.jobCount}
                       valueStyle={{ fontSize: 20 }}
+                      data-testid={`driver-card-job-count-${s.driverId}`}
                     />
                   </Col>
                   <Col span={16}>
@@ -106,6 +111,7 @@ export default function DriverJobList() {
                       precision={2}
                       valueStyle={{ fontSize: 16 }}
                       suffix="฿"
+                      data-testid={`driver-card-total-transfer-${s.driverId}`}
                     />
                   </Col>
                 </Row>

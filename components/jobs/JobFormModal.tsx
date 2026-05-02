@@ -534,7 +534,7 @@ export default function JobFormModal({
                 </span>
               )}
             </div>
-            <Button onClick={onClose}>ปิด</Button>
+            <Button data-testid="job-form-close-btn" onClick={onClose}>ปิด</Button>
           </div>
         }
         width="100%"
@@ -551,15 +551,16 @@ export default function JobFormModal({
                 rules={[{ required: !isCreated && mode === "create", message: "กรุณาเลือกวันที่" }]}
               >
                 <DatePicker
-                  format="DD/MM/YYYY"
-                  style={{ width: "100%" }}
-                  disabled={(mode === "edit" && !isCreated) || isCleared}
-                  onChange={() => {
-                    if (isCreated) {
-                      setTimeout(() => handleFieldBlur("jobDate"), 0);
-                    }
-                  }}
-                />
+                    id="job-date-picker"
+                    format="DD/MM/YYYY"
+                    style={{ width: "100%" }}
+                    disabled={(mode === "edit" && !isCreated) || isCleared}
+                    onChange={() => {
+                      if (isCreated) {
+                        setTimeout(() => handleFieldBlur("jobDate"), 0);
+                      }
+                    }}
+                  />
               </Form.Item>
             </Col>
             <Col span={3}>
@@ -574,23 +575,24 @@ export default function JobFormModal({
                 ]}
               >
                 <Select
-                  showSearch
-                  allowClear
-                  disabled={isCleared}
-                  popupMatchSelectWidth={false}
-                  styles={{ popup: { root: { minWidth: 200 } } }}
-                  filterOption={(input, option) =>
-                    ((option?.label as string) ?? "")
-                      .toLowerCase()
-                      .includes(input.toLowerCase())
-                  }
-                  options={JOB_TYPES.map((t) => ({ value: t.value, label: t.label }))}
-                  onChange={() => {
-                    if (isCreated) setTimeout(() => handleFieldBlur("jobType"), 0);
-                    setTimeout(() => prefillEstimatedTransfer(), 0);
-                    setTimeout(() => prefillIncome(), 0);
-                  }}
-                />
+                    id="job-type-select"
+                    showSearch
+                    allowClear
+                    disabled={isCleared}
+                    popupMatchSelectWidth={false}
+                    styles={{ popup: { root: { minWidth: 200 } } }}
+                    filterOption={(input, option) =>
+                      ((option?.label as string) ?? "")
+                        .toLowerCase()
+                        .includes(input.toLowerCase())
+                    }
+                    options={JOB_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+                    onChange={() => {
+                      if (isCreated) setTimeout(() => handleFieldBlur("jobType"), 0);
+                      setTimeout(() => prefillEstimatedTransfer(), 0);
+                      setTimeout(() => prefillIncome(), 0);
+                    }}
+                  />
               </Form.Item>
             </Col>
             <Col span={3}>
@@ -599,7 +601,7 @@ export default function JobFormModal({
                 name="jobNumber"
                 rules={[{ required: !isCreated && mode === "create" && !isAdvance, message: "กรุณากรอก JOB/เลขที่" }]}
               >
-                <Input disabled={mode === "edit" || isAdvance} />
+                <Input id="jobNumber" data-testid="job-number-input" disabled={mode === "edit" || isAdvance} />
               </Form.Item>
             </Col>
             {mode === "create" && !isCreated && isAdvance && (
@@ -613,6 +615,7 @@ export default function JobFormModal({
               <Col span={3}>
                 <Form.Item label=" ">
                   <Button
+                    data-testid="job-create-btn"
                     type="primary"
                     loading={saving}
                     onClick={async () => {
@@ -748,6 +751,7 @@ export default function JobFormModal({
                   <Col span={3}>
                     <Form.Item label="สถานะ">
                       <Button
+                        data-testid="job-clear-status-btn"
                         type="link"
                         size="small"
                         icon={clearing ? <LoadingOutlined /> : clearStatus ? <UnlockOutlined /> : <CheckCircleOutlined />}

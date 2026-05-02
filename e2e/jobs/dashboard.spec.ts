@@ -45,21 +45,20 @@ test.describe.serial('Jobs Dashboard — Driver Card', () => {
     await expect(page.getByText('จัดการคนขับรถ')).toBeVisible()
 
     // 2. เปิด modal เพิ่มคนขับ
-    await page.getByRole('button', { name: 'เพิ่มคนขับ' }).click()
+    await page.getByTestId('add-driver-btn').click()
 
     // 3. กรอกชื่อ เบอร์รถ ทะเบียนรถ และ submit
     const modal = page.getByRole('dialog')
     await expect(modal).toBeVisible()
-    await modal.getByPlaceholder('ชื่อคนขับ').fill(DRIVER_NAME)
-    await modal.getByPlaceholder('เบอร์รถ').fill(VEHICLE_NUMBER)
-    await modal.getByPlaceholder('ทะเบียนรถ').fill(VEHICLE_REGISTRATION)
+    await page.getByTestId('driver-name-input').fill(DRIVER_NAME)
+    await page.getByTestId('driver-vehicle-number-input').fill(VEHICLE_NUMBER)
+    await page.getByTestId('driver-vehicle-registration-input').fill(VEHICLE_REGISTRATION)
     await modal.getByRole('button', { name: 'เพิ่ม' }).click()
 
     // 4. ตรวจ success message
     await expect(page.getByText('เพิ่มคนขับสำเร็จ')).toBeVisible({ timeout: 5_000 })
 
     // 5. ไปหน้า /jobs และตรวจว่า card ปรากฏพร้อมเบอร์รถ
-    // card แสดง: "{driverName} ({vehicleNumber})"
     await page.goto('/jobs')
     await expect(page.getByText(`${DRIVER_NAME} (${VEHICLE_NUMBER})`)).toBeVisible({ timeout: 10_000 })
   })
@@ -79,37 +78,37 @@ test.describe.serial('Jobs Dashboard — Driver Card', () => {
     await expect(page.getByText(DRIVER_NAME)).toBeVisible({ timeout: 5_000 })
 
     // 3. เปิด modal edit mode
-    await page.getByRole('button', { name: 'เปิดการแก้ไขแบบรายการ' }).click()
-    await expect(page.getByRole('button', { name: 'เพิ่มงานใหม่' })).toBeVisible()
+    await page.getByTestId('toggle-modal-edit-btn').click()
+    await expect(page.getByTestId('add-job-btn')).toBeVisible()
 
     // 4. เปิด job create modal
-    await page.getByRole('button', { name: 'เพิ่มงานใหม่' }).click()
+    await page.getByTestId('add-job-btn').click()
     const jobModal = page.getByRole('dialog')
     await expect(jobModal).toBeVisible()
 
     // 5a. กรอกวันที่ — คลิกวันนี้ใน calendar
-    await jobModal.locator('.ant-picker').click()
+    await page.locator('#job-date-picker').click()
     await page.locator(`.ant-picker-cell[title="${dayjs().format('YYYY-MM-DD')}"]`).click()
 
     // 5b. เลือกลักษณะงาน — ขาเข้า
-    await jobModal.locator('.ant-select-selector').first().click()
+    await page.locator('#job-type-select').click()
     await page.getByRole('option', { name: 'ขาเข้า' }).click()
 
     // 5c. กรอก JOB/เลขที่
     await page.locator('#jobNumber').fill(JOB_NUMBER)
 
     // 6. สร้าง job
-    await jobModal.getByRole('button', { name: 'สร้าง' }).click()
+    await page.getByTestId('job-create-btn').click()
     // หลัง create สำเร็จ: isCreated=true → field "ลูกค้า" ปรากฏ, ปุ่ม "สร้าง" หายไป
     await expect(jobModal.getByText('ลูกค้า')).toBeVisible({ timeout: 5_000 })
 
     // 7. ปิด modal
-    await jobModal.getByRole('button', { name: 'ปิด' }).click()
+    await page.getByTestId('job-form-close-btn').click()
     await expect(jobModal).not.toBeVisible()
 
     // 8. ไปหน้า /jobs และตรวจ card + jobCount ≥ 1
     await page.goto('/jobs')
-    const driverCard = page.locator('.ant-card').filter({ hasText: `${DRIVER_NAME} (${VEHICLE_NUMBER})` })
+    const driverCard = page.getByTestId(`driver-card-${driverId}`)
     await expect(driverCard).toBeVisible({ timeout: 10_000 })
 
     const jobCountEl = driverCard
@@ -118,7 +117,7 @@ test.describe.serial('Jobs Dashboard — Driver Card', () => {
     await expect(jobCountEl).not.toHaveText('0')
 
     // 9. เปลี่ยน month picker ไปเดือนที่ไม่มีงาน (ม.ค. 2025)
-    const monthPicker = page.locator('.ant-picker')
+    const monthPicker = page.getByTestId('month-picker')
     const summary1 = page.waitForResponse(
       (resp) => resp.url().includes('/api/jobs/summary') && resp.url().includes('month=2025-01') && resp.status() === 200,
     )
