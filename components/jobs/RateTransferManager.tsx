@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
@@ -26,6 +26,7 @@ export default function RateTransferManager() {
   const [locations, setLocations] = useState<Location[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRate, setEditingRate] = useState<RateTransfer | null>(null)
+  const [copyingRate, setCopyingRate] = useState(false)
   const [form] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -63,11 +64,26 @@ export default function RateTransferManager() {
   const handleOpenModal = (rate?: RateTransfer) => {
     if (rate) {
       setEditingRate(rate)
+      setCopyingRate(false)
       form.setFieldsValue({ pickupFee: Number(rate.pickupFee), returnFee: Number(rate.returnFee) })
     } else {
       setEditingRate(null)
+      setCopyingRate(false)
       form.resetFields()
     }
+    setModalOpen(true)
+  }
+
+  const handleCopy = (rate: RateTransfer) => {
+    setEditingRate(null)
+    setCopyingRate(true)
+    form.resetFields()
+    form.setFieldsValue({
+      jobType: rate.jobType,
+      locationId: rate.locationId,
+      pickupFee: Number(rate.pickupFee),
+      returnFee: Number(rate.returnFee),
+    })
     setModalOpen(true)
   }
 
@@ -113,9 +129,9 @@ export default function RateTransferManager() {
   const locOptions = generalLocations.map(l => ({ value: l.id, label: l.name }))
 
   const columns = [
+    { title: 'สถานที่', key: 'location', render: (_: unknown, r: RateTransfer) => r.location.name },
     { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
-    { title: 'สถานที่', key: 'location', render: (_: unknown, r: RateTransfer) => r.location.name },
     { title: 'ค่ารับตู้', dataIndex: 'pickupFee', key: 'pickupFee', width: 100, render: (v: number) => Number(v).toLocaleString() },
     { title: 'ค่าคืนตู้', dataIndex: 'returnFee', key: 'returnFee', width: 100, render: (v: number) => Number(v).toLocaleString() },
     { title: 'วันที่สร้าง', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v: string) => dayjs(v).format('DD/MM/YYYY') },
@@ -123,6 +139,7 @@ export default function RateTransferManager() {
       title: 'จัดการ', key: 'actions', width: 90,
       render: (_: unknown, r: RateTransfer) => (
         <Space>
+          <Button type="link" size="small" icon={<CopyOutlined />} title="คัดลอก" onClick={() => handleCopy(r)} data-testid={`rate-transfer-copy-btn-${r.id}`} />
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} data-testid={`rate-transfer-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
             <Button type="link" size="small" danger icon={<DeleteOutlined />} data-testid={`rate-transfer-delete-btn-${r.id}`} />
@@ -165,10 +182,11 @@ export default function RateTransferManager() {
       <Table columns={columns} dataSource={filteredRates} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20 }} />
 
       <Modal
-        title={editingRate ? 'แก้ไขอัตราคาดการณ์โอน' : 'เพิ่มอัตราคาดการณ์โอน'}
+        title={editingRate ? 'แก้ไขอัตราคาดการณ์โอน' : copyingRate ? 'คัดลอกอัตราคาดการณ์โอน' : 'เพิ่มอัตราคาดการณ์โอน'}
         open={modalOpen} onCancel={() => setModalOpen(false)}
         onOk={() => form.submit()} confirmLoading={submitLoading}
         okText={editingRate ? 'บันทึก' : 'เพิ่ม'} cancelText="ยกเลิก"
+        afterClose={() => setCopyingRate(false)}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {!editingRate && (

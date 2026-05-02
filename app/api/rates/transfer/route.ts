@@ -10,7 +10,7 @@ export async function GET() {
     include: {
       location: { select: { id: true, name: true } },
     },
-    orderBy: [{ jobType: "asc" }, { size: "asc" }],
+    orderBy: [{ location: { name: "asc" } }, { jobType: "asc" }, { size: "asc" }],
   });
   return NextResponse.json(rates);
 }

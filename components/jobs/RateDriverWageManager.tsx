@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
@@ -34,6 +34,7 @@ export default function RateDriverWageManager() {
   const [locations, setLocations] = useState<Location[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRate, setEditingRate] = useState<RateDriverWage | null>(null)
+  const [copyingRate, setCopyingRate] = useState(false)
   const [form] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -72,13 +73,28 @@ export default function RateDriverWageManager() {
   const handleOpenModal = (rate?: RateDriverWage) => {
     if (rate) {
       setEditingRate(rate)
+      setCopyingRate(false)
       setSelectedJobType(rate.jobType)
       form.setFieldsValue({ driverWage: Number(rate.driverWage) })
     } else {
       setEditingRate(null)
+      setCopyingRate(false)
       setSelectedJobType(undefined)
       form.resetFields()
     }
+    setModalOpen(true)
+  }
+
+  const handleCopy = (rate: RateDriverWage) => {
+    setEditingRate(null)
+    setCopyingRate(true)
+    setSelectedJobType(rate.jobType)
+    form.resetFields()
+    form.setFieldsValue({
+      jobType: rate.jobType,
+      factoryLocationId: rate.factoryLocationId ?? undefined,
+      driverWage: Number(rate.driverWage),
+    })
     setModalOpen(true)
   }
 
@@ -130,6 +146,7 @@ export default function RateDriverWageManager() {
       title: 'จัดการ', key: 'actions', width: 90,
       render: (_: unknown, r: RateDriverWage) => (
         <Space>
+          <Button type="link" size="small" icon={<CopyOutlined />} title="คัดลอก" onClick={() => handleCopy(r)} data-testid={`rate-driver-wage-copy-btn-${r.id}`} />
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} data-testid={`rate-driver-wage-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
             <Button type="link" size="small" danger icon={<DeleteOutlined />} data-testid={`rate-driver-wage-delete-btn-${r.id}`} />
@@ -171,10 +188,11 @@ export default function RateDriverWageManager() {
       <Table columns={columns} dataSource={filteredRates} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20 }} />
 
       <Modal
-        title={editingRate ? 'แก้ไขอัตราค่าเที่ยว' : 'เพิ่มอัตราค่าเที่ยว'}
+        title={editingRate ? 'แก้ไขอัตราค่าเที่ยว' : copyingRate ? 'คัดลอกอัตราค่าเที่ยว' : 'เพิ่มอัตราค่าเที่ยว'}
         open={modalOpen} onCancel={() => setModalOpen(false)}
         onOk={() => form.submit()} confirmLoading={submitLoading}
         okText={editingRate ? 'บันทึก' : 'เพิ่ม'} cancelText="ยกเลิก"
+        afterClose={() => setCopyingRate(false)}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {!editingRate && (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import RateIncomeFuelSurchargeManager from './RateIncomeFuelSurchargeManager'
 import type { Customer, Location } from '@/types/job'
@@ -30,6 +30,7 @@ export default function RateIncomeManager() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRate, setEditingRate] = useState<RateIncome | null>(null)
+  const [copyingRate, setCopyingRate] = useState(false)
   const [form] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -71,11 +72,26 @@ export default function RateIncomeManager() {
   const handleOpenModal = (rate?: RateIncome) => {
     if (rate) {
       setEditingRate(rate)
+      setCopyingRate(false)
       form.setFieldsValue({ income: Number(rate.income) })
     } else {
       setEditingRate(null)
+      setCopyingRate(false)
       form.resetFields()
     }
+    setModalOpen(true)
+  }
+
+  const handleCopy = (rate: RateIncome) => {
+    setEditingRate(null)
+    setCopyingRate(true)
+    form.resetFields()
+    form.setFieldsValue({
+      jobType: rate.jobType,
+      factoryLocationId: rate.factoryLocationId,
+      customerId: rate.customerId,
+      income: Number(rate.income),
+    })
     setModalOpen(true)
   }
 
@@ -130,6 +146,7 @@ export default function RateIncomeManager() {
       render: (_: unknown, r: RateIncome) => (
         <Space>
           <Button type="link" size="small" icon={<SettingOutlined />} title="ช่วงราคาน้ำมัน" onClick={() => setSurchargeTarget(r)} data-testid={`rate-income-surcharge-btn-${r.id}`} />
+          <Button type="link" size="small" icon={<CopyOutlined />} title="คัดลอก" onClick={() => handleCopy(r)} data-testid={`rate-income-copy-btn-${r.id}`} />
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} data-testid={`rate-income-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
             <Button type="link" size="small" danger icon={<DeleteOutlined />} data-testid={`rate-income-delete-btn-${r.id}`} />
@@ -176,10 +193,11 @@ export default function RateIncomeManager() {
       <Table columns={columns} dataSource={filteredRates} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20 }} />
 
       <Modal
-        title={editingRate ? 'แก้ไขอัตรารายได้' : 'เพิ่มอัตรารายได้'}
+        title={editingRate ? 'แก้ไขอัตรารายได้' : copyingRate ? 'คัดลอกอัตรารายได้' : 'เพิ่มอัตรารายได้'}
         open={modalOpen} onCancel={() => setModalOpen(false)}
         onOk={() => form.submit()} confirmLoading={submitLoading}
         okText={editingRate ? 'บันทึก' : 'เพิ่ม'} cancelText="ยกเลิก"
+        afterClose={() => setCopyingRate(false)}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {!editingRate && (
