@@ -23,6 +23,7 @@ interface ProtectedLayoutClientProps {
   children: React.ReactNode;
   userName: string;
   isAdmin: boolean;
+  isManager: boolean;
   userRole: string;
 }
 
@@ -30,6 +31,7 @@ export default function ProtectedLayoutClient({
   children,
   userName,
   isAdmin,
+  isManager,
   userRole,
 }: ProtectedLayoutClientProps) {
   const router = useRouter();
@@ -100,7 +102,7 @@ export default function ProtectedLayoutClient({
           },
         ],
       },
-      ...(isAdmin ? [
+      ...(isAdmin || isManager ? [
         {
           key: "jobs-rates",
           label: "อัตราค่าบริการ",
@@ -118,57 +120,53 @@ export default function ProtectedLayoutClient({
     ],
   };
 
+  const commonMenuItems = [
+    jobsMenu,
+    {
+      key: "documents",
+      icon: <FileTextOutlined />,
+      label: <Link href="/transport-documents">เอกสารขนส่ง</Link>,
+    },
+    {
+      key: "statement-converter",
+      icon: <BankOutlined />,
+      label: <Link href="/statement-converter">แปลง Statement</Link>,
+    },
+    {
+      key: "line-images",
+      icon: <PictureOutlined />,
+      label: <Link href="/line-images">รูปภาพ LINE</Link>,
+    },
+  ];
+
+  const stockMenu = {
+    key: "stock",
+    icon: <ShoppingOutlined />,
+    label: "คลังสินค้า",
+    children: [
+      { key: "stock-dashboard", label: <Link href="/stock">ภาพรวม</Link> },
+      { key: "stock-products", label: <Link href="/stock/products">สินค้า</Link> },
+      { key: "stock-import", label: <Link href="/stock/import">นำเข้าสินค้า</Link> },
+      { key: "stock-export", label: <Link href="/stock/export">ขายสินค้า</Link> },
+      { key: "stock-buyers", label: <Link href="/stock/buyers">ลูกค้า</Link> },
+    ],
+  };
+
+  const usersMenu = {
+    key: "users",
+    icon: <TeamOutlined />,
+    label: <Link href="/admin/users">จัดการผู้ใช้</Link>,
+  };
+
   const menuItems = isAdmin
     ? [
-        jobsMenu,
-        {
-          key: "documents",
-          icon: <FileTextOutlined />,
-          label: <Link href="/transport-documents">เอกสารขนส่ง</Link>,
-        },
-        {
-          key: "statement-converter",
-          icon: <BankOutlined />,
-          label: <Link href="/statement-converter">แปลง Statement</Link>,
-        },
-        {
-          key: "stock",
-          icon: <ShoppingOutlined />,
-          label: "คลังสินค้า",
-          children: [
-            {
-              key: "stock-dashboard",
-              label: <Link href="/stock">ภาพรวม</Link>,
-            },
-            {
-              key: "stock-products",
-              label: <Link href="/stock/products">สินค้า</Link>,
-            },
-            {
-              key: "stock-import",
-              label: <Link href="/stock/import">นำเข้าสินค้า</Link>,
-            },
-            {
-              key: "stock-export",
-              label: <Link href="/stock/export">ขายสินค้า</Link>,
-            },
-            {
-              key: "stock-buyers",
-              label: <Link href="/stock/buyers">ลูกค้า</Link>,
-            },
-          ],
-        },
-        {
-          key: "users",
-          icon: <TeamOutlined />,
-          label: <Link href="/admin/users">จัดการผู้ใช้</Link>,
-        },
-        {
-          key: "line-images",
-          icon: <PictureOutlined />,
-          label: <Link href="/line-images">รูปภาพ LINE</Link>,
-        },
+        ...commonMenuItems.slice(0, 3),
+        stockMenu,
+        usersMenu,
+        commonMenuItems[3],
       ]
+    : isManager
+    ? commonMenuItems
     : [
         jobsMenu,
         {
@@ -252,7 +250,7 @@ export default function ProtectedLayoutClient({
               <UserOutlined />
               {userName}
               <Tag
-                color={userRole === "ADMIN" ? "volcano" : "blue"}
+                color={userRole === "ADMIN" ? "volcano" : userRole === "MANAGER" ? "purple" : "blue"}
                 style={{ marginLeft: 2, marginRight: 0 }}
               >
                 {userRole}

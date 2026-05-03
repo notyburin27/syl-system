@@ -14,11 +14,12 @@ export default async function ProtectedLayout({
   }
 
   const isAdmin = session.user?.role === 'ADMIN'
+  const isManager = session.user?.role === 'MANAGER'
   const userName = session.user?.name || session.user?.username || 'User'
   const userRole = session.user?.role || 'USER'
 
   return (
-    <ProtectedLayoutClient userName={userName} isAdmin={isAdmin} userRole={userRole}>
+    <ProtectedLayoutClient userName={userName} isAdmin={isAdmin} isManager={isManager} userRole={userRole}>
       {children}
     </ProtectedLayoutClient>
   )

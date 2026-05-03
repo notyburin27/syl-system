@@ -122,6 +122,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return Response.redirect(new URL(defaultPage, nextUrl))
       }
 
+      // Manager cannot access /admin and /stock
+      const isManager = auth?.user?.role === "MANAGER"
+      if (isManager && (pathname.startsWith("/admin") || pathname.startsWith("/stock"))) {
+        return Response.redirect(new URL(defaultPage, nextUrl))
+      }
+
       // Staff can only access /jobs and /line-images routes
       if (isStaff && !pathname.startsWith("/jobs") && !pathname.startsWith("/line-images") && !pathname.startsWith("/api")) {
         return Response.redirect(new URL("/jobs", nextUrl))

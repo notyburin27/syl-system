@@ -9,7 +9,7 @@ import dayjs from 'dayjs'
 interface User {
   id: string
   username: string
-  role: 'ADMIN' | 'STAFF'
+  role: 'ADMIN' | 'MANAGER' | 'STAFF'
   name: string | null
   createdAt: string
 }
@@ -125,11 +125,11 @@ export default function UsersManagementPage() {
       title: 'สิทธิ์',
       dataIndex: 'role',
       key: 'role',
-      render: (role) => (
-        <span style={{ color: role === 'ADMIN' ? '#1890ff' : '#52c41a' }}>
-          {role === 'ADMIN' ? 'แอดมิน' : 'พนักงาน'}
-        </span>
-      ),
+      render: (role: 'ADMIN' | 'MANAGER' | 'STAFF') => {
+        const colors = { ADMIN: '#1890ff', MANAGER: '#722ed1', STAFF: '#52c41a' }
+        const labels = { ADMIN: 'แอดมิน', MANAGER: 'ผู้จัดการ', STAFF: 'พนักงาน' }
+        return <span style={{ color: colors[role] }}>{labels[role]}</span>
+      },
     },
     {
       title: 'วันที่สร้าง',
@@ -238,6 +238,7 @@ export default function UsersManagementPage() {
           >
             <Select>
               <Select.Option value="STAFF">พนักงาน</Select.Option>
+              <Select.Option value="MANAGER">ผู้จัดการ</Select.Option>
               <Select.Option value="ADMIN">แอดมิน</Select.Option>
             </Select>
           </Form.Item>
