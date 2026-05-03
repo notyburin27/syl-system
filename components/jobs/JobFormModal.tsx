@@ -468,10 +468,11 @@ export default function JobFormModal({
     },
   };
 
-  const numberInput = (field: string, label: string, disabled?: boolean, skipClearLock?: boolean) => (
+  const numberInput = (field: string, label: string, disabled?: boolean, skipClearLock?: boolean, bgColor?: string) => (
     <Form.Item label={label} name={field} rules={[numberRule]}>
       <Input
         allowClear
+        className={bgColor && !fieldsDisabled && !disabled && !(!skipClearLock && isCleared) ? "input-bg-highlight" : undefined}
         styles={{ input: { textAlign: "right" } }}
         disabled={fieldsDisabled || disabled || (!skipClearLock && isCleared)}
         onBlur={() => isCreated && handleFieldBlur(field)}
@@ -553,7 +554,7 @@ export default function JobFormModal({
                 <Button
                   data-testid="job-clear-status-btn"
                   type="default"
-                  size="small"
+                  style={{ width: 100 }}
                   icon={clearing ? <LoadingOutlined /> : clearStatus ? <UnlockOutlined /> : <CheckCircleOutlined />}
                   disabled={clearing || (!isAdmin && clearStatus)}
                   onClick={async () => {
@@ -567,6 +568,7 @@ export default function JobFormModal({
                   {clearStatus ? "ปลดล็อค" : "เคลียร์"}
                 </Button>
               )}
+              <Button type="primary" onClick={onClose} style={{ width: 100 }}>บันทึก</Button>
             </div>
         }
         width="100%"
@@ -759,7 +761,7 @@ export default function JobFormModal({
                   </Form.Item>
                 </Col>
                 <Col span={3}>
-                  {numberInput("actualTransfer", "ยอดโอนครั้งแรก", isAdvance)}
+                  {numberInput("actualTransfer", "ยอดโอนครั้งแรก", isAdvance, false, "#D4EEF1")}
                 </Col>
                 <Col span={3}>
                   <Form.Item label="ส่วนต่าง">
@@ -790,20 +792,21 @@ export default function JobFormModal({
                   </>
                 )}
               </Row>
+              <Divider style={{ margin: "8px 0" }} />
               <Row gutter={12}>
-                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance)}</Col>
+                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance, false, "#D4EEF1")}</Col>
                 <Col span={3}>
-                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance)}
+                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance, false, "#D4EEF1")}
                 </Col>
                 <Col span={3}>
-                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance)}
+                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance, false, "#D4EEF1")}
                 </Col>
-                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance)}</Col>
+                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance, false, "#D4EEF1")}</Col>
                 <Col span={3}>
-                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance)}
+                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance, false, "#D4EEF1")}
                 </Col>
-                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance)}</Col>
-                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance)}</Col>
+                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance, false, "#D4EEF1")}</Col>
                 <Col span={3}>
                   <Form.Item label="รวมคนรถปิดงาน">
                     <Input disabled styles={{ input: { textAlign: "right" } }} value={driverOverall || "-"} />

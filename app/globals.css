@@ -27,6 +27,11 @@ body {
   font-weight: 500;
 }
 
+.input-bg-highlight.ant-input-affix-wrapper,
+.input-bg-highlight input.ant-input {
+  background-color: #D4EEF1 !important;
+}
+
 /* Ensure forms are responsive */
 @media (max-width: 768px) {
   .ant-form-item {
