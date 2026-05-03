@@ -123,19 +123,19 @@ export default function ProtectedLayoutClient({
   const commonMenuItems = [
     jobsMenu,
     {
+      key: "line-images",
+      icon: <PictureOutlined />,
+      label: <Link href="/line-images">รูปภาพ LINE</Link>,
+    },
+    {
       key: "documents",
       icon: <FileTextOutlined />,
-      label: <Link href="/transport-documents">เอกสารขนส่ง</Link>,
+      label: <Link href="/transport-documents">แปลงไฟล์ขนส่ง</Link>,
     },
     {
       key: "statement-converter",
       icon: <BankOutlined />,
       label: <Link href="/statement-converter">แปลง Statement</Link>,
-    },
-    {
-      key: "line-images",
-      icon: <PictureOutlined />,
-      label: <Link href="/line-images">รูปภาพ LINE</Link>,
     },
   ];
 
@@ -160,10 +160,9 @@ export default function ProtectedLayoutClient({
 
   const menuItems = isAdmin
     ? [
-        ...commonMenuItems.slice(0, 3),
+        ...commonMenuItems,
         stockMenu,
         usersMenu,
-        commonMenuItems[3],
       ]
     : isManager
     ? commonMenuItems
