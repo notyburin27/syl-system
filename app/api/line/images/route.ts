@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const images = await prisma.lineImage.findMany({
       where,
       orderBy: { sentAt: "desc" },
-      take: 200,
+      take: 100,
     })
 
     return NextResponse.json(images)
