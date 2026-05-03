@@ -143,17 +143,17 @@ test.describe.serial('ราคาน้ำมัน — CRUD', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. อัตราคาดการณ์โอน (RateTransfer)
+// 2. อัตราค่าคืนตู้รับตู้ (RateTransfer)
 // ─────────────────────────────────────────────────────────────────────────────
-test.describe.serial('อัตราคาดการณ์โอน — CRUD', () => {
+test.describe.serial('อัตราค่าคืนตู้รับตู้ — CRUD', () => {
   test.beforeEach(async ({ page }) => { await login(page) })
   test.afterEach(() => cleanup())
 
-  test('Case 1: เพิ่มอัตราคาดการณ์โอน → แสดงในตาราง', async ({ page }) => {
+  test('Case 1: เพิ่มอัตราค่าคืนตู้รับตู้ → แสดงในตาราง', async ({ page }) => {
     const { locGeneralName } = await seedRefData(page, test.info().testId)
 
     await page.goto('/jobs/settings/rates/transfer')
-    await expect(page.getByText('อัตราคาดการณ์โอน')).toBeVisible()
+    await expect(page.getByText('อัตราค่าคืนตู้รับตู้')).toBeVisible()
 
     await page.getByTestId('rate-transfer-add-btn').click()
     const dialog = page.getByRole('dialog')
@@ -233,7 +233,7 @@ test.describe.serial('อัตราคาดการณ์โอน — CRUD'
     await expect(page.getByRole('cell', { name: 'ขาเข้า' })).not.toBeVisible()
   })
 
-  test('Case 5: ลบอัตราคาดการณ์โอน → หายออกจากตาราง', async ({ page }) => {
+  test('Case 5: ลบอัตราค่าคืนตู้รับตู้ → หายออกจากตาราง', async ({ page }) => {
     const { locationGeneralId } = await seedRefData(page, test.info().testId)
     const res = await page.request.post('/api/rates/transfer', {
       data: { jobType: 'mill', size: '40DC', locationId: locationGeneralId, pickupFee: 999, returnFee: 999 },
@@ -251,17 +251,17 @@ test.describe.serial('อัตราคาดการณ์โอน — CRUD'
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. อัตรารายได้ (RateIncome)
+// 3. อัตราค่าคนส่ง (RateIncome)
 // ─────────────────────────────────────────────────────────────────────────────
-test.describe.serial('อัตรารายได้ — CRUD', () => {
+test.describe.serial('อัตราค่าคนส่ง — CRUD', () => {
   test.beforeEach(async ({ page }) => { await login(page) })
   test.afterEach(() => cleanup())
 
-  test('Case 1: เพิ่มอัตรารายได้ → แสดงในตาราง', async ({ page }) => {
+  test('Case 1: เพิ่มอัตราค่าคนส่ง → แสดงในตาราง', async ({ page }) => {
     const { locFactoryName, customerName } = await seedRefData(page, test.info().testId)
 
     await page.goto('/jobs/settings/rates/income')
-    await expect(page.getByText('อัตรารายได้')).toBeVisible()
+    await expect(page.getByText('อัตราค่าคนส่ง')).toBeVisible()
 
     await page.getByTestId('rate-income-add-btn').click()
     const dialog = page.getByRole('dialog')
@@ -297,7 +297,7 @@ test.describe.serial('อัตรารายได้ — CRUD', () => {
     await expect(dialog.getByText('กรุณาเลือกลูกค้า')).toBeVisible()
   })
 
-  test('Case 3: แก้ไขรายได้ → ค่าใหม่ปรากฏในตาราง', async ({ page }) => {
+  test('Case 3: แก้ไขค่าคนส่ง → ค่าใหม่ปรากฏในตาราง', async ({ page }) => {
     const { locationFactoryId, customerId } = await seedRefData(page, test.info().testId)
     const res = await page.request.post('/api/rates/income', {
       data: { jobType: 'inbound', size: '20DC', factoryLocationId: locationFactoryId, customerId, income: 10000 },
@@ -350,7 +350,7 @@ test.describe.serial('อัตรารายได้ — CRUD', () => {
     await expect(surchargeModal.getByText('+500')).toBeVisible()
   })
 
-  test('Case 5: ลบอัตรารายได้ → หายออกจากตาราง', async ({ page }) => {
+  test('Case 5: ลบอัตราค่าคนส่ง → หายออกจากตาราง', async ({ page }) => {
     const { locationFactoryId, customerId } = await seedRefData(page, test.info().testId)
     const res = await page.request.post('/api/rates/income', {
       data: { jobType: 'towing', size: '20DC', factoryLocationId: locationFactoryId, customerId, income: 5000 },

@@ -70,8 +70,7 @@ export default function ProtectedLayoutClient({
     const keys: string[] = [];
     if (pathname?.startsWith("/stock")) keys.push("stock");
     if (pathname?.startsWith("/jobs")) keys.push("jobs");
-    if (pathname?.startsWith("/jobs/settings/rates")) { keys.push("jobs-settings"); keys.push("jobs-rates"); }
-    else if (pathname?.startsWith("/jobs/settings")) { keys.push("jobs-settings"); }
+    if (pathname?.startsWith("/jobs/settings")) keys.push("jobs-settings");
     return keys;
   };
 
@@ -100,23 +99,14 @@ export default function ProtectedLayoutClient({
             key: "jobs-locations",
             label: <Link href="/jobs/settings/locations">สถานที่</Link>,
           },
+          { key: "jobs-rates-transfer", label: <Link href="/jobs/settings/rates/transfer">ค่าคืนตู้รับตู้</Link> },
+          ...(isAdmin || isManager ? [
+            { key: "jobs-rates-income", label: <Link href="/jobs/settings/rates/income">ค่าคนส่ง</Link> },
+            { key: "jobs-rates-driver-wage", label: <Link href="/jobs/settings/rates/driver-wage">ค่าเที่ยวคนขับ</Link> },
+            { key: "jobs-fuel-price", label: <Link href="/jobs/settings/fuel-price">ราคาน้ำมัน</Link> },
+          ] : []),
         ],
       },
-      ...(isAdmin || isManager ? [
-        {
-          key: "jobs-rates",
-          label: "อัตราค่าบริการ",
-          children: [
-            { key: "jobs-rates-transfer", label: <Link href="/jobs/settings/rates/transfer">คาดการณ์โอน</Link> },
-            { key: "jobs-rates-income", label: <Link href="/jobs/settings/rates/income">รายได้</Link> },
-            { key: "jobs-rates-driver-wage", label: <Link href="/jobs/settings/rates/driver-wage">ค่าเที่ยวคนขับ</Link> },
-          ],
-        },
-        {
-          key: "jobs-fuel-price",
-          label: <Link href="/jobs/settings/fuel-price">ราคาน้ำมัน</Link>,
-        },
-      ] : []),
     ],
   };
 

@@ -152,7 +152,7 @@ export default function RateTransferManager() {
   return (
     <>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>อัตราคาดการณ์โอน</h2>
+        <h2 style={{ margin: 0 }}>อัตราค่าคืนตู้รับตู้</h2>
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
@@ -182,7 +182,7 @@ export default function RateTransferManager() {
       <Table columns={columns} dataSource={filteredRates} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20 }} />
 
       <Modal
-        title={editingRate ? 'แก้ไขอัตราคาดการณ์โอน' : copyingRate ? 'คัดลอกอัตราคาดการณ์โอน' : 'เพิ่มอัตราคาดการณ์โอน'}
+        title={editingRate ? 'แก้ไขอัตราค่าคืนตู้รับตู้' : copyingRate ? 'คัดลอกอัตราค่าคืนตู้รับตู้' : 'เพิ่มอัตราค่าคืนตู้รับตู้'}
         open={modalOpen} onCancel={() => setModalOpen(false)}
         onOk={() => form.submit()} confirmLoading={submitLoading}
         okText={editingRate ? 'บันทึก' : 'เพิ่ม'} cancelText="ยกเลิก"
@@ -213,7 +213,7 @@ export default function RateTransferManager() {
 
       <ImportCSVModal
         open={importOpen}
-        title="Import อัตราคาดการณ์โอน"
+        title="Import อัตราค่าคืนตู้รับตู้"
         apiEndpoint="/api/rates/transfer/import"
         headers={['jobType', 'size', 'locationName', 'pickupFee', 'returnFee']}
         headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', locationName: 'สถานที่', pickupFee: 'ค่ารับตู้', returnFee: 'ค่าคืนตู้' }}

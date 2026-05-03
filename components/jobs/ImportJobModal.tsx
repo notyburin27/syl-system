@@ -63,7 +63,7 @@ const CSV_HEADER_LABELS: Record<string, string> = {
   factoryLocationName: 'โรงงาน',
   returnLocationName: 'สถานที่คืนตู้',
   estimatedTransfer: 'คาดการณ์โอน',
-  income: 'รายได้',
+  income: 'ค่าคนส่ง',
   driverWage: 'ค่าเที่ยวคนขับรถ',
   actualTransfer: 'ยอดโอนครั้งแรก',
   advance: 'เบิกล่วงหน้า',
