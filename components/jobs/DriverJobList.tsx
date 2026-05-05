@@ -1,11 +1,105 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Card, Row, Col, DatePicker, Spin, Empty, Statistic, Input } from 'antd'
+import { Card, Row, Col, DatePicker, Spin, Empty, Input, Tabs, Divider } from 'antd'
 import { TruckOutlined, SearchOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import type { DriverJobSummary } from '@/types/job'
 import dayjs from 'dayjs'
+
+const OTHER_GROUP_KEY = '__other__'
+
+function fmt(value: number) {
+  return value % 1 === 0
+    ? value.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    : value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function JobTypeRow({
+  label,
+  count,
+  amount,
+  testIdCount,
+}: {
+  label: string
+  count: number
+  amount: number
+  testIdCount?: string
+}) {
+  const inactive = count === 0
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '5px 0',
+      opacity: inactive ? 0.3 : 1,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 13, color: '#666', minWidth: 90 }}>{label}</span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: '#222', lineHeight: 1 }} data-testid={testIdCount}>
+          {count}
+        </span>
+      </div>
+      <span style={{ fontSize: 13, color: '#444', fontWeight: inactive ? 400 : 500 }}>
+        {fmt(amount)} ฿
+      </span>
+    </div>
+  )
+}
+
+function DriverCard({ s, onCardClick }: { s: DriverJobSummary; onCardClick: (id: string) => void }) {
+  return (
+    <Card
+      hoverable
+      data-testid={`driver-card-${s.driverId}`}
+      onClick={() => onCardClick(s.driverId)}
+      styles={{ body: { padding: '16px 20px' } }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <TruckOutlined style={{ fontSize: 20, color: '#1890ff' }} />
+        <span
+          data-testid={`driver-card-name-${s.driverId}`}
+          style={{ fontSize: 16, fontWeight: 600 }}
+        >
+          {s.driverName}{s.vehicleNumber ? ` (${s.vehicleNumber})` : ''}
+        </span>
+      </div>
+
+      {/* Job type rows */}
+      <JobTypeRow
+        label="งาน"
+        count={s.mainJobCount}
+        amount={s.mainTransfer}
+        testIdCount={`driver-card-main-count-${s.driverId}`}
+      />
+      <JobTypeRow
+        label="ทอยตู้"
+        count={s.towingJobCount}
+        amount={s.towingTransfer}
+      />
+      <JobTypeRow
+        label="เบิกล่วงหน้า"
+        count={s.advanceJobCount}
+        amount={s.advanceAmount}
+      />
+
+      <Divider style={{ margin: '8px 0' }} />
+
+      {/* Total */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, color: '#888' }}>รวมโอนทั้งหมด</span>
+        <span
+          data-testid={`driver-card-total-transfer-${s.driverId}`}
+          style={{ fontSize: 18, fontWeight: 700, color: '#389e0d' }}
+        >
+          {fmt(s.totalTransfer)} ฿
+        </span>
+      </div>
+    </Card>
+  )
+}
 
 export default function DriverJobList() {
   const router = useRouter()
@@ -13,6 +107,7 @@ export default function DriverJobList() {
   const [loading, setLoading] = useState(false)
   const [month, setMonth] = useState(dayjs())
   const [searchText, setSearchText] = useState('')
+  const [activeGroup, setActiveGroup] = useState<string>(OTHER_GROUP_KEY)
 
   const fetchSummary = useCallback(async (m: dayjs.Dayjs) => {
     setLoading(true)
@@ -34,12 +129,35 @@ export default function DriverJobList() {
     fetchSummary(month)
   }, [month, fetchSummary])
 
+  const groups = useMemo(() => {
+    const groupSet = new Set<string>()
+    summaries.forEach((s) => {
+      if (s.groupName) groupSet.add(s.groupName)
+    })
+    return Array.from(groupSet).sort()
+  }, [summaries])
+
+  useEffect(() => {
+    if (groups.length > 0 && activeGroup === OTHER_GROUP_KEY) {
+      setActiveGroup(groups[0])
+    }
+  }, [groups]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const tabItems = useMemo(() => {
+    const items = groups.map((g) => ({ key: g, label: g }))
+    items.push({ key: OTHER_GROUP_KEY, label: 'กลุ่มอื่นๆ' })
+    return items
+  }, [groups])
+
   const filteredSummaries = useMemo(() => {
-    if (!searchText.trim()) return summaries
-    return summaries.filter((s) =>
+    const byGroup = summaries.filter((s) =>
+      activeGroup === OTHER_GROUP_KEY ? !s.groupName : s.groupName === activeGroup
+    )
+    if (!searchText.trim()) return byGroup
+    return byGroup.filter((s) =>
       s.driverName.toLowerCase().includes(searchText.trim().toLowerCase())
     )
-  }, [summaries, searchText])
+  }, [summaries, activeGroup, searchText])
 
   const handleCardClick = (driverId: string) => {
     const monthStr = month.format('YYYY-MM')
@@ -48,7 +166,7 @@ export default function DriverJobList() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ margin: 0, fontSize: 24 }}>รายการงานขนส่ง</h1>
         <div style={{ display: 'flex', gap: 12 }}>
           <Input
@@ -73,49 +191,24 @@ export default function DriverJobList() {
         </div>
       </div>
 
+      <Tabs
+        activeKey={activeGroup}
+        onChange={setActiveGroup}
+        items={tabItems}
+        style={{ marginBottom: 8 }}
+      />
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60 }}>
           <Spin size="large" data-testid="jobs-loading" />
         </div>
       ) : filteredSummaries.length === 0 ? (
-        <Empty description={summaries.length === 0 ? 'ไม่มีข้อมูลคนขับ' : 'ไม่พบคนขับที่ค้นหา'} />
+        <Empty description={summaries.length === 0 ? 'ไม่มีข้อมูลคนขับ' : 'ไม่พบคนขับในกลุ่มนี้'} />
       ) : (
         <Row gutter={[16, 16]} data-testid="driver-cards-list">
           {filteredSummaries.map((s) => (
-            <Col xs={24} sm={12} md={8} lg={6} key={s.driverId}>
-              <Card
-                hoverable
-                data-testid={`driver-card-${s.driverId}`}
-                onClick={() => handleCardClick(s.driverId)}
-                styles={{ body: { padding: 20 } }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                  <TruckOutlined style={{ fontSize: 24, color: '#1890ff' }} />
-                  <span data-testid={`driver-card-name-${s.driverId}`} style={{ fontSize: 18, fontWeight: 500 }}>
-                    {s.driverName}{s.vehicleNumber ? ` (${s.vehicleNumber})` : ''}
-                  </span>
-                </div>
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Statistic
-                      title="งาน"
-                      value={s.jobCount}
-                      valueStyle={{ fontSize: 20 }}
-                      data-testid={`driver-card-job-count-${s.driverId}`}
-                    />
-                  </Col>
-                  <Col span={16}>
-                    <Statistic
-                      title="ยอดโอนรวม"
-                      value={s.totalTransfer}
-                      precision={2}
-                      valueStyle={{ fontSize: 16 }}
-                      suffix="฿"
-                      data-testid={`driver-card-total-transfer-${s.driverId}`}
-                    />
-                  </Col>
-                </Row>
-              </Card>
+            <Col xs={24} sm={12} key={s.driverId}>
+              <DriverCard s={s} onCardClick={handleCardClick} />
             </Col>
           ))}
         </Row>

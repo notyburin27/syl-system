@@ -20,6 +20,7 @@ export interface Driver {
   name: string;
   vehicleNumber: string | null;
   vehicleRegistration: string | null;
+  groupName: string | null;
   isActive: boolean;
   bankAccounts: DriverBankAccount[];
   createdAt: string;
@@ -82,8 +83,13 @@ export interface DriverJobSummary {
   driverId: string;
   driverName: string;
   vehicleNumber: string | null;
-  jobCount: number;
-  totalIncome: number;
+  groupName: string | null;
+  mainJobCount: number;
+  mainTransfer: number;
+  towingJobCount: number;
+  towingTransfer: number;
+  advanceJobCount: number;
+  advanceAmount: number;
   totalTransfer: number;
 }
 

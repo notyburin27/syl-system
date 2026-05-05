@@ -176,6 +176,7 @@ model Driver {
   name                String              @unique
   vehicleNumber       String?
   vehicleRegistration String?
+  groupName           String?
   isActive            Boolean             @default(true)
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
@@ -184,6 +185,7 @@ model Driver {
   jobs         Job[]
 
   @@index([name])
+  @@index([groupName])
   @@map("drivers")
 }
 

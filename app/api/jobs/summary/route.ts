@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const MAIN_JOB_TYPES = ["inbound", "outbound", "flatbed"];
+
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -12,13 +14,11 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month"); // format: 2026-03
 
-    // Get all active drivers
     const drivers = await prisma.driver.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
     });
 
-    // Build date filter
     let dateFilter: { gte: Date; lt: Date } | undefined;
     if (month) {
       const [year, mon] = month.split("-").map(Number);
@@ -28,7 +28,6 @@ export async function GET(req: Request) {
       };
     }
 
-    // Get job counts and totals per driver
     const summary = await Promise.all(
       drivers.map(async (driver) => {
         const where: { driverId: string; jobDate?: { gte: Date; lt: Date } } = {
@@ -41,24 +40,48 @@ export async function GET(req: Request) {
         const jobs = await prisma.job.findMany({
           where,
           select: {
-            income: true,
-            actualTransfer: true,
+            jobType: true,
+            advance: true,
+            toll: true,
+            pickupFee: true,
+            returnFee: true,
+            liftFee: true,
+            storageFee: true,
+            tire: true,
+            other: true,
           },
         });
 
-        const jobCount = jobs.length;
-        const totalIncome = jobs.reduce((sum, j) => sum + Number(j.income || 0), 0);
-        const totalTransfer = jobs.reduce(
-          (sum, j) => sum + Number(j.actualTransfer || 0),
-          0
-        );
+        const computeTotal = (j: typeof jobs[0]) =>
+          Number(j.advance || 0) +
+          Number(j.toll || 0) +
+          Number(j.pickupFee || 0) +
+          Number(j.returnFee || 0) +
+          Number(j.liftFee || 0) +
+          Number(j.storageFee || 0) +
+          Number(j.tire || 0) +
+          Number(j.other || 0);
+
+        const mainJobs = jobs.filter((j) => MAIN_JOB_TYPES.includes(j.jobType));
+        const towingJobs = jobs.filter((j) => j.jobType === "towing");
+        const advanceJobs = jobs.filter((j) => j.jobType === "advance");
+
+        const mainTransfer = mainJobs.reduce((sum, j) => sum + computeTotal(j), 0);
+        const towingTransfer = towingJobs.reduce((sum, j) => sum + computeTotal(j), 0);
+        const advanceAmount = advanceJobs.reduce((sum, j) => sum + computeTotal(j), 0);
+        const totalTransfer = jobs.reduce((sum, j) => sum + computeTotal(j), 0);
 
         return {
           driverId: driver.id,
           driverName: driver.name,
           vehicleNumber: driver.vehicleNumber,
-          jobCount,
-          totalIncome,
+          groupName: driver.groupName,
+          mainJobCount: mainJobs.length,
+          mainTransfer,
+          towingJobCount: towingJobs.length,
+          towingTransfer,
+          advanceJobCount: advanceJobs.length,
+          advanceAmount,
           totalTransfer,
         };
       })

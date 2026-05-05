@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm } from 'antd'
+import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm, AutoComplete } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Driver, DriverBankAccount } from '@/types/job'
@@ -44,6 +44,11 @@ export default function DriverManager() {
     fetchDrivers()
   }, [fetchDrivers])
 
+  const groupOptions = useCallback(() => {
+    const groups = Array.from(new Set(drivers.map((d) => d.groupName).filter(Boolean) as string[]))
+    return groups.map((g) => ({ value: g }))
+  }, [drivers])
+
   const handleOpenModal = (driver?: Driver) => {
     if (driver) {
       setEditingDriver(driver)
@@ -51,6 +56,7 @@ export default function DriverManager() {
         name: driver.name,
         vehicleNumber: driver.vehicleNumber,
         vehicleRegistration: driver.vehicleRegistration,
+        groupName: driver.groupName,
       })
     } else {
       setEditingDriver(null)
@@ -59,7 +65,7 @@ export default function DriverManager() {
     setModalOpen(true)
   }
 
-  const handleSubmit = async (values: { name: string; vehicleNumber?: string; vehicleRegistration?: string }) => {
+  const handleSubmit = async (values: { name: string; vehicleNumber?: string; vehicleRegistration?: string; groupName?: string }) => {
     setSubmitLoading(true)
     try {
       const url = editingDriver ? `/api/drivers/${editingDriver.id}` : '/api/drivers'
@@ -222,6 +228,7 @@ export default function DriverManager() {
     { title: 'ชื่อคนขับ', dataIndex: 'name', key: 'name' },
     { title: 'เบอร์รถ', dataIndex: 'vehicleNumber', key: 'vehicleNumber', render: (v: string | null) => v || '-' },
     { title: 'ทะเบียนรถ', dataIndex: 'vehicleRegistration', key: 'vehicleRegistration', render: (v: string | null) => v || '-' },
+    { title: 'กลุ่ม', dataIndex: 'groupName', key: 'groupName', render: (v: string | null) => v ? <Tag color="blue">{v}</Tag> : <span style={{ color: '#aaa' }}>กลุ่มอื่นๆ</span> },
     {
       title: 'จำนวนบัญชี',
       key: 'bankCount',
@@ -323,6 +330,17 @@ export default function DriverManager() {
           </Form.Item>
           <Form.Item name="vehicleRegistration" label="ทะเบียนรถ">
             <Input data-testid="driver-vehicle-registration-input" placeholder="ทะเบียนรถ" />
+          </Form.Item>
+          <Form.Item name="groupName" label="กลุ่ม">
+            <AutoComplete
+              data-testid="driver-group-input"
+              options={groupOptions()}
+              placeholder="ระบุชื่อกลุ่ม หรือเว้นว่างเพื่อจัดเป็นกลุ่มอื่นๆ"
+              allowClear
+              filterOption={(inputValue, option) =>
+                option!.value.toLowerCase().includes(inputValue.toLowerCase())
+              }
+            />
           </Form.Item>
         </Form>
       </Modal>

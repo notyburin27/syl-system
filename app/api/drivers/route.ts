@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, vehicleNumber, vehicleRegistration } = body;
+    const { name, vehicleNumber, vehicleRegistration, groupName } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -46,6 +46,7 @@ export async function POST(req: Request) {
         name: name.trim(),
         vehicleNumber: vehicleNumber?.trim() || null,
         vehicleRegistration: vehicleRegistration?.trim() || null,
+        groupName: groupName?.trim() || null,
       },
       include: { bankAccounts: true },
     });

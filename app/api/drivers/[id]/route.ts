@@ -14,7 +14,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, vehicleNumber, vehicleRegistration } = body;
+    const { name, vehicleNumber, vehicleRegistration, groupName } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -29,6 +29,7 @@ export async function PATCH(
         name: name.trim(),
         vehicleNumber: vehicleNumber?.trim() || null,
         vehicleRegistration: vehicleRegistration?.trim() || null,
+        groupName: groupName?.trim() || null,
       },
       include: { bankAccounts: true },
     });
