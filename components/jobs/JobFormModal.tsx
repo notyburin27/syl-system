@@ -74,8 +74,6 @@ export default function JobFormModal({
   const [clearStatus, setClearStatus] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [transfers, setTransfers] = useState<JobTransfer[]>([]);
-  const [transferEditingId, setTransferEditingId] = useState<string | null>(null);
-  const [addingTransfer, setAddingTransfer] = useState(false);
 
   // Quick add modal
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -142,7 +140,6 @@ export default function JobFormModal({
       setSaveStatus("idle");
       setClearStatus(mode === "edit" && job ? !!job.clearStatus : false);
       setTransfers(mode === "edit" && job?.transfers ? job.transfers : []);
-      setTransferEditingId(null);
       if (mode === "edit" && job) {
         const estimatedPickup = job.estimatedPickupFee ?? undefined
         const estimatedReturn = job.estimatedReturnFee ?? undefined
@@ -382,35 +379,75 @@ export default function JobFormModal({
     } catch {}
   };
 
-  const handleAddTransfer = async () => {
-    if (!activeJob || addingTransfer) return;
-    setAddingTransfer(true);
-    handleSaveStatus("saving");
-    try {
-      const res = await fetch(`/api/jobs/${activeJob.id}/transfers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: 0 }),
-      });
-      if (!res.ok) {
-        handleSaveStatus("error");
-        return;
-      }
-      const created: JobTransfer = await res.json();
-      setTransfers((prev) => [...prev, created]);
-      setTransferEditingId(created.id);
-      handleSaveStatus("saved");
-    } catch {
-      handleSaveStatus("error");
-    } finally {
-      setAddingTransfer(false);
-    }
+  const isLocalTransfer = (id: string) => id.startsWith("tmp-");
+
+  const handleAddTransfer = () => {
+    if (!activeJob) return;
+    const tmp: JobTransfer = {
+      id: `tmp-${Date.now()}`,
+      jobId: activeJob.id,
+      amount: 0,
+      isCompleted: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setTransfers((prev) => [...prev, tmp]);
+  };
+
+  const handleUpdateTransferLocal = (
+    transferId: string,
+    patch: { amount?: number; isCompleted?: boolean },
+  ) => {
+    setTransfers((prev) =>
+      prev.map((t) => (t.id === transferId ? { ...t, ...patch } : t)),
+    );
   };
 
   const handleUpdateTransfer = async (
     transferId: string,
     patch: { amount?: number; isCompleted?: boolean },
   ) => {
+    if (isLocalTransfer(transferId)) {
+      const current = transfers.find((t) => t.id === transferId);
+      if (!current || !activeJob) return;
+      const next = { ...current, ...patch };
+
+      // Persist on first ✓
+      if (patch.isCompleted === true) {
+        if (Number(next.amount) === 0) {
+          message.warning("กรุณากรอกจำนวนเงินก่อน");
+          return;
+        }
+        handleSaveStatus("saving");
+        try {
+          const res = await fetch(`/api/jobs/${activeJob.id}/transfers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: Number(next.amount),
+              isCompleted: true,
+            }),
+          });
+          if (!res.ok) {
+            handleSaveStatus("error");
+            return;
+          }
+          const created: JobTransfer = await res.json();
+          setTransfers((prev) =>
+            prev.map((t) => (t.id === transferId ? created : t)),
+          );
+          handleSaveStatus("saved");
+        } catch {
+          handleSaveStatus("error");
+        }
+        return;
+      }
+
+      // Pure local edit (amount or uncheck) — just update state
+      handleUpdateTransferLocal(transferId, patch);
+      return;
+    }
+
     handleSaveStatus("saving");
     try {
       const res = await fetch(`/api/jobs/transfers/${transferId}`, {
@@ -433,6 +470,10 @@ export default function JobFormModal({
   };
 
   const handleDeleteTransfer = async (transferId: string) => {
+    if (isLocalTransfer(transferId)) {
+      setTransfers((prev) => prev.filter((t) => t.id !== transferId));
+      return;
+    }
     handleSaveStatus("saving");
     try {
       const res = await fetch(`/api/jobs/transfers/${transferId}`, {
@@ -602,48 +643,19 @@ export default function JobFormModal({
   );
 
   const renderTransferChip = (t: JobTransfer, index: number) => {
-    const editing = transferEditingId === t.id;
     const amt = Number(t.amount);
     const sign = amt > 0 ? "out" : amt < 0 ? "in" : "zero";
-    const bg =
-      sign === "out" ? "#E6F4FF" : sign === "in" ? "#FFF7E6" : "#FAFAFA";
+    const bg = t.isCompleted ? "#D9F7BE" : "#D4EEF1";
     const border =
       sign === "out" ? "#91CAFF" : sign === "in" ? "#FFD591" : "#D9D9D9";
 
     return (
       <Col span={3} key={t.id}>
-        <Form.Item label={`ยอดโอนครั้งที่ ${index + 1}`} style={{ marginBottom: 0 }}>
+        <Form.Item
+          label={`${amt < 0 ? "ยอดโอนคืน" : "ยอดโอน"}ครั้งที่ ${index + 1}`}
+          style={{ marginBottom: 0 }}
+        >
           <Space.Compact style={{ width: "100%" }}>
-            <Button
-              size="small"
-              icon={
-                <CheckOutlined
-                  style={{ color: t.isCompleted ? "#52c41a" : "#bfbfbf" }}
-                />
-              }
-              disabled={isCleared}
-              onClick={() =>
-                handleUpdateTransfer(t.id, { isCompleted: !t.isCompleted })
-              }
-            />
-            <Input
-              size="small"
-              defaultValue={amt}
-              readOnly={!editing}
-              disabled={isCleared}
-              onDoubleClick={() => !isCleared && setTransferEditingId(t.id)}
-              onBlur={(e) => {
-                const newAmt = Number(e.target.value);
-                setTransferEditingId(null);
-                if (isNaN(newAmt) || newAmt === amt) return;
-                handleUpdateTransfer(t.id, { amount: newAmt });
-              }}
-              onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-              styles={{
-                input: { textAlign: "right", background: bg },
-              }}
-              style={{ borderColor: border }}
-            />
             <Popconfirm
               title="ยืนยันลบรายการนี้?"
               okText="ลบ"
@@ -658,6 +670,40 @@ export default function JobFormModal({
                 disabled={isCleared}
               />
             </Popconfirm>
+            <Input
+              size="small"
+              key={`${t.id}-${amt}`}
+              defaultValue={amt === 0 ? "" : amt}
+              readOnly={t.isCompleted}
+              disabled={isCleared}
+              onBlur={(e) => {
+                const raw = e.target.value.trim();
+                const newAmt = raw === "" ? 0 : Number(raw);
+                if (isNaN(newAmt) || newAmt === amt) return;
+                handleUpdateTransfer(t.id, { amount: newAmt });
+              }}
+              onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+              styles={{
+                input: { textAlign: "right", background: bg },
+              }}
+              style={{ borderColor: border }}
+            />
+            <Button
+              size="small"
+              icon={
+                <CheckOutlined
+                  style={{ color: t.isCompleted ? "#52c41a" : "#bfbfbf" }}
+                />
+              }
+              disabled={isCleared}
+              onClick={() => {
+                if (amt === 0) {
+                  message.warning("กรุณากรอกจำนวนเงินก่อน");
+                  return;
+                }
+                handleUpdateTransfer(t.id, { isCompleted: !t.isCompleted });
+              }}
+            />
           </Space.Compact>
         </Form.Item>
       </Col>
@@ -904,7 +950,9 @@ export default function JobFormModal({
                   </Form.Item>
                 </Col>
                 <Col span={3}>
-                  {numberInput("actualTransferPrev", "ยกยอด", isAdvance, false, "#D4EEF1")}
+                  <Form.Item label="ยกยอด" name="actualTransferPrev">
+                    <Input disabled styles={{ input: { textAlign: "right" } }} />
+                  </Form.Item>
                 </Col>
                 <Col span={3}>
                   <Form.Item label="ส่วนต่าง">
@@ -926,19 +974,11 @@ export default function JobFormModal({
                     <Input disabled styles={{ input: { textAlign: "right" } }} value={watchActualTransfer ? totalTransfer : "-"} />
                   </Form.Item>
                 </Col>
-                {isAdmin && (
-                  <>
-                    <Col span={3}>{numberInput("income", "ค่าคนส่ง", isAdvance)}</Col>
-                    <Col span={3}>
-                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance)}
-                    </Col>
-                  </>
-                )}
               </Row>
 
               <Divider style={{ margin: "8px 0" }} />
 
-              <Row gutter={12} align="bottom" justify="end">
+              <Row gutter={12} align="bottom" justify="start">
                 {transfers.map((t, i) => renderTransferChip(t, i))}
                 <Col span={3}>
                   <Form.Item label=" " style={{ marginBottom: 0 }}>
@@ -946,8 +986,10 @@ export default function JobFormModal({
                       type="dashed"
                       size="small"
                       icon={<PlusOutlined />}
-                      loading={addingTransfer}
-                      disabled={isCleared}
+                      disabled={
+                        isCleared ||
+                        transfers.some((t) => Number(t.amount) === 0)
+                      }
                       onClick={handleAddTransfer}
                       style={{ width: "100%" }}
                     >
@@ -999,6 +1041,14 @@ export default function JobFormModal({
                 <Col span={3}>
                   {numberInput("fuelCreditAmount", "เครดิต (฿)", isAdvance, true)}
                 </Col>
+                {isAdmin && (
+                  <>
+                    <Col span={3}>{numberInput("income", "ค่าคนส่ง", isAdvance)}</Col>
+                    <Col span={3}>
+                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance)}
+                    </Col>
+                  </>
+                )}
               </Row>
             </>
           )}

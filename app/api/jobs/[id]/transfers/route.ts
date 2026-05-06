@@ -43,7 +43,7 @@ export async function POST(
       data: {
         jobId: id,
         amount,
-        isCompleted: false,
+        isCompleted: !!body?.isCompleted,
       },
     });
 
