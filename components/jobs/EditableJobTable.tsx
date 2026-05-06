@@ -942,7 +942,7 @@ export default function EditableJobTable({
               {modalEditMode ? 'เสร็จสิ้น' : 'เปิดการแก้ไขแบบรายการ'}
             </Button>
           )}
-          {!modalEditMode && (
+          {/* {!modalEditMode && (
             // TODO: เปิดใช้งานเมื่อพร้อม
             <Button
               data-testid="toggle-table-edit-btn"
@@ -959,7 +959,7 @@ export default function EditableJobTable({
             >
               {editMode ? 'เสร็จสิ้น' : 'เปิดการแก้ไขแบบตาราง'}
             </Button>
-          )}
+          )} */}
         </div>
       </div>
 

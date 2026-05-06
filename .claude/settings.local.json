@@ -31,9 +31,13 @@
       "Bash(grep -E \"\\\\.\\(tsx?|json\\)$\")",
       "Bash(npm ls:*)",
       "Bash(npx next:*)",
-      "WebFetch(domain:www.prisma.io)"
+      "WebFetch(domain:www.prisma.io)",
+      "Bash(mkdir /Users/burinlumyai/Projects/syl-system/.vscode)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "/Users/burinlumyai/Projects/syl-system"
+    ]
   }
 }
