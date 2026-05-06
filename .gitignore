@@ -50,6 +50,9 @@ prisma/dev.db
 prisma/dev.db-journal
 app/generated/
 
+# Claude Code
+.claude/worktrees/
+
 # IDE
 .vscode/
 .idea/
