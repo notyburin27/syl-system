@@ -80,6 +80,7 @@ export async function PATCH(
         pickupLocation: true,
         factoryLocation: true,
         returnLocation: true,
+        transfers: { orderBy: { createdAt: "asc" } },
       },
     });
 

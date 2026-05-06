@@ -12,6 +12,7 @@ import {
   App,
   Row,
   Col,
+  Space,
 } from "antd";
 import {
   PlusOutlined,
@@ -19,9 +20,11 @@ import {
   CheckOutlined,
   CheckCircleOutlined,
   UnlockOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
+import { Popconfirm } from "antd";
 import dayjs from "dayjs";
-import type { Job, Customer, Location } from "@/types/job";
+import type { Job, Customer, Location, JobTransfer } from "@/types/job";
 import { JOB_TYPES, SIZE_OPTIONS } from "@/types/job";
 import QuickAddModal from "./QuickAddModal";
 
@@ -70,6 +73,9 @@ export default function JobFormModal({
   const [createdJob, setCreatedJob] = useState<Job | null>(null);
   const [clearStatus, setClearStatus] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [transfers, setTransfers] = useState<JobTransfer[]>([]);
+  const [transferEditingId, setTransferEditingId] = useState<string | null>(null);
+  const [addingTransfer, setAddingTransfer] = useState(false);
 
   // Quick add modal
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -121,14 +127,22 @@ export default function JobFormModal({
     Number(watchStorageFee) +
     Number(watchTire) +
     Number(watchOther);
-  const difference = driverOverall - Number(watchActualTransfer);
-  const totalTransfer = Number(watchActualTransfer) + difference;
+
+  const completedTransferSum = transfers
+    .filter((t) => t.isCompleted)
+    .reduce((s, t) => s + Number(t.amount), 0);
+
+  const difference =
+    driverOverall - Number(watchActualTransfer) - completedTransferSum;
+  const totalTransfer = Number(watchActualTransfer) + completedTransferSum;
 
   useEffect(() => {
     if (open) {
       setCreatedJob(null);
       setSaveStatus("idle");
       setClearStatus(mode === "edit" && job ? !!job.clearStatus : false);
+      setTransfers(mode === "edit" && job?.transfers ? job.transfers : []);
+      setTransferEditingId(null);
       if (mode === "edit" && job) {
         const estimatedPickup = job.estimatedPickupFee ?? undefined
         const estimatedReturn = job.estimatedReturnFee ?? undefined
@@ -368,6 +382,73 @@ export default function JobFormModal({
     } catch {}
   };
 
+  const handleAddTransfer = async () => {
+    if (!activeJob || addingTransfer) return;
+    setAddingTransfer(true);
+    handleSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/jobs/${activeJob.id}/transfers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 0 }),
+      });
+      if (!res.ok) {
+        handleSaveStatus("error");
+        return;
+      }
+      const created: JobTransfer = await res.json();
+      setTransfers((prev) => [...prev, created]);
+      setTransferEditingId(created.id);
+      handleSaveStatus("saved");
+    } catch {
+      handleSaveStatus("error");
+    } finally {
+      setAddingTransfer(false);
+    }
+  };
+
+  const handleUpdateTransfer = async (
+    transferId: string,
+    patch: { amount?: number; isCompleted?: boolean },
+  ) => {
+    handleSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/jobs/transfers/${transferId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        handleSaveStatus("error");
+        return;
+      }
+      const updated: JobTransfer = await res.json();
+      setTransfers((prev) =>
+        prev.map((t) => (t.id === transferId ? { ...t, ...updated } : t)),
+      );
+      handleSaveStatus("saved");
+    } catch {
+      handleSaveStatus("error");
+    }
+  };
+
+  const handleDeleteTransfer = async (transferId: string) => {
+    handleSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/jobs/transfers/${transferId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        handleSaveStatus("error");
+        return;
+      }
+      setTransfers((prev) => prev.filter((t) => t.id !== transferId));
+      handleSaveStatus("saved");
+    } catch {
+      handleSaveStatus("error");
+    }
+  };
+
   // Create job (POST) — needs jobDate + jobType + jobNumber
   const handleCreate = async () => {
     const jobNumber = form.getFieldValue("jobNumber");
@@ -519,6 +600,69 @@ export default function JobFormModal({
       }
     />
   );
+
+  const renderTransferChip = (t: JobTransfer, index: number) => {
+    const editing = transferEditingId === t.id;
+    const amt = Number(t.amount);
+    const sign = amt > 0 ? "out" : amt < 0 ? "in" : "zero";
+    const bg =
+      sign === "out" ? "#E6F4FF" : sign === "in" ? "#FFF7E6" : "#FAFAFA";
+    const border =
+      sign === "out" ? "#91CAFF" : sign === "in" ? "#FFD591" : "#D9D9D9";
+
+    return (
+      <Col span={3} key={t.id}>
+        <Form.Item label={`ยอดโอนครั้งที่ ${index + 1}`} style={{ marginBottom: 0 }}>
+          <Space.Compact style={{ width: "100%" }}>
+            <Button
+              size="small"
+              icon={
+                <CheckOutlined
+                  style={{ color: t.isCompleted ? "#52c41a" : "#bfbfbf" }}
+                />
+              }
+              disabled={isCleared}
+              onClick={() =>
+                handleUpdateTransfer(t.id, { isCompleted: !t.isCompleted })
+              }
+            />
+            <Input
+              size="small"
+              defaultValue={amt}
+              readOnly={!editing}
+              disabled={isCleared}
+              onDoubleClick={() => !isCleared && setTransferEditingId(t.id)}
+              onBlur={(e) => {
+                const newAmt = Number(e.target.value);
+                setTransferEditingId(null);
+                if (isNaN(newAmt) || newAmt === amt) return;
+                handleUpdateTransfer(t.id, { amount: newAmt });
+              }}
+              onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+              styles={{
+                input: { textAlign: "right", background: bg },
+              }}
+              style={{ borderColor: border }}
+            />
+            <Popconfirm
+              title="ยืนยันลบรายการนี้?"
+              okText="ลบ"
+              cancelText="ยกเลิก"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => handleDeleteTransfer(t.id)}
+              disabled={isCleared}
+            >
+              <Button
+                size="small"
+                icon={<CloseOutlined style={{ color: "#ff4d4f" }} />}
+                disabled={isCleared}
+              />
+            </Popconfirm>
+          </Space.Compact>
+        </Form.Item>
+      </Col>
+    );
+  };
 
   return (
     <>
@@ -791,6 +935,28 @@ export default function JobFormModal({
                   </>
                 )}
               </Row>
+
+              <Divider style={{ margin: "8px 0" }} />
+
+              <Row gutter={12} align="bottom" justify="end">
+                {transfers.map((t, i) => renderTransferChip(t, i))}
+                <Col span={3}>
+                  <Form.Item label=" " style={{ marginBottom: 0 }}>
+                    <Button
+                      type="dashed"
+                      size="small"
+                      icon={<PlusOutlined />}
+                      loading={addingTransfer}
+                      disabled={isCleared}
+                      onClick={handleAddTransfer}
+                      style={{ width: "100%" }}
+                    >
+                      เพิ่มการโอน
+                    </Button>
+                  </Form.Item>
+                </Col>
+              </Row>
+
               <Divider style={{ margin: "8px 0" }} />
               <Row gutter={12}>
                 <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance, false, "#D4EEF1")}</Col>

@@ -276,12 +276,27 @@ model Job {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  transfers JobTransfer[]
+
   @@index([jobDate])
   @@index([jobType])
   @@index([customerId])
   @@index([driverId])
   @@index([createdById])
   @@map("jobs")
+}
+
+model JobTransfer {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  amount      Decimal  @db.Decimal(10, 2)
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([jobId])
+  @@map("job_transfers")
 }
 
 // ==================== Rate Tables ====================

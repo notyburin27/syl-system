@@ -36,6 +36,15 @@ export interface Location {
   updatedAt: string;
 }
 
+export interface JobTransfer {
+  id: string;
+  jobId: string;
+  amount: number;
+  isCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Job {
   id: string;
   jobDate: string;
@@ -74,6 +83,7 @@ export interface Job {
   fuelCreditAmount: number | null;
   clearStatus: boolean;
   statementVerified: boolean;
+  transfers?: JobTransfer[];
   createdById: string;
   createdAt: string;
   updatedAt: string;

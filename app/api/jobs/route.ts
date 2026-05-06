@@ -40,6 +40,7 @@ export async function GET(req: Request) {
         pickupLocation: true,
         factoryLocation: true,
         returnLocation: true,
+        transfers: { orderBy: { createdAt: "asc" } },
       },
       orderBy: [{ jobDate: "asc" }, { createdAt: "asc" }],
     });
@@ -127,6 +128,7 @@ export async function POST(req: Request) {
         pickupLocation: true,
         factoryLocation: true,
         returnLocation: true,
+        transfers: { orderBy: { createdAt: "asc" } },
       },
     });
 
