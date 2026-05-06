@@ -22,16 +22,16 @@ function computeDriverOverall(job: Job): number | null {
 }
 
 function computeDifference(job: Job): number | null {
-  if (!job.actualTransfer) return null
+  if (!job.actualTransferPrev) return null
   const overall = computeDriverOverall(job)
   if (overall === null) return null
-  return overall - Number(job.actualTransfer)
+  return overall - Number(job.actualTransferPrev)
 }
 
 function computeTotal(job: Job): number | null {
-  if (!job.actualTransfer) return null
+  if (!job.actualTransferPrev) return null
   const diff = computeDifference(job) ?? 0
-  return Number(job.actualTransfer) + diff
+  return Number(job.actualTransferPrev) + diff
 }
 
 function getJobTypeLabel(value: string): string {
@@ -64,7 +64,7 @@ export function generateJobsExcel(
   const colHeaders = [
     '#', 'JOB/เลขที่', 'วันที่', 'ลักษณะงาน', 'ลูกค้า', 'SIZE',
     'สถานที่รับตู้', 'โรงงาน', 'สถานที่คืนตู้',
-    'ค่าคนส่ง', 'ค่าเที่ยวคนขับ', 'ยอดโอนครั้งแรก',
+    'ค่าคนส่ง', 'ค่าเที่ยวคนขับ', 'ยกยอด',
     'เบิกล่วงหน้า', 'ค่าทางด่วน', 'ค่ารับตู้', 'ค่าคืนตู้', 'ค่ายกตู้', 'ค่าฝากตู้', 'ค่ายาง', 'อื่นๆ',
     'รวมคนรถปิดงาน', 'ส่วนต่าง', 'รวมยอดโอน',
     'ไมล์รถ', 'น้ำมัน OFF (ลิตร)', 'น้ำมันสด (ลิตร)', 'น้ำมันสด (฿)', 'น้ำมันเครดิต (ลิตร)', 'น้ำมันเครดิต (฿)',
@@ -83,7 +83,7 @@ export function generateJobsExcel(
     job.returnLocation?.name ?? '',
     job.income != null ? Number(job.income) : '',
     job.driverWage != null ? Number(job.driverWage) : '',
-    job.actualTransfer != null ? Number(job.actualTransfer) : '',
+    job.actualTransferPrev != null ? Number(job.actualTransferPrev) : '',
     job.advance != null ? Number(job.advance) : '',
     job.toll != null ? Number(job.toll) : '',
     job.pickupFee != null ? Number(job.pickupFee) : '',

@@ -36,12 +36,12 @@ function JobTypeRow({
       opacity: inactive ? 0.3 : 1,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 13, color: '#666', minWidth: 90 }}>{label}</span>
-        <span style={{ fontSize: 20, fontWeight: 700, color: '#222', lineHeight: 1 }} data-testid={testIdCount}>
+        <span style={{ fontSize: 14, color: '#666', minWidth: 90 }}>{label}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#222' }} data-testid={testIdCount}>
           {count}
         </span>
       </div>
-      <span style={{ fontSize: 13, color: '#444', fontWeight: inactive ? 400 : 500 }}>
+      <span style={{ fontSize: 14, color: '#444', fontWeight: inactive ? 400 : 500 }}>
         {fmt(amount)} ฿
       </span>
     </div>
@@ -89,10 +89,10 @@ function DriverCard({ s, onCardClick }: { s: DriverJobSummary; onCardClick: (id:
 
       {/* Total */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 12, color: '#888' }}>รวมโอนทั้งหมด</span>
+        <span style={{ fontSize: 14, color: '#888' }}>รวมโอนทั้งหมด</span>
         <span
           data-testid={`driver-card-total-transfer-${s.driverId}`}
-          style={{ fontSize: 18, fontWeight: 700, color: '#389e0d' }}
+          style={{ fontSize: 14, fontWeight: 700, color: '#389e0d' }}
         >
           {fmt(s.totalTransfer)} ฿
         </span>

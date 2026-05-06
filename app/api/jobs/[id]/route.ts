@@ -43,7 +43,7 @@ export async function PATCH(
       "driverWage",
       "estimatedPickupFee",
       "estimatedReturnFee",
-      "actualTransfer",
+      "actualTransferPrev",
       "advance",
       "toll",
       "pickupFee",

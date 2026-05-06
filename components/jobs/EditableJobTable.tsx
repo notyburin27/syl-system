@@ -49,7 +49,7 @@ interface DraftRow {
   estimatedTransfer: number | null
   income: number | null
   driverWage: number | null
-  actualTransfer: number | null
+  actualTransferPrev: number | null
   advance: number | null
   toll: number | null
   pickupFee: number | null
@@ -229,7 +229,7 @@ export default function EditableJobTable({
       estimatedTransfer: null,
       income: null,
       driverWage: null,
-      actualTransfer: null,
+      actualTransferPrev: null,
       advance: null,
       toll: null,
       pickupFee: null,
@@ -345,7 +345,7 @@ export default function EditableJobTable({
           returnLocationId: draft.returnLocationId,
           income: draft.income,
           driverWage: draft.driverWage,
-          actualTransfer: draft.actualTransfer,
+          actualTransferPrev: draft.actualTransferPrev,
           advance: draft.advance,
         }),
       })
@@ -466,15 +466,15 @@ export default function EditableJobTable({
   }
 
   const computeDifference = (row: RowData) => {
-    if (!row.actualTransfer) return null
+    if (!row.actualTransferPrev) return null
     const overall = computeDriverOverall(row)
     if (overall === null) return null
-    return overall - Number(row.actualTransfer)
+    return overall - Number(row.actualTransferPrev)
   }
 
   const computeTotal = (row: RowData) => {
-    if (!row.actualTransfer) return null
-    return Number(row.actualTransfer) + (computeDifference(row) ?? 0)
+    if (!row.actualTransferPrev) return null
+    return Number(row.actualTransferPrev) + (computeDifference(row) ?? 0)
   }
 
   const isAdvanceType = (row: RowData) => row.jobType === 'advance'
@@ -544,7 +544,7 @@ export default function EditableJobTable({
               if (draft) {
                 const updated = { ...draft, [field]: value }
                 if (updated.jobType === 'advance' && updated.jobDate && updated.advance) {
-                  updateDraft(rowKey, 'actualTransfer', updated.advance)
+                  updateDraft(rowKey, 'actualTransferPrev', updated.advance)
                   await handleCreateAdvanceJob(updated)
                 }
               }
@@ -719,12 +719,12 @@ export default function EditableJobTable({
             ]
           : []),
         {
-          title: 'ยอดโอนครั้งแรก',
-          dataIndex: 'actualTransfer',
-          key: 'actualTransfer',
+          title: 'ยกยอด',
+          dataIndex: 'actualTransferPrev',
+          key: 'actualTransferPrev',
           width: 120,
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'actualTransfer', 'number', undefined, {
+            renderCell(row, 'actualTransferPrev', 'number', undefined, {
               disabled: isAdvanceType(row),
             }),
         },

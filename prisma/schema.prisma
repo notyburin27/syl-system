@@ -248,7 +248,7 @@ model Job {
   driverWage            Decimal?  @db.Decimal(10, 2)
   estimatedPickupFee    Decimal?  @db.Decimal(10, 2)
   estimatedReturnFee    Decimal?  @db.Decimal(10, 2)
-  actualTransfer        Decimal?  @db.Decimal(10, 2)
+  actualTransferPrev    Decimal?  @db.Decimal(10, 2)
   advance               Decimal?  @db.Decimal(10, 2)
   toll                  Decimal?  @db.Decimal(10, 2)
   pickupFee             Decimal?  @db.Decimal(10, 2)

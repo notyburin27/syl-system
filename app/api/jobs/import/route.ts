@@ -15,7 +15,7 @@ interface ImportRow {
   estimatedTransfer?: number;
   income?: number;
   driverWage?: number;
-  actualTransfer?: number;
+  actualTransferPrev?: number;
   advance?: number;
   toll?: number;
   pickupFee?: number;
@@ -315,10 +315,10 @@ export async function POST(req: Request) {
               : null,
             income: row.income ?? 0,
             driverWage: row.driverWage ?? 0,
-            actualTransfer:
+            actualTransferPrev:
               row.jobType === "advance"
                 ? row.advance ?? 0
-                : row.actualTransfer ?? 0,
+                : row.actualTransferPrev ?? 0,
             advance: row.advance ?? 0,
             toll: row.toll ?? 0,
             pickupFee: row.pickupFee ?? 0,

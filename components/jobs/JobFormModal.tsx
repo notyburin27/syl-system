@@ -110,7 +110,7 @@ export default function JobFormModal({
   const watchStorageFee = Form.useWatch("storageFee", form) || 0;
   const watchTire = Form.useWatch("tire", form) || 0;
   const watchOther = Form.useWatch("other", form) || 0;
-  const watchActualTransfer = Form.useWatch("actualTransfer", form) || 0;
+  const watchActualTransfer = Form.useWatch("actualTransferPrev", form) || 0;
 
   const driverOverall =
     Number(watchAdvance) +
@@ -151,7 +151,7 @@ export default function JobFormModal({
           estimatedPickupFee: estimatedPickup,
           estimatedReturnFee: estimatedReturn,
           estimatedTransfer: estimated,
-          actualTransfer: job.actualTransfer,
+          actualTransferPrev: job.actualTransferPrev,
           advance: job.advance,
           toll: job.toll,
           pickupFee: job.pickupFee,
@@ -206,7 +206,7 @@ export default function JobFormModal({
       "driverWage",
       "estimatedPickupFee",
       "estimatedReturnFee",
-      "actualTransfer",
+      "actualTransferPrev",
       "advance",
       "toll",
       "pickupFee",
@@ -306,12 +306,11 @@ export default function JobFormModal({
         const currentPickup = feeUpdates.estimatedPickupFee ?? Number(form.getFieldValue("estimatedPickupFee") || 0);
         const currentReturn = feeUpdates.estimatedReturnFee ?? Number(form.getFieldValue("estimatedReturnFee") || 0);
         const estimated = currentPickup + currentReturn;
-        form.setFieldsValue({ estimatedTransfer: estimated, actualTransfer: estimated });
+        form.setFieldsValue({ estimatedTransfer: estimated });
         if (isCreated) {
           await Promise.all([
             "estimatedPickupFee" in feeUpdates ? handleFieldBlur("estimatedPickupFee") : Promise.resolve(),
             "estimatedReturnFee" in feeUpdates ? handleFieldBlur("estimatedReturnFee") : Promise.resolve(),
-            handleFieldBlur("actualTransfer"),
           ]);
         }
       }
@@ -761,7 +760,7 @@ export default function JobFormModal({
                   </Form.Item>
                 </Col>
                 <Col span={3}>
-                  {numberInput("actualTransfer", "ยอดโอนครั้งแรก", isAdvance, false, "#D4EEF1")}
+                  {numberInput("actualTransferPrev", "ยกยอด", isAdvance, false, "#D4EEF1")}
                 </Col>
                 <Col span={3}>
                   <Form.Item label="ส่วนต่าง">

@@ -57,7 +57,7 @@ export interface Job {
   driverWage: number | null;
   estimatedPickupFee: number | null;
   estimatedReturnFee: number | null;
-  actualTransfer: number | null;
+  actualTransferPrev: number | null;
   advance: number | null;
   toll: number | null;
   pickupFee: number | null;
