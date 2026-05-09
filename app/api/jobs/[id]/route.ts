@@ -2,6 +2,37 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    const { id } = await params;
+    const job = await prisma.job.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        driver: true,
+        pickupLocation: true,
+        factoryLocation: true,
+        returnLocation: true,
+        transfers: { orderBy: { createdAt: "asc" } },
+      },
+    });
+    if (!job) {
+      return NextResponse.json({ error: "ไม่พบงาน" }, { status: 404 });
+    }
+    return NextResponse.json(job);
+  } catch (error) {
+    console.error("Error fetching job:", error);
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลงาน" }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -58,6 +89,7 @@ export async function PATCH(
       "fuelCashAmount",
       "fuelCreditLiters",
       "fuelCreditAmount",
+      "carryOverToJobId",
     ];
 
     const data: Record<string, unknown> = {};

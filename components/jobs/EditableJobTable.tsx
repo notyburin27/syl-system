@@ -465,16 +465,23 @@ export default function EditableJobTable({
     )
   }
 
+  const computeCompletedTransferSum = (row: RowData) => {
+    if (!('transfers' in row) || !row.transfers) return 0
+    return row.transfers.filter((t) => t.isCompleted).reduce((s, t) => s + Number(t.amount), 0)
+  }
+
   const computeDifference = (row: RowData) => {
-    if (!row.actualTransferPrev) return null
     const overall = computeDriverOverall(row)
     if (overall === null) return null
-    return overall - Number(row.actualTransferPrev)
+    const prev = Number(row.actualTransferPrev || 0)
+    const completed = computeCompletedTransferSum(row)
+    return overall - prev - completed
   }
 
   const computeTotal = (row: RowData) => {
-    if (!row.actualTransferPrev) return null
-    return Number(row.actualTransferPrev) + (computeDifference(row) ?? 0)
+    const completed = computeCompletedTransferSum(row)
+    if (!completed) return null
+    return completed
   }
 
   const isAdvanceType = (row: RowData) => row.jobType === 'advance'

@@ -83,6 +83,7 @@ export interface Job {
   fuelCreditAmount: number | null;
   clearStatus: boolean;
   statementVerified: boolean;
+  carryOverToJobId: string | null;
   transfers?: JobTransfer[];
   createdById: string;
   createdAt: string;

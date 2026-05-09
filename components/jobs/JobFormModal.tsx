@@ -21,6 +21,7 @@ import {
   CheckCircleOutlined,
   UnlockOutlined,
   CloseOutlined,
+  ShareAltOutlined,
 } from "@ant-design/icons";
 import { Popconfirm } from "antd";
 import dayjs from "dayjs";
@@ -75,6 +76,15 @@ export default function JobFormModal({
   const [clearing, setClearing] = useState(false);
   const [transfers, setTransfers] = useState<JobTransfer[]>([]);
 
+  // Carry-over (ยกยอดไปงานอื่น)
+  const [carryOverOpen, setCarryOverOpen] = useState(false);
+  const [carryOverMonth, setCarryOverMonth] = useState<string>(""); // YYYY-MM
+  const [carryOverJobs, setCarryOverJobs] = useState<Job[]>([]);
+  const [carryOverTargetId, setCarryOverTargetId] = useState<string>("");
+  const [carryOverLoading, setCarryOverLoading] = useState(false);
+  const [carryOverSaving, setCarryOverSaving] = useState(false);
+  const [carryOverDone, setCarryOverDone] = useState<{ jobId: string; jobNumber: string; jobDate: string; jobType: string } | null>(null);
+
   // Quick add modal
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState<"customer" | "location">(
@@ -114,7 +124,7 @@ export default function JobFormModal({
   const watchStorageFee = Form.useWatch("storageFee", form) || 0;
   const watchTire = Form.useWatch("tire", form) || 0;
   const watchOther = Form.useWatch("other", form) || 0;
-  const watchActualTransfer = Form.useWatch("actualTransferPrev", form) || 0;
+  const watchActualTransfer = Number(activeJob?.actualTransferPrev ?? 0);
 
   const driverOverall =
     Number(watchAdvance) +
@@ -132,7 +142,7 @@ export default function JobFormModal({
 
   const difference =
     driverOverall - Number(watchActualTransfer) - completedTransferSum;
-  const totalTransfer = Number(watchActualTransfer) + completedTransferSum;
+  const totalTransfer = completedTransferSum;
 
   useEffect(() => {
     if (open) {
@@ -140,6 +150,20 @@ export default function JobFormModal({
       setSaveStatus("idle");
       setClearStatus(mode === "edit" && job ? !!job.clearStatus : false);
       setTransfers(mode === "edit" && job?.transfers ? job.transfers : []);
+      setCarryOverOpen(false);
+      setCarryOverMonth("");
+      setCarryOverJobs([]);
+      setCarryOverTargetId("");
+      // restore carryOverDone from existing job data
+      const existingCarryId = (mode === "edit" && job) ? job.carryOverToJobId : null;
+      if (existingCarryId) {
+        fetch(`/api/jobs/${existingCarryId}`)
+          .then((r) => r.json())
+          .then((j: Job) => setCarryOverDone({ jobId: j.id, jobNumber: j.jobNumber, jobDate: j.jobDate, jobType: j.jobType }))
+          .catch(() => setCarryOverDone(null));
+      } else {
+        setCarryOverDone(null);
+      }
       if (mode === "edit" && job) {
         const estimatedPickup = job.estimatedPickupFee ?? undefined
         const estimatedReturn = job.estimatedReturnFee ?? undefined
@@ -379,6 +403,87 @@ export default function JobFormModal({
     } catch {}
   };
 
+  const handleCarryOverMonthChange = async (monthVal: string) => {
+    setCarryOverMonth(monthVal);
+    setCarryOverTargetId("");
+    setCarryOverJobs([]);
+    if (!monthVal || !activeJob?.driverId) return;
+    setCarryOverLoading(true);
+    try {
+      const res = await fetch(`/api/jobs?driverId=${activeJob.driverId}&month=${monthVal}`);
+      const data: Job[] = await res.json();
+      setCarryOverJobs(data.filter((j) => j.id !== activeJob.id && !j.clearStatus && j.jobType !== "advance"));
+    } catch {
+      // ignore
+    } finally {
+      setCarryOverLoading(false);
+    }
+  };
+
+  const handleCarryOverConfirm = async () => {
+    if (!carryOverTargetId || !activeJob) return;
+    const amount = Math.abs(Math.round(difference));
+    setCarryOverSaving(true);
+    try {
+      // อัปเดต job ปลายทาง: ใส่ยอด actualTransferPrev
+      const res = await fetch(`/api/jobs/${carryOverTargetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actualTransferPrev: amount }),
+      });
+      if (!res.ok) {
+        message.error("ยกยอดล้มเหลว");
+        return;
+      }
+      // บันทึก carryOverToJobId ที่ job ต้นทาง
+      const res2 = await fetch(`/api/jobs/${activeJob.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ carryOverToJobId: carryOverTargetId }),
+      });
+      if (!res2.ok) {
+        const err = await res2.json();
+        message.error(err.error || "บันทึก carryOverToJobId ล้มเหลว");
+        return;
+      }
+      const targetJob = carryOverJobs.find((j) => j.id === carryOverTargetId)!;
+      setCarryOverDone({
+        jobId: targetJob.id,
+        jobNumber: targetJob.jobNumber,
+        jobDate: targetJob.jobDate,
+        jobType: targetJob.jobType,
+      });
+      setCarryOverOpen(false);
+      message.success(`ยกยอด ${amount.toLocaleString()} บาท → ${targetJob.jobNumber} เรียบร้อย`);
+    } catch {
+      message.error("ยกยอดล้มเหลว");
+    } finally {
+      setCarryOverSaving(false);
+    }
+  };
+
+  const handleCarryOverRemove = async () => {
+    if (!carryOverDone || !activeJob) return;
+    try {
+      // ล้าง actualTransferPrev ที่ job ปลายทาง
+      await fetch(`/api/jobs/${carryOverDone.jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actualTransferPrev: null }),
+      });
+      // ล้าง carryOverToJobId ที่ job ต้นทาง
+      await fetch(`/api/jobs/${activeJob.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ carryOverToJobId: null }),
+      });
+      setCarryOverDone(null);
+      message.success("ยกเลิกการยกยอดแล้ว");
+    } catch {
+      message.error("ยกเลิกการยกยอดล้มเหลว");
+    }
+  };
+
   const isLocalTransfer = (id: string) => id.startsWith("tmp-");
 
   const handleAddTransfer = () => {
@@ -593,6 +698,7 @@ export default function JobFormModal({
     <Form.Item label={label} name={field} rules={[numberRule]}>
       <Input
         allowClear
+        autoComplete="off"
         className={bgColor && !fieldsDisabled && !disabled && !(!skipClearLock && isCleared) ? "input-bg-highlight" : undefined}
         styles={{ input: { textAlign: "right" } }}
         disabled={fieldsDisabled || disabled || (!skipClearLock && isCleared)}
@@ -745,7 +851,7 @@ export default function JobFormModal({
                   type="default"
                   style={{ width: 100 }}
                   icon={clearing ? <LoadingOutlined /> : clearStatus ? <UnlockOutlined /> : <CheckCircleOutlined />}
-                  disabled={clearing || (!isAdmin && clearStatus)}
+                  disabled={clearing || (!isAdmin && clearStatus) || (!clearStatus && Math.round(difference) !== 0 && !carryOverDone)}
                   onClick={async () => {
                     setClearing(true);
                     await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
@@ -960,7 +1066,7 @@ export default function JobFormModal({
                       disabled
                       styles={{ input: { textAlign: "right" } }}
                       value={
-                        !watchActualTransfer || !driverOverall
+                        !driverOverall
                           ? "-"
                           : difference > 0
                             ? `+${Math.round(difference)}`
@@ -971,10 +1077,141 @@ export default function JobFormModal({
                 </Col>
                 <Col span={3}>
                   <Form.Item label="รวมยอดโอน">
-                    <Input disabled styles={{ input: { textAlign: "right" } }} value={watchActualTransfer ? totalTransfer : "-"} />
+                    <Input disabled styles={{ input: { textAlign: "right" } }} value={completedTransferSum ? totalTransfer : "-"} />
                   </Form.Item>
                 </Col>
+                {/* ปุ่มยกยอด หรือ chip job ที่ยกยอดไปแล้ว */}
+                {(carryOverDone || (driverOverall > 0 && difference < 0 && !isCleared && !watchActualTransfer)) && <Col span={3}>
+                  <Form.Item label="ยกยอดไป" style={{ marginBottom: 0 }}>
+                    {carryOverDone ? (
+                      <Space.Compact style={{ width: "100%" }}>
+                        <Popconfirm
+                          title="ยกเลิกการยกยอดนี้?"
+                          okText="ยืนยัน"
+                          cancelText="ยกเลิก"
+                          okButtonProps={{ danger: true }}
+                          onConfirm={handleCarryOverRemove}
+                          disabled={isCleared}
+                        >
+                          <Button
+                            size="small"
+                            icon={<CloseOutlined style={{ color: "#ff4d4f" }} />}
+                            disabled={isCleared}
+                          />
+                        </Popconfirm>
+                        <Input
+                          size="small"
+                          readOnly
+                          value={carryOverDone.jobNumber}
+                          styles={{ input: { textAlign: "right", background: "#FFF0F6" } }}
+                          style={{ borderColor: "#FFADD2" }}
+                        />
+                      </Space.Compact>
+                    ) : driverOverall > 0 && difference < 0 && !isCleared && !watchActualTransfer ? (
+                      <Button
+                        size="small"
+                        type="dashed"
+                        icon={<ShareAltOutlined />}
+                        style={{ width: "100%" }}
+                        onClick={() => {
+                          setCarryOverOpen(true);
+                          const defaultMonth = month >= dayjs().format("YYYY-MM") ? month : dayjs().format("YYYY-MM");
+                          handleCarryOverMonthChange(defaultMonth);
+                        }}
+                      >
+                        ยกยอดไปงานอื่น
+                      </Button>
+                    ) : null}
+                  </Form.Item>
+                </Col>}
               </Row>
+
+              {/* Inline carry-over form */}
+              {carryOverOpen && (
+                <Row gutter={12} align="bottom" justify="end" style={{ marginBottom: 8 }}>
+                  <Col span={3}>
+                    <Form.Item label="เดือน" style={{ marginBottom: 0 }}>
+                      <Select
+                        size="small"
+                        value={carryOverMonth || undefined}
+                        placeholder="เลือกเดือน"
+                        popupMatchSelectWidth={false}
+                        onChange={handleCarryOverMonthChange}
+                        options={(() => {
+                          const today = dayjs().format("YYYY-MM");
+                          const start = month;
+                          const end = start > today ? start : today;
+                          const months = [];
+                          let cur = dayjs(start);
+                          while (cur.format("YYYY-MM") <= end) {
+                            const m = cur.format("YYYY-MM");
+                            months.push({ value: m, label: cur.format("MMM YYYY") });
+                            cur = cur.add(1, "month");
+                          }
+                          return months;
+                        })()}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={3}>
+                    <Form.Item label="JOB/เลขที่" style={{ marginBottom: 0 }}>
+                      <Select
+                        size="small"
+                        showSearch
+                        value={carryOverTargetId || undefined}
+                        placeholder={carryOverLoading ? "กำลังโหลด..." : "เลือก JOB"}
+                        loading={carryOverLoading}
+                        popupMatchSelectWidth={false}
+                        filterOption={(input, option) =>
+                          ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase())
+                        }
+                        onChange={setCarryOverTargetId}
+                        options={carryOverJobs.map((j) => ({
+                          value: j.id,
+                          label: j.jobNumber,
+                        }))}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={3}>
+                    <Form.Item label="ยอด" style={{ marginBottom: 0 }}>
+                      <Input
+                        size="small"
+                        disabled
+                        styles={{ input: { textAlign: "right" } }}
+                        value={Math.abs(Math.round(difference))}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={3}>
+                    <Form.Item label=" " style={{ marginBottom: 0 }}>
+                      <Space.Compact style={{ width: "100%" }}>
+                        <Button
+                          size="small"
+                          loading={carryOverSaving}
+                          disabled={!carryOverTargetId}
+                          onClick={handleCarryOverConfirm}
+                          style={{
+                            width: "50%",
+                            ...(carryOverTargetId
+                              ? { background: "#52c41a", borderColor: "#52c41a", color: "#fff" }
+                              : {}),
+                          }}
+                        >
+                          ยืนยัน
+                        </Button>
+                        <Button
+                          size="small"
+                          style={{ width: "50%" }}
+                          onClick={() => { setCarryOverOpen(false); setCarryOverTargetId(""); setCarryOverMonth(""); setCarryOverJobs([]); }}
+                        >
+                          ยกเลิก
+                        </Button>
+                      </Space.Compact>
+                    </Form.Item>
+                  </Col>
+                </Row>
+              )}
 
               <Divider style={{ margin: "8px 0" }} />
 

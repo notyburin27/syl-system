@@ -270,6 +270,11 @@ model Job {
   clearStatus       Boolean   @default(false)
   statementVerified Boolean   @default(false)
 
+  // Carry-over relation
+  carryOverToJobId  String?
+  carryOverToJob    Job?      @relation("CarryOver", fields: [carryOverToJobId], references: [id])
+  carryOverFromJob  Job[]     @relation("CarryOver")
+
   // Metadata
   createdById String
   createdBy   AuthUser @relation(fields: [createdById], references: [id])
@@ -277,6 +282,8 @@ model Job {
   updatedAt   DateTime @updatedAt
 
   transfers JobTransfer[]
+
+  @@index([carryOverToJobId])
 
   @@index([jobDate])
   @@index([jobType])
