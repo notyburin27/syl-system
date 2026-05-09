@@ -45,6 +45,41 @@ export interface JobTransfer {
   updatedAt: string;
 }
 
+export interface TowingJobSummary {
+  id: string;
+  jobNumber: string;
+  jobDate: string;
+  size: string | null;
+  pickupLocation?: Location | null;
+  returnLocation?: Location | null;
+}
+
+export interface MainJobSummary {
+  id: string;
+  jobNumber: string;
+  jobDate: string;
+  jobType: string;
+}
+
+export interface JobTowingLink {
+  id: string;
+  mainJobId: string;
+  mainJob?: MainJobSummary;
+  towingJobId: string;
+  towingJob: TowingJobSummary;
+  sequence: number; // 1 = รับตู้, 2 = คืนตู้
+  createdAt: string;
+}
+
+export interface JobTowingLinkAsMain {
+  id: string;
+  mainJobId: string;
+  mainJob: MainJobSummary;
+  towingJobId: string;
+  sequence: number;
+  createdAt: string;
+}
+
 export interface Job {
   id: string;
   jobDate: string;
@@ -85,6 +120,8 @@ export interface Job {
   statementVerified: boolean;
   carryOverToJobId: string | null;
   transfers?: JobTransfer[];
+  towingLinksAsMain?: JobTowingLink[];
+  towingLinkAsTowing?: JobTowingLinkAsMain | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;

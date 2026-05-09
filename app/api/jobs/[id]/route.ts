@@ -21,6 +21,15 @@ export async function GET(
         factoryLocation: true,
         returnLocation: true,
         transfers: { orderBy: { createdAt: "asc" } },
+        towingLinksAsMain: {
+          orderBy: { sequence: "asc" },
+          include: {
+            towingJob: { include: { pickupLocation: true, returnLocation: true } },
+          },
+        },
+        towingLinkAsTowing: {
+          include: { mainJob: { select: { id: true, jobNumber: true, jobDate: true, jobType: true } } },
+        },
       },
     });
     if (!job) {
@@ -113,6 +122,15 @@ export async function PATCH(
         factoryLocation: true,
         returnLocation: true,
         transfers: { orderBy: { createdAt: "asc" } },
+        towingLinksAsMain: {
+          orderBy: { sequence: "asc" },
+          include: {
+            towingJob: { include: { pickupLocation: true, returnLocation: true } },
+          },
+        },
+        towingLinkAsTowing: {
+          include: { mainJob: { select: { id: true, jobNumber: true, jobDate: true, jobType: true } } },
+        },
       },
     });
 

@@ -97,6 +97,7 @@ export default function EditableJobTable({
   const [formModalOpen, setFormModalOpen] = useState(false)
   const [formModalMode, setFormModalMode] = useState<'create' | 'edit'>('create')
   const [formModalJob, setFormModalJob] = useState<Job | null>(null)
+  const [formModalJobLoading, setFormModalJobLoading] = useState(false)
 
   const [clearingId, setClearingId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -993,10 +994,21 @@ export default function EditableJobTable({
           const r = row as RowData
           if (isDraft(r)) return {}
           return {
-            onClick: () => {
-              setFormModalJob(r as Job)
+            onClick: async () => {
+              const row = r as Job
+              setFormModalJob(row)
               setFormModalMode('edit')
               setFormModalOpen(true)
+              setFormModalJobLoading(true)
+              try {
+                const res = await fetch(`/api/jobs/${row.id}`)
+                if (res.ok) {
+                  const fresh: Job = await res.json()
+                  setFormModalJob(fresh)
+                }
+              } catch { /* ใช้ row data เดิมถ้า fetch ไม่ได้ */ } finally {
+                setFormModalJobLoading(false)
+              }
             },
             style: { cursor: 'pointer' },
           }

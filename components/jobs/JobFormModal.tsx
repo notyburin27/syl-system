@@ -22,10 +22,11 @@ import {
   UnlockOutlined,
   CloseOutlined,
   ShareAltOutlined,
+  LinkOutlined,
 } from "@ant-design/icons";
 import { Popconfirm } from "antd";
 import dayjs from "dayjs";
-import type { Job, Customer, Location, JobTransfer } from "@/types/job";
+import type { Job, Customer, Location, JobTransfer, JobTowingLink, TowingJobSummary, MainJobSummary } from "@/types/job";
 import { JOB_TYPES, SIZE_OPTIONS } from "@/types/job";
 import QuickAddModal from "./QuickAddModal";
 
@@ -85,6 +86,13 @@ export default function JobFormModal({
   const [carryOverSaving, setCarryOverSaving] = useState(false);
   const [carryOverDone, setCarryOverDone] = useState<{ jobId: string; jobNumber: string; jobDate: string; jobType: string } | null>(null);
 
+  // Towing links
+  const [towingLinks, setTowingLinks] = useState<JobTowingLink[]>([]);
+  const [towingMainJob, setTowingMainJob] = useState<MainJobSummary | null>(null);
+  const [towingCandidates, setTowingCandidates] = useState<{ slot: 1 | 2; jobs: TowingJobSummary[] } | null>(null);
+  const [towingCandidatesLoading, setTowingCandidatesLoading] = useState<1 | 2 | null>(null);
+  const [towingLinking, setTowingLinking] = useState<1 | 2 | null>(null);
+
   // Quick add modal
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState<"customer" | "location">(
@@ -100,6 +108,8 @@ export default function JobFormModal({
 
   const jobTypeWatch = Form.useWatch("jobType", form);
   const isAdvance = jobTypeWatch === "advance";
+  const watchPickupLocationId = Form.useWatch("pickupLocationId", form);
+  const watchReturnLocationId = Form.useWatch("returnLocationId", form);
 
   // Fetch and preview next ADV number when jobType switches to เบิกล่วงหน้า
   useEffect(() => {
@@ -154,6 +164,9 @@ export default function JobFormModal({
       setCarryOverMonth("");
       setCarryOverJobs([]);
       setCarryOverTargetId("");
+      setTowingLinks(mode === "edit" && job?.towingLinksAsMain ? job.towingLinksAsMain : []);
+      setTowingMainJob(mode === "edit" && job?.towingLinkAsTowing?.mainJob ? job.towingLinkAsTowing.mainJob : null);
+      setTowingCandidates(null);
       // restore carryOverDone from existing job data
       const existingCarryId = (mode === "edit" && job) ? job.carryOverToJobId : null;
       if (existingCarryId) {
@@ -484,6 +497,101 @@ export default function JobFormModal({
     }
   };
 
+  const handleOpenTowingCandidates = async (slot: 1 | 2) => {
+    if (!activeJob) return;
+    if (towingCandidates?.slot === slot) {
+      setTowingCandidates(null);
+      return;
+    }
+    setTowingCandidatesLoading(slot);
+    setTowingCandidates(null);
+    try {
+      const res = await fetch(`/api/jobs/${activeJob.id}/towing-candidates?slot=${slot}`);
+      const jobs: TowingJobSummary[] = await res.json();
+      setTowingCandidates({ slot, jobs });
+    } catch {
+      message.error("โหลดรายการทอยตู้ไม่สำเร็จ");
+    } finally {
+      setTowingCandidatesLoading(null);
+    }
+  };
+
+  const handleLinkTowing = async (slot: 1 | 2, towingJobId: string) => {
+    if (!activeJob) return;
+    setTowingLinking(slot);
+    try {
+      const res = await fetch(`/api/jobs/${activeJob.id}/towing-links`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sequence: slot, towingJobId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        message.error(err.error || "ลิ้งงานล้มเหลว");
+        return;
+      }
+      const link: JobTowingLink = await res.json();
+      setTowingLinks((prev) => [...prev.filter((l) => l.sequence !== slot), link].sort((a, b) => a.sequence - b.sequence));
+      setTowingCandidates(null);
+      message.success(`เชื่อม JOB ${slot === 1 ? "รับตู้" : "คืนตู้"}เรียบร้อย`);
+
+      // คำนวณ estimatedPickupFee / estimatedReturnFee จาก location ของ towing job
+      const jobType = form.getFieldValue("jobType");
+      const size = form.getFieldValue("size");
+      if (jobType && size) {
+        const towingPickupId = link.towingJob.pickupLocation?.id;
+        const towingReturnId = link.towingJob.returnLocation?.id;
+        // slot 1: towing pickupLocation (xxx) → estimatedPickupFee
+        // slot 2: towing returnLocation (xxx) → estimatedReturnFee
+        const lookupId = slot === 1 ? towingPickupId : towingReturnId;
+        const feeField = slot === 1 ? "estimatedPickupFee" : "estimatedReturnFee";
+        if (lookupId) {
+          try {
+            const calcRes = await fetch("/api/jobs/calculate/estimated-transfer", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                jobType,
+                size,
+                pickupLocationId: slot === 1 ? lookupId : undefined,
+                returnLocationId: slot === 2 ? lookupId : undefined,
+              }),
+            });
+            const calcData = await calcRes.json();
+            const fee = slot === 1 ? calcData.pickupFee : calcData.returnFee;
+            if (fee !== null && fee !== undefined) {
+              form.setFieldValue(feeField, fee);
+              // อัปเดต estimatedTransfer รวม
+              const pickup = Number(form.getFieldValue("estimatedPickupFee") || 0);
+              const ret = Number(form.getFieldValue("estimatedReturnFee") || 0);
+              form.setFieldValue("estimatedTransfer", pickup + ret);
+              await handleFieldBlur(feeField);
+            }
+          } catch { /* ไม่ block UX ถ้า calc ล้มเหลว */ }
+        }
+      }
+    } catch {
+      message.error("เชื่อม JOB ล้มเหลว");
+    } finally {
+      setTowingLinking(null);
+    }
+  };
+
+  const handleUnlinkTowing = async (slot: 1 | 2) => {
+    if (!activeJob) return;
+    try {
+      const res = await fetch(`/api/jobs/${activeJob.id}/towing-links/${slot}`, { method: "DELETE" });
+      if (!res.ok) {
+        message.error("ยกเลิกลิ้งล้มเหลว");
+        return;
+      }
+      setTowingLinks((prev) => prev.filter((l) => l.sequence !== slot));
+      message.success("ยกเลิกลิ้งแล้ว");
+    } catch {
+      message.error("ยกเลิกลิ้งล้มเหลว");
+    }
+  };
+
   const isLocalTransfer = (id: string) => id.startsWith("tmp-");
 
   const handleAddTransfer = () => {
@@ -683,6 +791,10 @@ export default function JobFormModal({
   const isCreated = !!activeJob;
   const isCleared = clearStatus;
   const fieldsDisabled = mode === "create" && !isCreated;
+  const isTowingLinked = jobTypeWatch === "towing" && !!towingMainJob;
+  const hasSlot1Link = towingLinks.some((l) => l.sequence === 1);
+  const hasSlot2Link = towingLinks.some((l) => l.sequence === 2);
+  const hasAnyTowingLink = hasSlot1Link || hasSlot2Link;
 
   const numberRule = {
     validator: (_: unknown, value: string) => {
@@ -907,7 +1019,7 @@ export default function JobFormModal({
                     id="job-type-select"
                     showSearch
                     allowClear
-                    disabled={isCleared}
+                    disabled={isCleared || isTowingLinked || hasAnyTowingLink}
                     popupMatchSelectWidth={false}
                     styles={{ popup: { root: { minWidth: 200 } } }}
                     filterOption={(input, option) =>
@@ -1000,7 +1112,7 @@ export default function JobFormModal({
                       "pickupLocationId",
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "pickupLocationId"),
-                      isAdvance,
+                      isAdvance || isTowingLinked || hasSlot1Link,
                       [() => prefillEstimatedTransfer("pickupLocationId"), prefillIncome],
                     )}
                   </Form.Item>
@@ -1011,7 +1123,7 @@ export default function JobFormModal({
                       "factoryLocationId",
                       factoryLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "factory", "factoryLocationId"),
-                      isAdvance,
+                      isAdvance || isTowingLinked,
                       [prefillIncome, prefillDriverWage],
                     )}
                   </Form.Item>
@@ -1022,7 +1134,7 @@ export default function JobFormModal({
                       "returnLocationId",
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "returnLocationId"),
-                      isAdvance,
+                      isAdvance || isTowingLinked || hasSlot2Link,
                       [() => prefillEstimatedTransfer("returnLocationId"), prefillIncome],
                     )}
                   </Form.Item>
@@ -1225,6 +1337,7 @@ export default function JobFormModal({
                       icon={<PlusOutlined />}
                       disabled={
                         isCleared ||
+                        isTowingLinked ||
                         transfers.some((t) => Number(t.amount) === 0)
                       }
                       onClick={handleAddTransfer}
@@ -1238,19 +1351,19 @@ export default function JobFormModal({
 
               <Divider style={{ margin: "8px 0" }} />
               <Row gutter={12}>
-                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
                 <Col span={3}>
-                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance, false, "#D4EEF1")}
+                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
                 </Col>
                 <Col span={3}>
-                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance, false, "#D4EEF1")}
+                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
                 </Col>
-                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
                 <Col span={3}>
-                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance, false, "#D4EEF1")}
+                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
                 </Col>
-                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance, false, "#D4EEF1")}</Col>
-                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
                 <Col span={3}>
                   <Form.Item label="รวมคนรถปิดงาน">
                     <Input disabled styles={{ input: { textAlign: "right" } }} value={driverOverall || "-"} />
@@ -1287,7 +1400,127 @@ export default function JobFormModal({
                   </>
                 )}
               </Row>
-            </>
+            {/* Section 4a: งานหลัก — เฉพาะ towing ที่ถูกเชื่อมโยง */}
+            {isCreated && jobTypeWatch === "towing" && towingMainJob && (
+              <>
+                <Divider style={{ margin: "8px 0" }} />
+                <div style={{ marginBottom: 6, fontWeight: 500, fontSize: 13, color: "#595959" }}>
+                  งานหลักที่เชื่อมโยง
+                </div>
+                <Row gutter={12}>
+                  <Col span={6}>
+                    <div style={{ fontSize: 12, color: "#8c8c8c", marginBottom: 4 }}>
+                      {towingMainJob.jobType === "inbound" ? "ขาเข้า" : towingMainJob.jobType === "outbound" ? "ขาออก" : towingMainJob.jobType}
+                    </div>
+                    <Input
+                      size="small"
+                      readOnly
+                      value={towingMainJob.jobNumber}
+                      styles={{ input: { background: "#E6F4FF", fontSize: 12 } }}
+                      style={{ borderColor: "#91CAFF" }}
+                    />
+                  </Col>
+                </Row>
+              </>
+            )}
+
+            {/* Section 4b: เชื่อมโยง JOB ทอยตู้ — เฉพาะ inbound/outbound ที่มี SYL */}
+            {isCreated && (jobTypeWatch === "inbound" || jobTypeWatch === "outbound") && (() => {
+              const sylId = generalLocations.find((l) => l.name === "SYL")?.id;
+              // slot 1 รับตู้: return = SYL, slot 2 คืนตู้: pickup = SYL
+              const showSlot1 = !!sylId && watchPickupLocationId === sylId;
+              const showSlot2 = !!sylId && watchReturnLocationId === sylId;
+              const visibleSlots = ([1, 2] as const).filter((s) => s === 1 ? showSlot1 : showSlot2);
+              if (visibleSlots.length === 0) return null;
+              return (
+              <>
+                <Divider style={{ margin: "8px 0" }} />
+                <div style={{ marginBottom: 8, fontWeight: 500, fontSize: 13, color: "#595959" }}>
+                  เชื่อมโยง JOB ทอยตู้
+                </div>
+                <Row gutter={12}>
+                  {visibleSlots.map((slot) => {
+                    const linked = towingLinks.find((l) => l.sequence === slot);
+                    const label = slot === 1 ? "เชื่อม JOB รับตู้ (xxx→SYL)" : "เชื่อม JOB คืนตู้ (SYL→xxx)";
+                    const isOpen = towingCandidates?.slot === slot;
+                    const noResults = isOpen && !towingCandidatesLoading && towingCandidates?.jobs.length === 0;
+
+                    return (
+                      <Col span={6} key={slot}>
+                        <div style={{ fontSize: 12, color: "#8c8c8c", marginBottom: 4 }}>{label}</div>
+                        {linked ? (
+                          <Space.Compact style={{ width: "100%" }}>
+                            <Popconfirm
+                              title="ยกเลิกการเชื่อมโยง JOB นี้?"
+                              okText="ยืนยัน"
+                              cancelText="ยกเลิก"
+                              okButtonProps={{ danger: true }}
+                              onConfirm={() => handleUnlinkTowing(slot)}
+                              disabled={isCleared}
+                            >
+                              <Button
+                                size="small"
+                                icon={<CloseOutlined style={{ color: "#ff4d4f" }} />}
+                                disabled={isCleared}
+                              />
+                            </Popconfirm>
+                            <Input
+                              size="small"
+                              readOnly
+                              value={`${linked.towingJob.jobNumber}${linked.towingJob.pickupLocation ? ` · ${linked.towingJob.pickupLocation.name}` : ""}${linked.towingJob.returnLocation ? ` → ${linked.towingJob.returnLocation.name}` : ""}`}
+                              styles={{ input: { background: "#F6FFED", fontSize: 12 } }}
+                              style={{ borderColor: "#B7EB8F" }}
+                            />
+                          </Space.Compact>
+                        ) : (
+                          <>
+                            <Button
+                              size="small"
+                              type="dashed"
+                              loading={towingCandidatesLoading === slot}
+                              icon={towingCandidatesLoading === slot ? undefined : <LinkOutlined />}
+                              style={{ width: "100%", marginBottom: isOpen ? 4 : 0 }}
+                              disabled={isCleared || towingCandidatesLoading === slot}
+                              onClick={() => handleOpenTowingCandidates(slot)}
+                            >
+                              {isOpen ? "ยกเลิก" : "เชื่อม JOB"}
+                            </Button>
+                            {isOpen && !noResults && (
+                              <Select
+                                autoFocus
+                                showSearch
+                                size="small"
+                                style={{ width: "100%" }}
+                                placeholder="ค้นหา JOB..."
+                                loading={towingCandidatesLoading === slot}
+                                disabled={towingLinking === slot}
+                                filterOption={(input, option) =>
+                                  ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase())
+                                }
+                                options={(towingCandidates?.jobs ?? []).map((j) => ({
+                                  value: j.id,
+                                  label: `${j.jobNumber}${j.pickupLocation ? ` · ${j.pickupLocation.name}` : ""}${j.returnLocation ? ` → ${j.returnLocation.name}` : ""}`,
+                                }))}
+                                onSelect={(val: string) => handleLinkTowing(slot, val)}
+                                popupMatchSelectWidth={false}
+                                styles={{ popup: { root: { minWidth: 320 } } }}
+                              />
+                            )}
+                            {noResults && (
+                              <div style={{ fontSize: 12, color: "#ff4d4f", marginTop: 2 }}>
+                                ไม่มี JOB ที่เลือกได้
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </Col>
+                    );
+                  })}
+                </Row>
+              </>
+              );
+            })()}
+          </>
           )}
         </Form>
       </Modal>

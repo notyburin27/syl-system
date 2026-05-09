@@ -275,6 +275,10 @@ model Job {
   carryOverToJob    Job?      @relation("CarryOver", fields: [carryOverToJobId], references: [id])
   carryOverFromJob  Job[]     @relation("CarryOver")
 
+  // Towing link relations
+  towingLinksAsMain   JobTowingLink[] @relation("TowingMainJob")
+  towingLinkAsTowing  JobTowingLink?  @relation("TowingJob")
+
   // Metadata
   createdById String
   createdBy   AuthUser @relation(fields: [createdById], references: [id])
@@ -291,6 +295,20 @@ model Job {
   @@index([driverId])
   @@index([createdById])
   @@map("jobs")
+}
+
+model JobTowingLink {
+  id          String   @id @default(cuid())
+  mainJobId   String
+  mainJob     Job      @relation("TowingMainJob", fields: [mainJobId], references: [id], onDelete: Cascade)
+  towingJobId String   @unique
+  towingJob   Job      @relation("TowingJob", fields: [towingJobId], references: [id])
+  sequence    Int      // 1 = รับตู้ (xxx→SYL), 2 = คืนตู้ (SYL→xxx)
+  createdAt   DateTime @default(now())
+
+  @@unique([mainJobId, sequence])
+  @@index([mainJobId])
+  @@map("job_towing_links")
 }
 
 model JobTransfer {

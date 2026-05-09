@@ -41,6 +41,15 @@ export async function GET(req: Request) {
         factoryLocation: true,
         returnLocation: true,
         transfers: { orderBy: { createdAt: "asc" } },
+        towingLinksAsMain: {
+          orderBy: { sequence: "asc" },
+          include: {
+            towingJob: { include: { pickupLocation: true, returnLocation: true } },
+          },
+        },
+        towingLinkAsTowing: {
+          include: { mainJob: { select: { id: true, jobNumber: true, jobDate: true, jobType: true } } },
+        },
       },
       orderBy: [{ jobDate: "asc" }, { createdAt: "asc" }],
     });
