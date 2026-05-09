@@ -139,8 +139,7 @@ export default function RateIncomeManager() {
     { title: 'โรงงาน', key: 'factory', render: (_: unknown, r: RateIncome) => r.factoryLocation.name },
     { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
-    { title: 'ค่าคนส่ง', dataIndex: 'income', key: 'income', width: 110, render: (v: number) => Number(v).toLocaleString() },
-    { title: 'วันที่สร้าง', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v: string) => dayjs(v).format('DD/MM/YYYY') },
+    { title: 'ค่าคนส่ง', dataIndex: 'income', key: 'income', width: 110, align: 'right' as const, render: (v: number) => Number(v).toLocaleString() },
     {
       title: 'จัดการ', key: 'actions', width: 120,
       render: (_: unknown, r: RateIncome) => (

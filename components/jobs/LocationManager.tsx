@@ -94,15 +94,26 @@ export default function LocationManager() {
   }
 
   const columns = [
-    { title: 'ชื่อสถานที่', dataIndex: 'name', key: 'name' },
+    {
+      title: 'ชื่อสถานที่',
+      dataIndex: 'name',
+      key: 'name',
+      sorter: (a: Location, b: Location) => a.name.localeCompare(b.name, 'th'),
+      defaultSortOrder: 'ascend' as const,
+    },
     {
       title: 'ประเภท',
       dataIndex: 'type',
       key: 'type',
       width: 120,
+      filters: [
+        { text: 'ลานตู้', value: 'general' },
+        { text: 'โรงงาน', value: 'factory' },
+      ],
+      onFilter: (value: unknown, record: Location) => record.type === value,
       render: (type: string) => (
         <Tag color={type === 'factory' ? 'blue' : 'default'}>
-          {type === 'factory' ? 'โรงงาน' : 'ทั่วไป'}
+          {type === 'factory' ? 'โรงงาน' : 'ลานตู้'}
         </Tag>
       ),
     },
@@ -116,13 +127,6 @@ export default function LocationManager() {
           {isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
         </Tag>
       ),
-    },
-    {
-      title: 'วันที่สร้าง',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 150,
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'จัดการ',
@@ -196,7 +200,7 @@ export default function LocationManager() {
           >
             <Select
               options={[
-                { value: 'general', label: 'ทั่วไป (สถานที่รับตู้/คืนตู้)' },
+                { value: 'general', label: 'ลานตู้' },
                 { value: 'factory', label: 'โรงงาน' },
               ]}
             />

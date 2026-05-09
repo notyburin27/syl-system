@@ -97,6 +97,8 @@ export default function CustomerManager() {
       title: 'ชื่อลูกค้า',
       dataIndex: 'name',
       key: 'name',
+      sorter: (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'th'),
+      defaultSortOrder: 'ascend' as const,
     },
     {
       title: 'สถานะ',
@@ -108,13 +110,6 @@ export default function CustomerManager() {
           {isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
         </Tag>
       ),
-    },
-    {
-      title: 'วันที่สร้าง',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 150,
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'จัดการ',

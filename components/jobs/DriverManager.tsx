@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm, AutoComplete } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
@@ -224,11 +224,34 @@ export default function DriverManager() {
     )
   }
 
+  const groupFilters = useMemo(() => {
+    const groups = Array.from(new Set(drivers.map((d) => d.groupName).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'th'))
+    return [
+      ...groups.map((g) => ({ text: g, value: g })),
+      { text: 'กลุ่มอื่นๆ', value: '__none__' },
+    ]
+  }, [drivers])
+
   const columns = [
     { title: 'ชื่อคนขับ', dataIndex: 'name', key: 'name' },
-    { title: 'เบอร์รถ', dataIndex: 'vehicleNumber', key: 'vehicleNumber', render: (v: string | null) => v || '-' },
+    {
+      title: 'เบอร์รถ',
+      dataIndex: 'vehicleNumber',
+      key: 'vehicleNumber',
+      sorter: (a: Driver, b: Driver) => (a.vehicleNumber || '').localeCompare(b.vehicleNumber || '', 'th'),
+      defaultSortOrder: 'ascend' as const,
+      render: (v: string | null) => v || '-',
+    },
     { title: 'ทะเบียนรถ', dataIndex: 'vehicleRegistration', key: 'vehicleRegistration', render: (v: string | null) => v || '-' },
-    { title: 'กลุ่ม', dataIndex: 'groupName', key: 'groupName', render: (v: string | null) => v ? <Tag color="blue">{v}</Tag> : <span style={{ color: '#aaa' }}>กลุ่มอื่นๆ</span> },
+    {
+      title: 'กลุ่ม',
+      dataIndex: 'groupName',
+      key: 'groupName',
+      filters: groupFilters,
+      onFilter: (value: unknown, record: Driver) =>
+        value === '__none__' ? !record.groupName : record.groupName === value,
+      render: (v: string | null) => v ? <Tag color="blue">{v}</Tag> : <span style={{ color: '#aaa' }}>กลุ่มอื่นๆ</span>,
+    },
     {
       title: 'จำนวนบัญชี',
       key: 'bankCount',
@@ -245,13 +268,6 @@ export default function DriverManager() {
           {isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
         </Tag>
       ),
-    },
-    {
-      title: 'วันที่สร้าง',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 150,
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'จัดการ',

@@ -90,6 +90,7 @@ export default function FuelPriceLogManager() {
       dataIndex: 'pricePerLiter',
       key: 'pricePerLiter',
       width: 180,
+      align: 'right' as const,
       render: (v: number) => Number(v).toFixed(2),
     },
     {

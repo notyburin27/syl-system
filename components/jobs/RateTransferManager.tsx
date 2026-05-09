@@ -132,9 +132,8 @@ export default function RateTransferManager() {
     { title: 'สถานที่', key: 'location', render: (_: unknown, r: RateTransfer) => r.location.name },
     { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
-    { title: 'ค่ารับตู้', dataIndex: 'pickupFee', key: 'pickupFee', width: 100, render: (v: number) => Number(v).toLocaleString() },
-    { title: 'ค่าคืนตู้', dataIndex: 'returnFee', key: 'returnFee', width: 100, render: (v: number) => Number(v).toLocaleString() },
-    { title: 'วันที่สร้าง', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v: string) => dayjs(v).format('DD/MM/YYYY') },
+    { title: 'ค่ารับตู้', dataIndex: 'pickupFee', key: 'pickupFee', width: 100, align: 'right' as const, render: (v: number) => Number(v).toLocaleString() },
+    { title: 'ค่าคืนตู้', dataIndex: 'returnFee', key: 'returnFee', width: 100, align: 'right' as const, render: (v: number) => Number(v).toLocaleString() },
     {
       title: 'จัดการ', key: 'actions', width: 90,
       render: (_: unknown, r: RateTransfer) => (

@@ -140,8 +140,7 @@ export default function RateDriverWageManager() {
     { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
     { title: 'โรงงาน', key: 'factory', render: (_: unknown, r: RateDriverWage) => r.factoryLocation?.name ?? '-' },
-    { title: 'ค่าเที่ยว', dataIndex: 'driverWage', key: 'driverWage', width: 110, render: (v: number) => Number(v).toLocaleString() },
-    { title: 'วันที่สร้าง', dataIndex: 'createdAt', key: 'createdAt', width: 120, render: (v: string) => dayjs(v).format('DD/MM/YYYY') },
+    { title: 'ค่าเที่ยว', dataIndex: 'driverWage', key: 'driverWage', width: 110, align: 'right' as const, render: (v: number) => Number(v).toLocaleString() },
     {
       title: 'จัดการ', key: 'actions', width: 90,
       render: (_: unknown, r: RateDriverWage) => (
