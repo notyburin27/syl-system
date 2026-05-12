@@ -62,6 +62,7 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/jobs/settings/locations")) return "jobs-locations";
     if (pathname?.startsWith("/jobs")) return "jobs-list";
     if (pathname?.startsWith("/transport-documents")) return "documents";
+    if (pathname?.startsWith("/work-orders")) return "work-orders";
     if (pathname?.startsWith("/line-images")) return "line-images";
     return "documents";
   };
@@ -123,6 +124,11 @@ export default function ProtectedLayoutClient({
       label: <Link href="/transport-documents">แปลงไฟล์ขนส่ง</Link>,
     },
     {
+      key: "work-orders",
+      icon: <FileTextOutlined />,
+      label: <Link href="/work-orders">ใบงานขนส่ง</Link>,
+    },
+    {
       key: "statement-converter",
       icon: <BankOutlined />,
       label: <Link href="/statement-converter">แปลง Statement</Link>,
@@ -162,6 +168,11 @@ export default function ProtectedLayoutClient({
           key: "line-images",
           icon: <PictureOutlined />,
           label: <Link href="/line-images">รูปภาพ LINE</Link>,
+        },
+        {
+          key: "work-orders",
+          icon: <FileTextOutlined />,
+          label: <Link href="/work-orders">ใบงานขนส่ง</Link>,
         },
       ];
 

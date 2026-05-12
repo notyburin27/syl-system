@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+
+      body {
+        font-family: "Sarabun", sans-serif;
+        margin: 0;
+        padding: 0;
+        line-height: 1.4;
+        font-size: 15px;
+        color: #000;
+      }
+
+      .page {
+        padding: 8px 12px;
+        box-sizing: border-box;
+        page-break-inside: avoid;
+      }
+
+      .company-header {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      .company-name {
+        font-size: 19px;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+
+      .company-line {
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .header-rule {
+        border-bottom: 1px solid #000;
+        margin: 8px 0 14px 0;
+      }
+
+      .form-row {
+        display: flex;
+        align-items: flex-end;
+        margin-bottom: 10px;
+        min-height: 26px;
+        border-bottom: 1px dotted #888;
+        padding-bottom: 3px;
+      }
+
+      .form-row.align-top {
+        align-items: flex-start;
+      }
+
+      .field-label {
+        font-weight: 600;
+        color: #1463d8;
+        font-size: 15px;
+        flex-shrink: 0;
+        padding-right: 8px;
+        width: 150px;
+      }
+
+      .field-label-right {
+        font-weight: 600;
+        color: #1463d8;
+        font-size: 15px;
+        flex-shrink: 0;
+        padding-right: 8px;
+        width: 90px;
+      }
+
+      .field-sep {
+        margin: 0 6px;
+        font-weight: 600;
+        color: #1463d8;
+        flex-shrink: 0;
+      }
+
+      .field-value {
+        flex: 1;
+        font-size: 15px;
+        font-weight: 400;
+        min-height: 20px;
+        color: #000;
+      }
+
+      .row-split {
+        display: flex;
+        gap: 14px;
+        margin-bottom: 10px;
+      }
+
+      .row-split > .form-row {
+        flex: 1;
+        margin-bottom: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="company-header">
+        <div class="company-name">บริษัท ทรงยุทธ โลจิสติคส์ จำกัด (สำนักงานใหญ่)</div>
+        <div class="company-line">เลขที่ 7 ซอยแฮปปี้เพลซ 15 แขวงคลองสามประเวศ เขตลาดกระบัง กรุงเทพมหานคร 10520</div>
+        <div class="company-line">เลขประจำตัวผู้เสียภาษี 0115547009287 &nbsp;&nbsp; โทร. 02-7458109-10</div>
+      </div>
+      <div class="header-rule"></div>
+
+      <div class="form-row">
+        <div class="field-label">วันที่</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{date}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ชื่อลูกค้า</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{customerName}}</div>
+      </div>
+
+      <div class="row-split">
+        <div class="form-row">
+          <div class="field-label">บุ๊คกิ้ง</div>
+          <div class="field-sep">:</div>
+          <div class="field-value">{{booking}}</div>
+        </div>
+        <div class="form-row">
+          <div class="field-label-right">เอเย่นต์</div>
+          <div class="field-sep">:</div>
+          <div class="field-value">{{agent}}</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ขนาดตู้</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{containerSize}}</div>
+      </div>
+
+      <div class="form-row align-top">
+        <div class="field-label">สถานที่รับตู้</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{pickupCombined}}</div>
+      </div>
+
+      <div class="form-row align-top">
+        <div class="field-label">สถานที่บรรจุ</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{factoryCombined}}</div>
+      </div>
+
+      <div class="form-row align-top">
+        <div class="field-label">สถานที่คืนตู้</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{returnLocation}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">CLOSING TIME</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{closingTime}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ชื่อเรือ</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{shipName}}</div>
+      </div>
+
+      <div class="row-split">
+        <div class="form-row">
+          <div class="field-label">เบอร์ตู้</div>
+          <div class="field-sep">:</div>
+          <div class="field-value">{{containerNumber1}}</div>
+        </div>
+        <div class="form-row">
+          <div class="field-label-right">เบอร์ซีล</div>
+          <div class="field-sep">:</div>
+          <div class="field-value">{{sealNumber1}}</div>
+        </div>
+      </div>
+
+      <div class="row-split">
+        <div class="form-row">
+          <div class="field-label">เบอร์ตู้</div>
+          <div class="field-sep">:</div>
+          <div class="field-value">{{containerNumber2}}</div>
+        </div>
+        <div class="form-row">
+          <div class="field-label-right">เบอร์ซีล</div>
+          <div class="field-sep">:</div>
+          <div class="field-value">{{sealNumber2}}</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ชื่อ พขร.</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{driverName}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">ทะเบียนรถ</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{vehicleRegistration}}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="field-label">เบอร์โทร</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{phoneNumber}}</div>
+      </div>
+
+      <div class="form-row align-top">
+        <div class="field-label">หมายเหตุ</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{remarks}}</div>
+      </div>
+
+      <div class="form-row align-top">
+        <div class="field-label">ชื่อที่อยู่ออกใบเสร็จ</div>
+        <div class="field-sep">:</div>
+        <div class="field-value">{{billingAddress}}</div>
+      </div>
+    </div>
+  </body>
+</html>
