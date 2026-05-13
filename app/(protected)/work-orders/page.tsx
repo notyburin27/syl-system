@@ -93,9 +93,11 @@ export default function WorkOrdersPage() {
       return;
     }
     setGenerating(true);
-    message.loading({ content: "กำลังสร้าง PDF...", key: "wo-pdf", duration: 0 });
+    message.loading({ content: `กำลังสร้าง PDF... (0/${rows.length})`, key: "wo-pdf", duration: 0 });
     try {
-      const result = await generateWorkOrderPdf(rows);
+      const result = await generateWorkOrderPdf(rows, (current, total) => {
+        message.loading({ content: `กำลังสร้าง PDF... (${current}/${total})`, key: "wo-pdf", duration: 0 });
+      });
       if (result.success) {
         message.success({
           content: `สร้าง PDF สำเร็จ: ${result.filename}`,

@@ -180,7 +180,16 @@ export const readWorkOrderExcel = (file: File): Promise<WorkOrderRow[]> => {
           raw: true,
         }) as Record<string, any>[];
 
-        const mapped = jsonRows
+        // Trim all keys to handle headers with trailing/leading spaces
+        const trimmedRows = jsonRows.map((row) => {
+          const trimmed: Record<string, any> = {};
+          for (const key of Object.keys(row)) {
+            trimmed[key.trim()] = row[key];
+          }
+          return trimmed;
+        });
+
+        const mapped = trimmedRows
           .map(mapExcelRowToWorkOrder)
           .filter((r) => {
             // ต้องมีอย่างน้อยวันที่ หรือ ชื่อลูกค้า หรือ Booking
@@ -244,7 +253,8 @@ const fillTemplate = (template: string, row: WorkOrderRow): string => {
 };
 
 export const generateWorkOrderPdf = async (
-  rows: WorkOrderRow[]
+  rows: WorkOrderRow[],
+  onProgress?: (current: number, total: number) => void
 ): Promise<{ success: boolean; filename?: string; error?: string }> => {
   try {
     if (rows.length === 0) {
@@ -260,40 +270,78 @@ export const generateWorkOrderPdf = async (
     const bodyMatch = template.match(/<body[^>]*>([\s\S]*?)<\/body>/);
     const bodyTemplate = bodyMatch ? bodyMatch[1] : template;
 
-    let combinedBody = "";
-    for (let i = 0; i < rows.length; i++) {
-      const filled = fillTemplate(bodyTemplate, rows[i]);
-      combinedBody += filled;
-      if (i < rows.length - 1) {
-        combinedBody += '<div style="page-break-after: always;"></div>';
-      }
-    }
-
-    const fullHtml = `<!DOCTYPE html><html><head>${headContent}</head><body>${combinedBody}</body></html>`;
-
+    const h2p = (await getHtml2Pdf()) as any;
     const filename = `ใบงาน ${dayjs().format("YYYY-MM-DD")}.pdf`;
 
-    const options = {
-      margin: 0.4,
-      filename,
-      image: { type: "jpeg", quality: 0.98 },
+    // Wrap each page body with a fixed A4-width container so html2canvas
+    // produces a canvas with consistent A4 aspect ratio
+    const A4_WIDTH_MM = 210;
+    const A4_HEIGHT_MM = 297;
+    const PX_PER_MM = 96 / 25.4; // CSS px
+    const A4_WIDTH_PX = Math.round(A4_WIDTH_MM * PX_PER_MM); // ≈ 794
+    const A4_HEIGHT_PX = Math.round(A4_HEIGHT_MM * PX_PER_MM); // ≈ 1123
+
+    const makePageHtml = (row: WorkOrderRow) =>
+      `<!DOCTYPE html><html><head>${headContent}<style>
+        html,body{margin:0;padding:0;}
+        .__a4_page{width:${A4_WIDTH_PX}px;min-height:${A4_HEIGHT_PX}px;box-sizing:border-box;background:white;}
+      </style></head><body><div class="__a4_page">${fillTemplate(bodyTemplate, row)}</div></body></html>`;
+
+    const canvasOptions = {
       html2canvas: {
-        scale: 1.6,
+        scale: 2,
         useCORS: true,
         letterRendering: true,
         allowTaint: true,
+        logging: false,
+        windowWidth: A4_WIDTH_PX,
+        windowHeight: A4_HEIGHT_PX,
       },
-      jsPDF: {
-        unit: "in",
-        format: "a4",
-        orientation: "portrait",
-      },
-      pagebreak: { mode: ["css", "legacy"] },
     };
 
-    const html2pdf = await getHtml2Pdf();
-    await html2pdf().set(options).from(fullHtml).save();
+    // Step 1: render every row to a canvas (consistent, same pipeline)
+    const canvases: HTMLCanvasElement[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      onProgress?.(i + 1, rows.length);
+      const canvas: HTMLCanvasElement = await h2p()
+        .set(canvasOptions)
+        .from(makePageHtml(rows[i]))
+        .toCanvas()
+        .get("canvas");
+      canvases.push(canvas);
+      await new Promise((r) => setTimeout(r, 60));
+    }
 
+    // Step 2: build A4 PDF, fit each canvas to A4 page keeping aspect ratio
+    const seedDoc: any = await h2p()
+      .set({ jsPDF: { unit: "mm", format: "a4", orientation: "portrait" } })
+      .from("<html><body></body></html>")
+      .toPdf()
+      .get("pdf");
+
+    seedDoc.deletePage(1);
+
+    const pageW = A4_WIDTH_MM;
+    const pageH = A4_HEIGHT_MM;
+
+    for (let i = 0; i < canvases.length; i++) {
+      const c = canvases[i];
+      const imgData = c.toDataURL("image/jpeg", 0.95);
+
+      // Fit canvas to A4 page width, keep aspect ratio
+      const canvasAspect = c.width / c.height;
+      let drawW = pageW;
+      let drawH = pageW / canvasAspect;
+      if (drawH > pageH) {
+        drawH = pageH;
+        drawW = pageH * canvasAspect;
+      }
+
+      seedDoc.addPage("a4", "portrait");
+      seedDoc.addImage(imgData, "JPEG", 0, 0, drawW, drawH);
+    }
+
+    seedDoc.save(filename);
     return { success: true, filename };
   } catch (err: any) {
     console.error("Work order PDF generation error:", err);
