@@ -78,9 +78,9 @@ export default function WorkOrdersPage() {
         setFileName(file.name);
         message.success(`อ่านไฟล์สำเร็จ พบข้อมูล ${parsed.length} แถว`);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      message.error(`เกิดข้อผิดพลาด: ${err.message}`);
+      message.error(`เกิดข้อผิดพลาด: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setParsing(false);
     }
@@ -109,9 +109,9 @@ export default function WorkOrdersPage() {
           key: "wo-pdf",
         });
       }
-    } catch (err: any) {
+    } catch (err) {
       message.error({
-        content: `เกิดข้อผิดพลาด: ${err.message}`,
+        content: `เกิดข้อผิดพลาด: ${err instanceof Error ? err.message : String(err)}`,
         key: "wo-pdf",
       });
     } finally {
@@ -136,7 +136,14 @@ export default function WorkOrdersPage() {
       dataIndex: "date",
       key: "date",
       width: 90,
-      render: (v) => v || "-",
+      render: (v: string) => v || "-",
+    },
+    {
+      title: "เลขที่ใบงาน",
+      dataIndex: "jobNumber",
+      key: "jobNumber",
+      width: 110,
+      render: (v: string) => v || "-",
     },
     {
       title: "ชื่อลูกค้า",
