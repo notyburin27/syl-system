@@ -16,7 +16,9 @@ const getHtml2Pdf = async () => {
 
 export interface WorkOrderRow {
   date: string;
+  orderNumber: string;
   jobNumber: string;
+  orderJobCombined: string;
   customerName: string;
   booking: string;
   agent: string;
@@ -94,8 +96,9 @@ export const mapExcelRowToWorkOrder = (
   row: Record<string, any>
 ): WorkOrderRow => {
   const date = formatExcelDate(pickField(row, ["วันที่"]));
+  const orderNumber = toStr(pickField(row, ["ORDER", "Order", "order"]));
   const jobNumber = toStr(
-    pickField(row, ["เลขที่ใบงาน", "เลขที่", "Job No.", "Job No", "เลขงาน"])
+    pickField(row, ["เลขใบงานคนรถ", "เลขที่ใบงาน", "เลขที่", "Job No.", "Job No", "เลขงาน"])
   );
   const customerName = toStr(
     pickField(row, ["ชื่อผู้ว่าจ้าง", "ชื่อลูกค้า"])
@@ -137,9 +140,13 @@ export const mapExcelRowToWorkOrder = (
     pickField(row, ["ชื่อที่อยู่ออกใบเสร็จ", "ที่อยู่ออกใบเสร็จ"])
   );
 
+  const orderJobCombined = [orderNumber, jobNumber].filter(Boolean).join(" / ");
+
   return {
     date,
+    orderNumber,
     jobNumber,
+    orderJobCombined,
     customerName,
     booking,
     agent,
@@ -210,7 +217,7 @@ export const validateWorkOrderExcelFile = (file: File): boolean => {
 
 const PLACEHOLDER_KEYS: (keyof WorkOrderRow)[] = [
   "date",
-  "jobNumber",
+  "orderJobCombined",
   "customerName",
   "booking",
   "agent",
@@ -253,9 +260,9 @@ const SECTION_TEMPLATE = `
       <div class="field-value">{{date}}</div>
     </div>
     <div class="form-row">
-      <div class="field-label-right">เลขที่ใบงาน</div>
+      <div class="field-label-right">ORDER / เลขที่ใบงาน</div>
       <div class="field-sep">:</div>
-      <div class="field-value">{{jobNumber}}</div>
+      <div class="field-value">{{orderJobCombined}}</div>
     </div>
   </div>
 
@@ -389,7 +396,7 @@ const buildPageHtml = (row: WorkOrderRow): string => {
 const PAGE_CSS = `
   * { box-sizing: border-box; }
   html, body {
-    font-family: 'Sarabun', sans-serif;
+    font-family: 'Kanit', sans-serif;
     margin: 0; padding: 0;
     line-height: 1.3;
     font-size: 15px;
@@ -431,14 +438,14 @@ const PAGE_CSS = `
   }
   .form-row.align-top { align-items: flex-start; }
   .field-label { font-weight: 600; color: #1463d8; font-size: 14px; flex-shrink: 0; padding-right: 4px; width: 130px; }
-  .field-label-right { font-weight: 600; color: #1463d8; font-size: 14px; flex-shrink: 0; padding-right: 4px; width: 90px; }
+  .field-label-right { font-weight: 600; color: #1463d8; font-size: 14px; flex-shrink: 0; padding-right: 4px; width: 130px; }
   .field-sep { margin: 0 4px; font-weight: 600; color: #1463d8; flex-shrink: 0; }
   .field-value { flex: 1; font-size: 15px; font-weight: 400; min-height: 18px; color: #000; }
   .row-split { display: flex; gap: 10px; margin-bottom: 6px; }
   .row-split > .form-row { flex: 1; margin-bottom: 0; }
 `;
 
-const FONT_LINK = `<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">`;
+const FONT_LINK = `<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">`;
 
 const makeSinglePageHtml = (row: WorkOrderRow): string =>
   `<!DOCTYPE html><html><head><meta charset="UTF-8">${FONT_LINK}<style>${PAGE_CSS}</style></head><body>${buildPageHtml(row)}</body></html>`;
