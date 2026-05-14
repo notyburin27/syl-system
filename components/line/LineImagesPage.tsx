@@ -13,11 +13,15 @@ import {
   Spin,
   Empty,
   App,
+  Radio,
 } from "antd"
 import dayjs, { Dayjs } from "dayjs"
 import type { LineImage, LineSender, LineGroup } from "@/types/line"
 
 const { Text } = Typography
+const { RangePicker } = DatePicker
+
+type FilterMode = "single" | "range"
 
 function proxyUrl(url: string) {
   return `/api/line/image-proxy?url=${encodeURIComponent(url)}`
@@ -29,7 +33,9 @@ export default function LineImagesPage() {
   const [senders, setSenders] = useState<LineSender[]>([])
   const [groups, setGroups] = useState<LineGroup[]>([])
   const [loading, setLoading] = useState(false)
+  const [filterMode, setFilterMode] = useState<FilterMode>("single")
   const [date, setDate] = useState<Dayjs | null>(null)
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null])
   const [sender, setSender] = useState<string | undefined>(undefined)
   const [group, setGroup] = useState<string | undefined>(undefined)
 
@@ -51,7 +57,14 @@ export default function LineImagesPage() {
   const fetchImages = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
-    if (date) params.set("date", date.format("YYYY-MM-DD"))
+
+    if (filterMode === "single") {
+      if (date) params.set("date", date.format("YYYY-MM-DD"))
+    } else {
+      if (dateRange[0]) params.set("dateFrom", dateRange[0].format("YYYY-MM-DD"))
+      if (dateRange[1]) params.set("dateTo", dateRange[1].format("YYYY-MM-DD"))
+    }
+
     if (sender) params.set("sender", sender)
     if (group) params.set("group", group)
 
@@ -64,11 +77,17 @@ export default function LineImagesPage() {
     } finally {
       setLoading(false)
     }
-  }, [date, sender, group, message])
+  }, [filterMode, date, dateRange, sender, group, message])
 
   useEffect(() => {
     fetchImages()
   }, [fetchImages])
+
+  function handleModeChange(mode: FilterMode) {
+    setFilterMode(mode)
+    setDate(null)
+    setDateRange([null, null])
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -77,13 +96,33 @@ export default function LineImagesPage() {
       </Text>
 
       <Space style={{ marginBottom: 24 }} wrap>
-        <DatePicker
-          value={date}
-          onChange={setDate}
-          format="DD/MM/YYYY"
-          placeholder="เลือกวันที่"
-          allowClear
+        <Radio.Group
+          value={filterMode}
+          onChange={(e) => handleModeChange(e.target.value)}
+          optionType="button"
+          buttonStyle="solid"
+          options={[
+            { label: "เลือกวันที่", value: "single" },
+            { label: "ช่วงเวลา", value: "range" },
+          ]}
         />
+        {filterMode === "single" ? (
+          <DatePicker
+            value={date}
+            onChange={setDate}
+            format="DD/MM/YYYY"
+            placeholder="เลือกวันที่"
+            allowClear
+          />
+        ) : (
+          <RangePicker
+            value={dateRange}
+            onChange={(vals) => setDateRange(vals ? [vals[0], vals[1]] : [null, null])}
+            format="DD/MM/YYYY"
+            placeholder={["วันเริ่มต้น", "วันสิ้นสุด"]}
+            allowClear
+          />
+        )}
         <Select
           value={group}
           onChange={(val) => { setGroup(val); setSender(undefined) }}
