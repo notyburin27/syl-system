@@ -121,7 +121,7 @@ export default function RateIncomeManager() {
 
   const handleExport = () => {
     const headers = ['jobType', 'size', 'factoryLocationName', 'customerName', 'income']
-    const labels = ['ลักษณะงาน', 'SIZE', 'โรงงาน', 'ลูกค้า', 'ค่าคนส่ง']
+    const labels = ['ลักษณะงาน', 'SIZE', 'โรงงาน', 'ลูกค้า', 'ค่าขนส่ง']
     const rows = filteredRates.map(r => [r.jobType, r.size, r.factoryLocation.name, r.customer.name, Number(r.income)])
     const csv = [headers.join(','), labels.join(','), ...rows.map(r => r.join(','))].join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -139,7 +139,7 @@ export default function RateIncomeManager() {
     { title: 'โรงงาน', key: 'factory', render: (_: unknown, r: RateIncome) => r.factoryLocation.name },
     { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
-    { title: 'ค่าคนส่ง', dataIndex: 'income', key: 'income', width: 110, align: 'right' as const, render: (v: number) => Number(v).toLocaleString() },
+    { title: 'ค่าขนส่ง', dataIndex: 'income', key: 'income', width: 110, align: 'right' as const, render: (v: number) => Number(v).toLocaleString() },
     {
       title: 'จัดการ', key: 'actions', width: 120,
       render: (_: unknown, r: RateIncome) => (
@@ -158,7 +158,7 @@ export default function RateIncomeManager() {
   return (
     <>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>อัตราค่าคนส่ง</h2>
+        <h2 style={{ margin: 0 }}>อัตราค่าขนส่ง</h2>
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
@@ -192,7 +192,7 @@ export default function RateIncomeManager() {
       <Table columns={columns} dataSource={filteredRates} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20 }} />
 
       <Modal
-        title={editingRate ? 'แก้ไขอัตราค่าคนส่ง' : copyingRate ? 'คัดลอกอัตราค่าคนส่ง' : 'เพิ่มอัตราค่าคนส่ง'}
+        title={editingRate ? 'แก้ไขอัตราค่าขนส่ง' : copyingRate ? 'คัดลอกอัตราค่าขนส่ง' : 'เพิ่มอัตราค่าขนส่ง'}
         open={modalOpen} onCancel={() => setModalOpen(false)}
         onOk={() => form.submit()} confirmLoading={submitLoading}
         okText={editingRate ? 'บันทึก' : 'เพิ่ม'} cancelText="ยกเลิก"
@@ -215,7 +215,7 @@ export default function RateIncomeManager() {
               </Form.Item>
             </>
           )}
-          <Form.Item name="income" label="ค่าคนส่ง" rules={[{ required: true, message: 'กรุณากรอกค่าคนส่ง' }]}>
+          <Form.Item name="income" label="ค่าขนส่ง" rules={[{ required: true, message: 'กรุณากรอกค่าขนส่ง' }]}>
             <InputNumber style={{ width: '100%' }} min={0} placeholder="0" data-testid="rate-income-amount-input" />
           </Form.Item>
         </Form>
@@ -230,10 +230,10 @@ export default function RateIncomeManager() {
 
       <ImportCSVModal
         open={importOpen}
-        title="Import อัตราค่าคนส่ง"
+        title="Import อัตราค่าขนส่ง"
         apiEndpoint="/api/rates/income/import"
         headers={['jobType', 'size', 'factoryLocationName', 'customerName', 'income', 'fuelPriceMin', 'fuelPriceMax', 'surcharge']}
-        headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', factoryLocationName: 'โรงงาน', customerName: 'ลูกค้า', income: 'ค่าคนส่ง', fuelPriceMin: 'ราคาน้ำมัน ≥', fuelPriceMax: 'ราคาน้ำมัน <', surcharge: 'ค่าปรับ income' }}
+        headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', factoryLocationName: 'โรงงาน', customerName: 'ลูกค้า', income: 'ค่าขนส่ง', fuelPriceMin: 'ราคาน้ำมัน ≥', fuelPriceMax: 'ราคาน้ำมัน <', surcharge: 'ค่าปรับ income' }}
         optionalHeaders={['fuelPriceMin', 'fuelPriceMax', 'surcharge']}
         exampleRows={[
           ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '', '', ''],

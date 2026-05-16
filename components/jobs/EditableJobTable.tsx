@@ -705,7 +705,7 @@ export default function EditableJobTable({
         ...(isAdmin
           ? [
               {
-                title: 'ค่าคนส่ง',
+                title: 'ค่าขนส่ง',
                 dataIndex: 'income',
                 key: 'income',
                 width: 110,

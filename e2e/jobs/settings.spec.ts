@@ -251,17 +251,17 @@ test.describe.serial('อัตราค่าคืนตู้รับตู�
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. อัตราค่าคนส่ง (RateIncome)
+// 3. อัตราค่าขนส่ง (RateIncome)
 // ─────────────────────────────────────────────────────────────────────────────
-test.describe.serial('อัตราค่าคนส่ง — CRUD', () => {
+test.describe.serial('อัตราค่าขนส่ง — CRUD', () => {
   test.beforeEach(async ({ page }) => { await login(page) })
   test.afterEach(() => cleanup())
 
-  test('Case 1: เพิ่มอัตราค่าคนส่ง → แสดงในตาราง', async ({ page }) => {
+  test('Case 1: เพิ่มอัตราค่าขนส่ง → แสดงในตาราง', async ({ page }) => {
     const { locFactoryName, customerName } = await seedRefData(page, test.info().testId)
 
     await page.goto('/jobs/settings/rates/income')
-    await expect(page.getByText('อัตราค่าคนส่ง')).toBeVisible()
+    await expect(page.getByText('อัตราค่าขนส่ง')).toBeVisible()
 
     await page.getByTestId('rate-income-add-btn').click()
     const dialog = page.getByRole('dialog')
@@ -297,7 +297,7 @@ test.describe.serial('อัตราค่าคนส่ง — CRUD', () => {
     await expect(dialog.getByText('กรุณาเลือกลูกค้า')).toBeVisible()
   })
 
-  test('Case 3: แก้ไขค่าคนส่ง → ค่าใหม่ปรากฏในตาราง', async ({ page }) => {
+  test('Case 3: แก้ไขค่าขนส่ง → ค่าใหม่ปรากฏในตาราง', async ({ page }) => {
     const { locationFactoryId, customerId } = await seedRefData(page, test.info().testId)
     const res = await page.request.post('/api/rates/income', {
       data: { jobType: 'inbound', size: '20DC', factoryLocationId: locationFactoryId, customerId, income: 10000 },
@@ -350,7 +350,7 @@ test.describe.serial('อัตราค่าคนส่ง — CRUD', () => {
     await expect(surchargeModal.getByText('+500')).toBeVisible()
   })
 
-  test('Case 5: ลบอัตราค่าคนส่ง → หายออกจากตาราง', async ({ page }) => {
+  test('Case 5: ลบอัตราค่าขนส่ง → หายออกจากตาราง', async ({ page }) => {
     const { locationFactoryId, customerId } = await seedRefData(page, test.info().testId)
     const res = await page.request.post('/api/rates/income', {
       data: { jobType: 'towing', size: '20DC', factoryLocationId: locationFactoryId, customerId, income: 5000 },

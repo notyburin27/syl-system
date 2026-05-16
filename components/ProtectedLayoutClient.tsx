@@ -102,7 +102,7 @@ export default function ProtectedLayoutClient({
           },
           { key: "jobs-rates-transfer", label: <Link href="/jobs/settings/rates/transfer">ค่าคืนตู้รับตู้</Link> },
           ...(isAdmin || isManager ? [
-            { key: "jobs-rates-income", label: <Link href="/jobs/settings/rates/income">ค่าคนส่ง</Link> },
+            { key: "jobs-rates-income", label: <Link href="/jobs/settings/rates/income">ค่าขนส่ง</Link> },
             { key: "jobs-rates-driver-wage", label: <Link href="/jobs/settings/rates/driver-wage">ค่าเที่ยวคนขับ</Link> },
             { key: "jobs-fuel-price", label: <Link href="/jobs/settings/fuel-price">ราคาน้ำมัน</Link> },
           ] : []),

@@ -58,8 +58,8 @@ export async function POST(req: Request) {
 
       if (!row.factoryLocationName) errors.push({ row: rowNum, field: "factoryLocationName", message: "กรุณาระบุโรงงาน" });
       if (!row.customerName) errors.push({ row: rowNum, field: "customerName", message: "กรุณาระบุลูกค้า" });
-      if (row.income == null || row.income === "") errors.push({ row: rowNum, field: "income", message: "กรุณาระบุค่าคนส่ง" });
-      else if (isNaN(Number(row.income))) errors.push({ row: rowNum, field: "income", message: "ค่าคนส่งต้องเป็นตัวเลข" });
+      if (row.income == null || row.income === "") errors.push({ row: rowNum, field: "income", message: "กรุณาระบุค่าขนส่ง" });
+      else if (isNaN(Number(row.income))) errors.push({ row: rowNum, field: "income", message: "ค่าขนส่งต้องเป็นตัวเลข" });
 
       // ถ้ามี surcharge fields ใด field หนึ่ง ต้องมีครบทั้ง 3
       const hasSurchargeFields =

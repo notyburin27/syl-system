@@ -1393,7 +1393,7 @@ export default function JobFormModal({
                 </Col>
                 {isAdmin && (
                   <>
-                    <Col span={3}>{numberInput("income", "ค่าคนส่ง", isAdvance)}</Col>
+                    <Col span={3}>{numberInput("income", "ค่าขนส่ง", isAdvance)}</Col>
                     <Col span={3}>
                       {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance)}
                     </Col>

@@ -10,7 +10,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { id } = await params;
     const { income } = await req.json();
 
-    if (income == null) return NextResponse.json({ error: "กรุณากรอกค่าคนส่ง" }, { status: 400 });
+    if (income == null) return NextResponse.json({ error: "กรุณากรอกค่าขนส่ง" }, { status: 400 });
 
     const rate = await prisma.rateIncome.update({
       where: { id },
