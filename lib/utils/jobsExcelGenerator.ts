@@ -50,12 +50,14 @@ export function generateJobsExcel(
   driverName: string,
   month: string,
   vehicleNumber?: string,
+  isAdmin = false,
 ): Buffer {
+  const financeMainCount = isAdmin ? 2 : 0
   const groupHeaders = [
     'ข้อมูลงาน', 'ข้อมูลงาน', 'ข้อมูลงาน', 'ข้อมูลงาน', 'ข้อมูลงาน', 'ข้อมูลงาน',
     'สถานที่', 'สถานที่', 'สถานที่',
-    'การเงินหลัก', 'การเงินหลัก', 'การเงินหลัก',
-    'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ',
+    ...Array(financeMainCount).fill('การเงินหลัก'),
+    'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ', 'ค่าใช้จ่ายคนขับ',
     'สรุป', 'สรุป', 'สรุป',
     'น้ำมัน/ไมล์', 'น้ำมัน/ไมล์', 'น้ำมัน/ไมล์', 'น้ำมัน/ไมล์', 'น้ำมัน/ไมล์', 'น้ำมัน/ไมล์',
     'สถานะ',
@@ -64,8 +66,8 @@ export function generateJobsExcel(
   const colHeaders = [
     '#', 'JOB/เลขที่', 'วันที่', 'ลักษณะงาน', 'ลูกค้า', 'SIZE',
     'สถานที่รับตู้', 'โรงงาน', 'สถานที่คืนตู้',
-    'ค่าขนส่ง', 'ค่าเที่ยวคนขับ', 'ยกยอด',
-    'เบิกล่วงหน้า', 'ค่าทางด่วน', 'ค่ารับตู้', 'ค่าคืนตู้', 'ค่ายกตู้', 'ค่าฝากตู้', 'ค่ายาง', 'อื่นๆ',
+    ...(isAdmin ? ['ค่าขนส่ง', 'ค่าเที่ยวคนขับ'] : []),
+    'ยกยอด', 'เบิกล่วงหน้า', 'ค่าทางด่วน', 'ค่ารับตู้', 'ค่าคืนตู้', 'ค่ายกตู้', 'ค่าฝากตู้', 'ค่ายาง', 'อื่นๆ',
     'รวมคนรถปิดงาน', 'ส่วนต่าง', 'รวมยอดโอน',
     'ไมล์รถ', 'น้ำมัน OFF (ลิตร)', 'น้ำมันสด (ลิตร)', 'น้ำมันสด (฿)', 'น้ำมันเครดิต (ลิตร)', 'น้ำมันเครดิต (฿)',
     'เคลียร์',
@@ -81,8 +83,10 @@ export function generateJobsExcel(
     job.pickupLocation?.name ?? '',
     job.factoryLocation?.name ?? '',
     job.returnLocation?.name ?? '',
-    job.income != null ? Number(job.income) : '',
-    job.driverWage != null ? Number(job.driverWage) : '',
+    ...(isAdmin ? [
+      job.income != null ? Number(job.income) : '',
+      job.driverWage != null ? Number(job.driverWage) : '',
+    ] : []),
     job.actualTransferPrev != null ? Number(job.actualTransferPrev) : '',
     job.advance != null ? Number(job.advance) : '',
     job.toll != null ? Number(job.toll) : '',
@@ -119,7 +123,8 @@ export function generateJobsExcel(
   ws['!cols'] = [
     { wch: 5 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 8 },
     { wch: 16 }, { wch: 16 }, { wch: 16 },
-    { wch: 10 }, { wch: 12 }, { wch: 14 },
+    ...(isAdmin ? [{ wch: 10 }, { wch: 12 }] : []),
+    { wch: 14 },
     { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
     { wch: 14 }, { wch: 10 }, { wch: 12 },
     { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 13 }, { wch: 18 }, { wch: 16 },

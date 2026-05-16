@@ -20,13 +20,15 @@ function JobTypeRow({
   count,
   amount,
   testIdCount,
+  amountColor,
 }: {
   label: string
-  count: number
+  count?: number
   amount: number
   testIdCount?: string
+  amountColor?: string
 }) {
-  const inactive = count === 0
+  const inactive = count !== undefined ? count === 0 : amount === 0
   return (
     <div style={{
       display: 'flex',
@@ -37,18 +39,20 @@ function JobTypeRow({
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 14, color: '#666', minWidth: 90 }}>{label}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: '#222' }} data-testid={testIdCount}>
-          {count}
-        </span>
+        {count !== undefined && (
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#222' }} data-testid={testIdCount}>
+            {count}
+          </span>
+        )}
       </div>
-      <span style={{ fontSize: 14, color: '#444', fontWeight: inactive ? 400 : 500 }}>
+      <span style={{ fontSize: 14, color: amountColor ?? '#444', fontWeight: inactive ? 400 : 500 }}>
         {fmt(amount)} ฿
       </span>
     </div>
   )
 }
 
-function DriverCard({ s, onCardClick }: { s: DriverJobSummary; onCardClick: (id: string) => void }) {
+function DriverCard({ s, onCardClick, isAdmin }: { s: DriverJobSummary; onCardClick: (id: string) => void; isAdmin: boolean }) {
   return (
     <Card
       hoverable
@@ -84,7 +88,6 @@ function DriverCard({ s, onCardClick }: { s: DriverJobSummary; onCardClick: (id:
         count={s.advanceJobCount}
         amount={s.advanceAmount}
       />
-
       <Divider style={{ margin: '8px 0' }} />
 
       {/* Total */}
@@ -97,11 +100,22 @@ function DriverCard({ s, onCardClick }: { s: DriverJobSummary; onCardClick: (id:
           {fmt(s.totalTransfer)} ฿
         </span>
       </div>
+
+      {isAdmin && (
+        <>
+          <Divider style={{ margin: '8px 0' }} />
+          <JobTypeRow
+            label="ค่าเที่ยวคนขับ"
+            amount={s.driverWageAmount}
+            amountColor="#d46b08"
+          />
+        </>
+      )}
     </Card>
   )
 }
 
-export default function DriverJobList() {
+export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   const router = useRouter()
   const [summaries, setSummaries] = useState<DriverJobSummary[]>([])
   const [loading, setLoading] = useState(false)
@@ -208,7 +222,7 @@ export default function DriverJobList() {
         <Row gutter={[16, 16]} data-testid="driver-cards-list">
           {filteredSummaries.map((s) => (
             <Col xs={24} sm={12} key={s.driverId}>
-              <DriverCard s={s} onCardClick={handleCardClick} />
+              <DriverCard s={s} onCardClick={handleCardClick} isAdmin={isAdmin} />
             </Col>
           ))}
         </Row>

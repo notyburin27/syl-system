@@ -138,6 +138,7 @@ export interface DriverJobSummary {
   towingTransfer: number;
   advanceJobCount: number;
   advanceAmount: number;
+  driverWageAmount: number;
   totalTransfer: number;
 }
 

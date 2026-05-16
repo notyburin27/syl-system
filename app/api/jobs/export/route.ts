@@ -40,8 +40,9 @@ export async function GET(req: Request) {
       orderBy: [{ jobDate: "asc" }, { createdAt: "asc" }],
     });
 
+    const isAdmin = session.user.role === "ADMIN";
     const monthStr = month ?? dayjs().format("YYYY-MM");
-    const buffer = generateJobsExcel(jobs as unknown as Parameters<typeof generateJobsExcel>[0], driverName, monthStr, vehicleNumber);
+    const buffer = generateJobsExcel(jobs as unknown as Parameters<typeof generateJobsExcel>[0], driverName, monthStr, vehicleNumber, isAdmin);
 
     return new NextResponse(buffer as unknown as BodyInit, {
       headers: {

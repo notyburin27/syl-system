@@ -699,33 +699,36 @@ export default function EditableJobTable({
         },
       ],
     },
+    ...(isAdmin
+      ? [{
+          title: 'การเงินหลัก',
+          children: [
+            {
+              title: 'ค่าขนส่ง',
+              dataIndex: 'income',
+              key: 'income',
+              width: 110,
+              render: (_: unknown, row: RowData) =>
+                renderCell(row, 'income', 'number', undefined, {
+                  disabled: isAdvanceType(row),
+                }),
+            },
+            {
+              title: 'ค่าเที่ยวคนขับ',
+              dataIndex: 'driverWage',
+              key: 'driverWage',
+              width: 120,
+              render: (_: unknown, row: RowData) =>
+                renderCell(row, 'driverWage', 'number', undefined, {
+                  disabled: isAdvanceType(row),
+                }),
+            },
+          ],
+        }]
+      : []),
     {
-      title: 'การเงินหลัก',
+      title: 'ค่าใช้จ่ายคนขับ',
       children: [
-        ...(isAdmin
-          ? [
-              {
-                title: 'ค่าขนส่ง',
-                dataIndex: 'income',
-                key: 'income',
-                width: 110,
-                render: (_: unknown, row: RowData) =>
-                  renderCell(row, 'income', 'number', undefined, {
-                    disabled: isAdvanceType(row),
-                  }),
-              },
-              {
-                title: 'ค่าเที่ยวคนขับ',
-                dataIndex: 'driverWage',
-                key: 'driverWage',
-                width: 120,
-                render: (_: unknown, row: RowData) =>
-                  renderCell(row, 'driverWage', 'number', undefined, {
-                    disabled: isAdvanceType(row),
-                  }),
-              },
-            ]
-          : []),
         {
           title: 'ยกยอด',
           dataIndex: 'actualTransferPrev',
@@ -736,11 +739,6 @@ export default function EditableJobTable({
               disabled: isAdvanceType(row),
             }),
         },
-      ],
-    },
-    {
-      title: 'ค่าใช้จ่ายคนขับ',
-      children: [
         { title: 'เบิกล่วงหน้า', dataIndex: 'advance', key: 'advance', width: 110, render: (_: unknown, row: RowData) => renderCell(row, 'advance', 'number') },
         { title: 'ค่าทางด่วน', dataIndex: 'toll', key: 'toll', width: 100, render: (_: unknown, row: RowData) => renderCell(row, 'toll', 'number', undefined, { disabled: isAdvanceType(row) }) },
         { title: 'ค่ารับตู้', dataIndex: 'pickupFee', key: 'pickupFee', width: 100, render: (_: unknown, row: RowData) => renderCell(row, 'pickupFee', 'number', undefined, { disabled: isAdvanceType(row) }) },

@@ -49,6 +49,7 @@ export async function GET(req: Request) {
             storageFee: true,
             tire: true,
             other: true,
+            driverWage: true,
           },
         });
 
@@ -69,6 +70,7 @@ export async function GET(req: Request) {
         const mainTransfer = mainJobs.reduce((sum, j) => sum + computeTotal(j), 0);
         const towingTransfer = towingJobs.reduce((sum, j) => sum + computeTotal(j), 0);
         const advanceAmount = advanceJobs.reduce((sum, j) => sum + computeTotal(j), 0);
+        const driverWageAmount = jobs.reduce((sum, j) => sum + Number(j.driverWage || 0), 0);
         const totalTransfer = jobs.reduce((sum, j) => sum + computeTotal(j), 0);
 
         return {
@@ -82,6 +84,7 @@ export async function GET(req: Request) {
           towingTransfer,
           advanceJobCount: advanceJobs.length,
           advanceAmount,
+          driverWageAmount,
           totalTransfer,
         };
       })
