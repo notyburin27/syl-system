@@ -148,14 +148,21 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
     summaries.forEach((s) => {
       if (s.groupName) groupSet.add(s.groupName)
     })
-    return Array.from(groupSet).sort()
-  }, [summaries])
+    const all = Array.from(groupSet).sort()
+    return isAdmin ? all : all.filter((g) => g !== 'POP')
+  }, [summaries, isAdmin])
 
   useEffect(() => {
     if (groups.length > 0 && activeGroup === OTHER_GROUP_KEY) {
       setActiveGroup(groups[0])
     }
   }, [groups]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!isAdmin && activeGroup === 'POP') {
+      setActiveGroup(groups[0] ?? OTHER_GROUP_KEY)
+    }
+  }, [isAdmin, activeGroup, groups])
 
   const tabItems = useMemo(() => {
     const items = groups.map((g) => ({ key: g, label: g }))

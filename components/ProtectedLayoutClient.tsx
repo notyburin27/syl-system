@@ -123,7 +123,7 @@ export default function ProtectedLayoutClient({
     {
       key: "documents",
       icon: <FileTextOutlined />,
-      label: <Link href="/transport-documents">แปลงไฟล์ขนส่ง</Link>,
+      label: <Link href="/transport-documents">แปลงไฟล์เทพผดุงพร</Link>,
     },
     {
       key: "work-orders",
