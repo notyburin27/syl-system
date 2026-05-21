@@ -24,6 +24,7 @@ interface ProtectedLayoutClientProps {
   userName: string;
   isAdmin: boolean;
   isManager: boolean;
+  isSeniorStaff: boolean;
   userRole: string;
 }
 
@@ -32,6 +33,7 @@ export default function ProtectedLayoutClient({
   userName,
   isAdmin,
   isManager,
+  isSeniorStaff,
   userRole,
 }: ProtectedLayoutClientProps) {
   const router = useRouter();
@@ -162,8 +164,21 @@ export default function ProtectedLayoutClient({
       ]
     : isManager
     ? commonMenuItems
-    : [
+    : isSeniorStaff
+    ? [
         jobsMenu,
+        {
+          key: "line-images",
+          icon: <PictureOutlined />,
+          label: <Link href="/line-images">รูปภาพ LINE</Link>,
+        },
+        {
+          key: "work-orders",
+          icon: <FileTextOutlined />,
+          label: <Link href="/work-orders">ใบงานขนส่ง</Link>,
+        },
+      ]
+    : [
         {
           key: "line-images",
           icon: <PictureOutlined />,
@@ -250,7 +265,15 @@ export default function ProtectedLayoutClient({
               <UserOutlined />
               {userName}
               <Tag
-                color={userRole === "ADMIN" ? "volcano" : userRole === "MANAGER" ? "purple" : "blue"}
+                color={
+                  userRole === "ADMIN"
+                    ? "volcano"
+                    : userRole === "MANAGER"
+                    ? "purple"
+                    : userRole === "SENIOR_STAFF"
+                    ? "geekblue"
+                    : "blue"
+                }
                 style={{ marginLeft: 2, marginRight: 0 }}
               >
                 {userRole}

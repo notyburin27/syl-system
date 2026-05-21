@@ -101,8 +101,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
       const pathname = nextUrl.pathname
-      const isStaff = auth?.user?.role === "STAFF"
-      const defaultPage = "/jobs"
+      const role = auth?.user?.role
+      const isStaff = role === "STAFF"
+      const isSeniorStaff = role === "SENIOR_STAFF"
+      const defaultPage = isStaff ? "/line-images" : "/jobs"
 
       // Public routes
       if (pathname.startsWith("/login")) {
@@ -123,14 +125,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       // Manager cannot access /admin and /stock
-      const isManager = auth?.user?.role === "MANAGER"
+      const isManager = role === "MANAGER"
       if (isManager && (pathname.startsWith("/admin") || pathname.startsWith("/stock"))) {
         return Response.redirect(new URL(defaultPage, nextUrl))
       }
 
-      // Staff can only access /jobs and /line-images routes
-      if (isStaff && !pathname.startsWith("/jobs") && !pathname.startsWith("/line-images") && !pathname.startsWith("/api")) {
+      // Senior Staff: /jobs, /line-images, /work-orders only
+      if (
+        isSeniorStaff &&
+        !pathname.startsWith("/jobs") &&
+        !pathname.startsWith("/line-images") &&
+        !pathname.startsWith("/work-orders") &&
+        !pathname.startsWith("/api")
+      ) {
         return Response.redirect(new URL("/jobs", nextUrl))
+      }
+
+      // Staff: /line-images and /work-orders only
+      if (
+        isStaff &&
+        !pathname.startsWith("/line-images") &&
+        !pathname.startsWith("/work-orders") &&
+        !pathname.startsWith("/api")
+      ) {
+        return Response.redirect(new URL("/line-images", nextUrl))
       }
 
       return true

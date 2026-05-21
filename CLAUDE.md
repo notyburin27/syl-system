@@ -41,8 +41,10 @@ prisma/             # Database schema
 - Soft delete pattern: `isActive Boolean @default(true)`
 
 ### Auth Roles
-- `ADMIN`: Full access including user management
-- `STAFF`: Standard access
+- `ADMIN`: Full access — user management, stock, all jobs settings (incl. rates/fuel)
+- `MANAGER`: Same as ADMIN minus user management and stock
+- `SENIOR_STAFF`: Jobs (list + customers/drivers/locations/transfer-rates), LINE images, work orders
+- `STAFF`: LINE images, work orders only
 
 ## Commands
 ```bash
