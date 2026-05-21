@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Table, Button, Modal, Form, Input, Select, App, Space, Popconfirm, Card } from 'antd'
-import { PlusOutlined, DeleteOutlined, KeyOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, KeyOutlined, EditOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 
@@ -20,9 +20,11 @@ export default function UsersManagementPage() {
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [form] = Form.useForm()
   const [passwordForm] = Form.useForm()
+  const [editForm] = Form.useForm()
 
   // Fetch users
   const fetchUsers = async () => {
@@ -109,6 +111,32 @@ export default function UsersManagementPage() {
     }
   }
 
+  // Edit user (name + role)
+  const handleEditUser = async (values: { name?: string; role: User['role'] }) => {
+    if (!selectedUser) return
+
+    try {
+      const res = await fetch(`/api/users/${selectedUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      })
+
+      if (res.ok) {
+        message.success('แก้ไขผู้ใช้สำเร็จ')
+        setIsEditModalOpen(false)
+        setSelectedUser(null)
+        editForm.resetFields()
+        fetchUsers()
+      } else {
+        const error = await res.json()
+        message.error(error.error || 'เกิดข้อผิดพลาด')
+      }
+    } catch (error) {
+      message.error('เกิดข้อผิดพลาด')
+    }
+  }
+
   const columns: ColumnsType<User> = [
     {
       title: 'ชื่อผู้ใช้',
@@ -133,10 +161,10 @@ export default function UsersManagementPage() {
           STAFF: '#52c41a',
         }
         const labels = {
-          ADMIN: 'แอดมิน',
-          MANAGER: 'ผู้จัดการ',
-          SENIOR_STAFF: 'พนักงานอาวุโส',
-          STAFF: 'พนักงาน',
+          ADMIN: 'ADMIN',
+          MANAGER: 'MANAGER',
+          SENIOR_STAFF: 'SENIOR STAFF',
+          STAFF: 'STAFF',
         }
         return <span style={{ color: colors[role] }}>{labels[role]}</span>
       },
@@ -152,6 +180,17 @@ export default function UsersManagementPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
+          <Button
+            icon={<EditOutlined />}
+            size="small"
+            onClick={() => {
+              setSelectedUser(record)
+              editForm.setFieldsValue({ name: record.name ?? '', role: record.role })
+              setIsEditModalOpen(true)
+            }}
+          >
+            แก้ไข
+          </Button>
           <Button
             icon={<KeyOutlined />}
             size="small"
@@ -247,10 +286,10 @@ export default function UsersManagementPage() {
             rules={[{ required: true, message: 'กรุณาเลือกสิทธิ์' }]}
           >
             <Select>
-              <Select.Option value="STAFF">พนักงาน</Select.Option>
-              <Select.Option value="SENIOR_STAFF">พนักงานอาวุโส</Select.Option>
-              <Select.Option value="MANAGER">ผู้จัดการ</Select.Option>
-              <Select.Option value="ADMIN">แอดมิน</Select.Option>
+              <Select.Option value="STAFF">STAFF</Select.Option>
+              <Select.Option value="SENIOR_STAFF">SENIOR STAFF</Select.Option>
+              <Select.Option value="MANAGER">MANAGER</Select.Option>
+              <Select.Option value="ADMIN">ADMIN</Select.Option>
             </Select>
           </Form.Item>
 
@@ -263,6 +302,59 @@ export default function UsersManagementPage() {
                 setIsModalOpen(false)
                 form.resetFields()
               }}>
+                ยกเลิก
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        title="แก้ไขผู้ใช้"
+        open={isEditModalOpen}
+        onCancel={() => {
+          setIsEditModalOpen(false)
+          setSelectedUser(null)
+          editForm.resetFields()
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleEditUser}>
+          <Form.Item label="ชื่อผู้ใช้">
+            <Input value={selectedUser?.username} disabled />
+          </Form.Item>
+
+          <Form.Item name="name" label="ชื่อ-นามสกุล">
+            <Input placeholder="ชื่อจริง" />
+          </Form.Item>
+
+          <Form.Item
+            name="role"
+            label="สิทธิ์"
+            rules={[{ required: true, message: 'กรุณาเลือกสิทธิ์' }]}
+          >
+            <Select>
+              <Select.Option value="STAFF">STAFF</Select.Option>
+              <Select.Option value="SENIOR_STAFF">SENIOR STAFF</Select.Option>
+              <Select.Option value="MANAGER">MANAGER</Select.Option>
+              <Select.Option value="ADMIN">ADMIN</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">
+                บันทึก
+              </Button>
+              <Button
+                onClick={() => {
+                  setIsEditModalOpen(false)
+                  setSelectedUser(null)
+                  editForm.resetFields()
+                }}
+              >
                 ยกเลิก
               </Button>
             </Space>
