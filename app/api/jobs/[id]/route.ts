@@ -98,6 +98,7 @@ export async function PATCH(
       "fuelCashAmount",
       "fuelCreditLiters",
       "fuelCreditAmount",
+      "remarks",
       "carryOverToJobId",
     ];
 

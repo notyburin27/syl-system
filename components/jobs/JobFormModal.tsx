@@ -215,6 +215,7 @@ export default function JobFormModal({
           fuelCashAmount: job.fuelCashAmount,
           fuelCreditLiters: job.fuelCreditLiters,
           fuelCreditAmount: job.fuelCreditAmount,
+          remarks: job.remarks,
           clearStatus: job.clearStatus,
         });
       } else {
@@ -303,6 +304,9 @@ export default function JobFormModal({
       field === "jobType"
     ) {
       value = rawValue ?? null;
+    } else if (field === "remarks") {
+      const str = String(rawValue ?? "").trim();
+      value = str === "" ? null : str;
     }
 
     // Check if value actually changed
@@ -1535,6 +1539,21 @@ export default function JobFormModal({
               </>
               );
             })()}
+
+            {/* Section 5: หมายเหตุ */}
+            <Divider style={{ margin: "8px 0" }} />
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item label="หมายเหตุ" name="remarks" style={{ marginBottom: 0 }}>
+                  <Input.TextArea
+                    data-testid="job-remarks-input"
+                    autoSize={{ minRows: 2, maxRows: 6 }}
+                    disabled={isCleared}
+                    onBlur={() => isCreated && handleFieldBlur("remarks")}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
           </>
           )}
         </Form>

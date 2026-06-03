@@ -271,6 +271,9 @@ model Job {
   clearStatus       Boolean   @default(false)
   statementVerified Boolean   @default(false)
 
+  // Remarks
+  remarks           String?
+
   // Carry-over relation
   carryOverToJobId  String?
   carryOverToJob    Job?      @relation("CarryOver", fields: [carryOverToJobId], references: [id])
