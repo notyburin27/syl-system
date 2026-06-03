@@ -23,6 +23,7 @@ import {
   CloseOutlined,
   ShareAltOutlined,
   LinkOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import { Popconfirm } from "antd";
 import dayjs from "dayjs";
@@ -956,6 +957,20 @@ export default function JobFormModal({
                 <span style={{ color: "#ff4d4f", fontSize: 13 }}>
                   บันทึกล้มเหลว
                 </span>
+              )}
+              {isAdmin && !isAdvance && activeJob && (
+                <Button
+                  data-testid="job-prefill-btn"
+                  type="default"
+                  icon={<DownloadOutlined />}
+                  disabled={isCleared}
+                  onClick={() => {
+                    prefillIncome();
+                    prefillDriverWage();
+                  }}
+                >
+                  ดึงข้อมูล
+                </Button>
               )}
               {!isAdvance && activeJob && (
                 <Button
