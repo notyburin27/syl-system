@@ -100,6 +100,7 @@ export async function PATCH(
       "fuelCreditAmount",
       "remarks",
       "carryOverToJobId",
+      "isCancelled",
     ];
 
     const data: Record<string, unknown> = {};
