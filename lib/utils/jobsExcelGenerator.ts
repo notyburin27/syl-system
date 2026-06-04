@@ -6,6 +6,14 @@ import 'dayjs/locale/th'
 
 dayjs.locale('th')
 
+type JobWithRelations = Job & {
+  customer?: { name: string } | null
+  pickupLocation?: { name: string } | null
+  factoryLocation?: { name: string } | null
+  returnLocation?: { name: string } | null
+  transfers?: { isCompleted: boolean; amount: number | string }[] | null
+}
+
 function computeDriverOverall(job: Job): number | null {
   const hasAny = job.advance || job.toll || job.pickupFee || job.returnFee || job.liftFee || job.storageFee || job.tire || job.other
   if (!hasAny) return null
@@ -28,21 +36,15 @@ function computeDifference(job: Job): number | null {
   return overall - Number(job.actualTransferPrev)
 }
 
-function computeTotal(job: Job): number | null {
-  if (!job.actualTransferPrev) return null
-  const diff = computeDifference(job) ?? 0
-  return Number(job.actualTransferPrev) + diff
+function computeTotal(job: JobWithRelations): number | null {
+  if (!job.transfers?.length) return null
+  const completed = job.transfers.filter((t) => t.isCompleted).reduce((s, t) => s + Number(t.amount), 0)
+  if (!completed) return null
+  return completed
 }
 
 function getJobTypeLabel(value: string): string {
   return JOB_TYPES.find((t) => t.value === value)?.label ?? value
-}
-
-type JobWithRelations = Job & {
-  customer?: { name: string } | null
-  pickupLocation?: { name: string } | null
-  factoryLocation?: { name: string } | null
-  returnLocation?: { name: string } | null
 }
 
 export function generateJobsExcel(
