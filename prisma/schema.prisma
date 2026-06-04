@@ -270,6 +270,7 @@ model Job {
   // Status fields
   clearStatus       Boolean   @default(false)
   statementVerified Boolean   @default(false)
+  isCancelled       Boolean   @default(false)
 
   // Remarks
   remarks           String?
