@@ -89,7 +89,7 @@ export function generateJobsExcel(
     'สถานที่รับตู้', 'โรงงาน', 'สถานที่คืนตู้',
     ...(isAdmin ? ['ค่าขนส่ง', 'ค่าเที่ยวคนขับ'] : []),
     'ยกยอด', 'เบิกล่วงหน้า', 'ค่าทางด่วน', 'ค่ารับตู้', 'ค่าคืนตู้', 'ค่ายกตู้', 'ค่าฝากตู้', 'ค่ายาง', 'อื่นๆ',
-    'รวมคนรถปิดงาน', ...transferHeaders, 'รวมยอดโอน', 'ส่วนต่าง', 'ยกยอดไป',
+    'รวมคนรถปิดงาน', ...transferHeaders, 'รวมยอดโอน', 'ส่วนต่าง', 'ยกยอดไป', 'หมายเหตุ',
     'ไมล์รถ', 'น้ำมัน OFF (ลิตร)', 'น้ำมันสด (ลิตร)', 'น้ำมันสด (฿)', 'น้ำมันเครดิต (ลิตร)', 'น้ำมันเครดิต (฿)',
     'เคลียร์',
   ]
@@ -127,6 +127,7 @@ export function generateJobsExcel(
     advance ? '' : (computeTotal(job) ?? ''),
     advance ? '' : (computeDifference(job) ?? ''),
     advance ? '' : (job.carryOverToJob?.jobNumber ?? ''),
+    job.remarks ?? '',
     job.mileage != null ? Number(job.mileage) : '',
     job.fuelOfficeLiters != null ? Number(job.fuelOfficeLiters) : '',
     job.fuelCashLiters != null ? Number(job.fuelCashLiters) : '',
@@ -155,7 +156,7 @@ export function generateJobsExcel(
     ...(isAdmin ? [{ wch: 10 }, { wch: 12 }] : []),
     { wch: 14 },
     { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
-    { wch: 14 }, ...Array(maxTransfers).fill({ wch: 12 }), { wch: 12 }, { wch: 10 }, { wch: 14 },
+    { wch: 14 }, ...Array(maxTransfers).fill({ wch: 12 }), { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 30 },
     { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 13 }, { wch: 18 }, { wch: 16 },
     { wch: 8 },
   ]

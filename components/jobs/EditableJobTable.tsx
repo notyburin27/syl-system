@@ -846,6 +846,24 @@ export default function EditableJobTable({
             )
           },
         },
+        {
+          title: 'หมายเหตุ',
+          key: 'remarks',
+          width: 180,
+          render: (_: unknown, row: RowData) => {
+            const remarks = !isDraft(row) ? (row.remarks ?? null) : null
+            return (
+              <EditableCell
+                value={remarks}
+                cellType="computed"
+                editable={false}
+                locked={false}
+                onSave={async () => true}
+                format={(v) => (v == null || v === '' ? '-' : String(v))}
+              />
+            )
+          },
+        },
       ],
     },
     {
