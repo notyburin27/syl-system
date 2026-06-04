@@ -19,3 +19,14 @@ services:
         value: production
       - key: PORT
         value: "8080"
+jobs:
+  - name: sync-fuel-price
+    kind: SCHEDULED
+    run_command: npx tsx scripts/sync-fuel-price.ts
+    schedule: "0 23 * * *"
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
