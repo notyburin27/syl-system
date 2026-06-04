@@ -1237,7 +1237,7 @@ export default function JobFormModal({
                   </Form.Item>
                 </Col>
                 {/* ปุ่มยกยอด หรือ chip job ที่ยกยอดไปแล้ว */}
-                {(carryOverDone || (driverOverall > 0 && difference < 0 && !isCleared && !watchActualTransfer && !isCancelled)) && <Col span={3}>
+                {(carryOverDone || ((driverOverall > 0 || isCancelled) && difference < 0 && !isCleared && !watchActualTransfer)) && <Col span={3}>
                   <Form.Item label="ยกยอดไป" style={{ marginBottom: 0 }}>
                     {carryOverDone ? (
                       <Space.Compact style={{ width: "100%" }}>
@@ -1263,7 +1263,7 @@ export default function JobFormModal({
                           style={{ borderColor: "#FFADD2" }}
                         />
                       </Space.Compact>
-                    ) : driverOverall > 0 && difference < 0 && !isCleared && !watchActualTransfer && !isCancelled ? (
+                    ) : (driverOverall > 0 || isCancelled) && difference < 0 && !isCleared && !watchActualTransfer ? (
                       <Button
                         size="small"
                         type="dashed"
