@@ -53,7 +53,7 @@ The one change applied in each place:
 
 ## UI — Modal ([JobFormModal.tsx](../../../components/jobs/JobFormModal.tsx))
 
-- A **"ยกเลิกใบงาน"** checkbox in the ส่วนต่าง / clear-status area (footer or near the summary row).
+- A **"ยกเลิกใบงาน"** checkbox placed in the modal **footer**, on the same row as the บันทึก button (the footer sits below the หมายเหตุ section). It goes alongside the existing save-status / ดึงข้อมูล / เคลียร์ controls.
 - `disabled` unless `completedTransferSum > 0` and not while `isCleared` (matches other locked-field behavior). Tooltip when disabled: "ต้องมียอดโอนก่อน".
 - On toggle → persist via the existing field-save path: `onFieldSave(activeJob.id, "isCancelled", value)`, with local state update so `difference` recomputes immediately.
 - **Clear button gate:** change `(!clearStatus && Math.round(difference) !== 0 && !carryOverDone)` to also allow when cancelled — i.e. `&& !isCancelled`. A cancelled job can be cleared despite negative ส่วนต่าง.
