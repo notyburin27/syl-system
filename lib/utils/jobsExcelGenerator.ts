@@ -38,10 +38,11 @@ function computeDriverOverall(job: Job): number | null {
 // Matches the table UI: overall − actualTransferPrev − completed transfers (missing prev counts as 0)
 function computeDifference(job: JobWithRelations): number | null {
   const overall = computeDriverOverall(job)
-  if (overall === null) return null
+  // Cancelled jobs void the driver's closing fees: difference = −(prev + completed transfers).
+  if (overall === null && !job.isCancelled) return null
   const prev = Number(job.actualTransferPrev || 0)
   const completed = (job.transfers ?? []).filter((t) => t.isCompleted).reduce((s, t) => s + Number(t.amount), 0)
-  return overall - prev - completed
+  return (job.isCancelled ? 0 : (overall ?? 0)) - prev - completed
 }
 
 function computeTotal(job: JobWithRelations): number | null {
@@ -91,7 +92,7 @@ export function generateJobsExcel(
     'ยกยอด', 'เบิกล่วงหน้า', 'ค่าทางด่วน', 'ค่ารับตู้', 'ค่าคืนตู้', 'ค่ายกตู้', 'ค่าฝากตู้', 'ค่ายาง', 'อื่นๆ',
     'รวมคนรถปิดงาน', ...transferHeaders, 'รวมยอดโอน', 'ส่วนต่าง', 'ยกยอดไป', 'หมายเหตุ',
     'ไมล์รถ', 'น้ำมัน OFF (ลิตร)', 'น้ำมันสด (ลิตร)', 'น้ำมันสด (฿)', 'น้ำมันเครดิต (ลิตร)', 'น้ำมันเครดิต (฿)',
-    'เคลียร์',
+    'เคลียร์', 'ยกเลิก',
   ]
 
   const dataRows = jobs.map((job, idx) => {
@@ -135,6 +136,7 @@ export function generateJobsExcel(
     job.fuelCreditLiters != null ? Number(job.fuelCreditLiters) : '',
     job.fuelCreditAmount != null ? Number(job.fuelCreditAmount) : '',
     job.clearStatus ? '✓' : '',
+    job.isCancelled ? '✓' : '',
     ]
   })
 
@@ -158,7 +160,7 @@ export function generateJobsExcel(
     { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
     { wch: 14 }, ...Array(maxTransfers).fill({ wch: 12 }), { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 30 },
     { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 13 }, { wch: 18 }, { wch: 16 },
-    { wch: 8 },
+    { wch: 8 }, { wch: 8 },
   ]
 
   const wb = XLSX.utils.book_new()

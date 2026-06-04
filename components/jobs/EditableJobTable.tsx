@@ -66,6 +66,7 @@ interface DraftRow {
   fuelCreditAmount: number | null
   clearStatus: boolean
   statementVerified: boolean
+  isCancelled: boolean
 }
 
 type RowData = (Job & { _tempId?: string }) | DraftRow
@@ -247,6 +248,7 @@ export default function EditableJobTable({
       fuelCreditAmount: null,
       clearStatus: false,
       statementVerified: false,
+      isCancelled: false,
     }
     setDraftRows((prev) => [...prev, newDraft])
   }
@@ -479,11 +481,13 @@ export default function EditableJobTable({
   }
 
   const computeDifference = (row: RowData) => {
+    const cancelled = !isDraft(row) && (row as Job).isCancelled
     const overall = computeDriverOverall(row)
-    if (overall === null) return null
+    // Cancelled jobs void the driver's closing fees: difference = −(prev + completed transfers).
+    if (overall === null && !cancelled) return null
     const prev = Number(row.actualTransferPrev || 0)
     const completed = computeCompletedTransferSum(row)
-    return overall - prev - completed
+    return (cancelled ? 0 : (overall ?? 0)) - prev - completed
   }
 
   const computeTotal = (row: RowData) => {
@@ -1051,6 +1055,7 @@ export default function EditableJobTable({
           if (isDraft(r)) return 'draft-row'
           if (r.jobType === 'advance') return 'advance-row'
           if (r.clearStatus) return 'locked-row'
+          if (!isDraft(r) && (r as Job).isCancelled) return 'cancelled-row'
           if (modalEditMode) return 'clickable-row'
           return ''
         }}
@@ -1152,6 +1157,20 @@ export default function EditableJobTable({
       <style jsx global>{`
         .draft-row {
           background-color: #fafafa !important;
+        }
+        .cancelled-row td {
+          background-color: #fff1f0 !important;
+        }
+        .cancelled-row:hover td {
+          background-color: #ffccc7 !important;
+        }
+        .cancelled-row td.ant-table-cell-fix-left,
+        .cancelled-row td.ant-table-cell-fix-right {
+          background-color: #fff1f0 !important;
+        }
+        .cancelled-row:hover td.ant-table-cell-fix-left,
+        .cancelled-row:hover td.ant-table-cell-fix-right {
+          background-color: #ffccc7 !important;
         }
         .locked-row td {
           background-color: #f6ffed !important;

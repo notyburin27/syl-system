@@ -118,6 +118,7 @@ export interface Job {
   fuelCreditAmount: number | null;
   clearStatus: boolean;
   statementVerified: boolean;
+  isCancelled: boolean;
   remarks: string | null;
   carryOverToJobId: string | null;
   carryOverToJob?: { jobNumber: string } | null;
