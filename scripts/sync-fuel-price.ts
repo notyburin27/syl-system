@@ -106,6 +106,9 @@ async function syncMonth(month: number, yearCE: number): Promise<{ created: numb
     }
   }
 
+  if (created === 0 && updated === 0) {
+    console.warn(`[sync-fuel-price] WARNING: no diesel data found for ${yearCE}-${String(month).padStart(2, '0')}`)
+  }
   return { created, updated }
 }
 
