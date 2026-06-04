@@ -916,7 +916,7 @@ export default function JobFormModal({
               size="small"
               icon={
                 <CheckOutlined
-                  style={{ color: t.isCompleted ? "#52c41a" : "#bfbfbf" }}
+                  style={{ color: t.isCompleted ? "#bfbfbf" : "#52c41a" }}
                 />
               }
               disabled={isCleared}
