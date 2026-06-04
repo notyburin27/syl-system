@@ -120,6 +120,7 @@ export interface Job {
   statementVerified: boolean;
   remarks: string | null;
   carryOverToJobId: string | null;
+  carryOverToJob?: { jobNumber: string } | null;
   transfers?: JobTransfer[];
   towingLinksAsMain?: JobTowingLink[];
   towingLinkAsTowing?: JobTowingLinkAsMain | null;

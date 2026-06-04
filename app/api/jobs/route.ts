@@ -41,6 +41,7 @@ export async function GET(req: Request) {
         factoryLocation: true,
         returnLocation: true,
         transfers: { orderBy: { createdAt: "asc" } },
+        carryOverToJob: { select: { jobNumber: true } },
         towingLinksAsMain: {
           orderBy: { sequence: "asc" },
           include: {

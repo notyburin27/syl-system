@@ -471,6 +471,13 @@ export default function EditableJobTable({
     return row.transfers.filter((t) => t.isCompleted).reduce((s, t) => s + Number(t.amount), 0)
   }
 
+  // Amounts of completed transfers, ordered (server returns transfers by createdAt asc).
+  // Advance jobs settle nothing, so they contribute no transfer columns.
+  const completedTransferAmounts = (row: RowData): number[] => {
+    if (isAdvanceType(row) || !('transfers' in row) || !row.transfers) return []
+    return row.transfers.filter((t) => t.isCompleted).map((t) => Number(t.amount))
+  }
+
   const computeDifference = (row: RowData) => {
     const overall = computeDriverOverall(row)
     if (overall === null) return null
@@ -601,6 +608,28 @@ export default function EditableJobTable({
       </div>
     </>
   )
+
+  // Max completed transfers across all rows → one read-only column per transfer (matches Excel export)
+  const maxTransfers = dataSource.reduce((max, row) => Math.max(max, completedTransferAmounts(row).length), 0)
+  const transferColumns = Array.from({ length: maxTransfers }, (_, i) => ({
+    title: `โอนครั้งที่ ${i + 1}`,
+    key: `transfer-${i + 1}`,
+    width: 110,
+    render: (_: unknown, row: RowData) => {
+      const amounts = completedTransferAmounts(row)
+      const amount = i < amounts.length ? amounts[i] : null
+      return (
+        <EditableCell
+          value={amount}
+          cellType="computed"
+          editable={false}
+          locked={false}
+          onSave={async () => true}
+          format={(v) => (v == null ? '-' : (v as number).toLocaleString('th-TH'))}
+        />
+      )
+    },
+  }))
 
   const columns = [
     {
@@ -760,6 +789,22 @@ export default function EditableJobTable({
             <EditableCell value={isAdvanceType(row) ? null : computeDriverOverall(row)} cellType="computed" editable={false} locked={false} onSave={async () => true} />
           ),
         },
+        ...transferColumns,
+        {
+          title: 'รวมยอดโอน',
+          key: 'totalTransfer',
+          width: 120,
+          render: (_: unknown, row: RowData) => (
+            <EditableCell
+              value={isAdvanceType(row) ? null : computeTotal(row)}
+              cellType="computed"
+              editable={false}
+              locked={false}
+              onSave={async () => true}
+              format={(v) => v == null ? '-' : (v as number).toLocaleString('th-TH')}
+            />
+          ),
+        },
         {
           title: 'ส่วนต่าง',
           key: 'difference',
@@ -784,19 +829,22 @@ export default function EditableJobTable({
           },
         },
         {
-          title: 'รวมยอดโอน',
-          key: 'totalTransfer',
+          title: 'ยกยอดไป',
+          key: 'carryOverTo',
           width: 120,
-          render: (_: unknown, row: RowData) => (
-            <EditableCell
-              value={isAdvanceType(row) ? null : computeTotal(row)}
-              cellType="computed"
-              editable={false}
-              locked={false}
-              onSave={async () => true}
-              format={(v) => v == null ? '-' : (v as number).toLocaleString('th-TH')}
-            />
-          ),
+          render: (_: unknown, row: RowData) => {
+            const jobNumber = !isDraft(row) && !isAdvanceType(row) ? (row.carryOverToJob?.jobNumber ?? null) : null
+            return (
+              <EditableCell
+                value={jobNumber}
+                cellType="computed"
+                editable={false}
+                locked={false}
+                onSave={async () => true}
+                format={(v) => (v == null ? '-' : String(v))}
+              />
+            )
+          },
         },
       ],
     },

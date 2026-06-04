@@ -36,7 +36,8 @@ export async function GET(req: Request) {
         pickupLocation: true,
         factoryLocation: true,
         returnLocation: true,
-        transfers: true,
+        transfers: { orderBy: { createdAt: "asc" } },
+        carryOverToJob: { select: { jobNumber: true } },
       },
       orderBy: [{ jobDate: "asc" }, { createdAt: "asc" }],
     });
