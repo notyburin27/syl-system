@@ -13,6 +13,8 @@ import {
   Row,
   Col,
   Space,
+  Checkbox,
+  Tooltip,
 } from "antd";
 import {
   PlusOutlined,
@@ -948,6 +950,26 @@ export default function JobFormModal({
         onCancel={onClose}
         footer={
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
+              {!isAdvance && activeJob && (
+                <Tooltip title={completedTransferSum > 0 ? "" : "ต้องมียอดโอนก่อน"}>
+                  <Checkbox
+                    data-testid="job-cancel-checkbox"
+                    style={{ marginRight: "auto" }}
+                    checked={isCancelled}
+                    disabled={isCleared || completedTransferSum === 0}
+                    onChange={async (e) => {
+                      const next = e.target.checked;
+                      setIsCancelled(next);
+                      handleSaveStatus("saving");
+                      const ok = await onFieldSave(activeJob.id, "isCancelled", next);
+                      handleSaveStatus(ok ? "saved" : "error");
+                      if (!ok) setIsCancelled(!next);
+                    }}
+                  >
+                    ยกเลิกใบงาน
+                  </Checkbox>
+                </Tooltip>
+              )}
               {saveStatus === "saving" && (
                 <span style={{ color: "#1890ff", fontSize: 13 }}>
                   <LoadingOutlined style={{ marginRight: 4 }} />
