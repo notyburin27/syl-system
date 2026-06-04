@@ -898,9 +898,9 @@ export default function EditableJobTable({
   ]
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Button data-testid="back-to-jobs-btn" icon={<ArrowLeftOutlined />} onClick={() => router.push('/jobs')}>
             กลับ
@@ -970,12 +970,13 @@ export default function EditableJobTable({
       </div>
 
       {/* Table */}
+      <div style={{ flex: 1, overflow: 'hidden' }}>
       <Table
         columns={columns}
         dataSource={dataSource}
         rowKey={(row) => getRowKey(row as RowData)}
         loading={loading}
-        scroll={{ x: 4000 }}
+        scroll={{ x: 4000, y: 'calc(100vh - 310px)' }}
         size="small"
         pagination={false}
         bordered
@@ -1012,6 +1013,7 @@ export default function EditableJobTable({
           }
         }}
       />
+      </div>
 
       {/* Add Row Button */}
       {editMode && (

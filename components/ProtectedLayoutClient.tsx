@@ -234,6 +234,9 @@ export default function ProtectedLayoutClient({
         style={{
           marginLeft: collapsed ? 80 : 200,
           transition: "margin-left 0.2s",
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <Header
@@ -282,8 +285,8 @@ export default function ProtectedLayoutClient({
             </Space>
           </Dropdown>
         </Header>
-        <Content style={{ margin: "24px 16px 0", overflow: "initial" }}>
-          <div style={{ padding: 24, background: "#fff", minHeight: 360 }}>
+        <Content style={{ margin: "24px 16px 0", overflow: "hidden", flex: 1, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: 24, background: "#fff", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {children}
           </div>
         </Content>
