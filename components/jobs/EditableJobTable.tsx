@@ -1040,13 +1040,13 @@ export default function EditableJobTable({
       </div>
 
       {/* Table */}
-      <div>
+      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
       <Table
         columns={columns}
         dataSource={dataSource}
         rowKey={(row) => getRowKey(row as RowData)}
         loading={loading}
-        scroll={{ x: 4000, y: 'calc(100vh - 310px)' }}
+        scroll={{ x: 4000, y: `calc(100vh - ${editMode || modalEditMode ? 374 : 310}px)` }}
         size="small"
         pagination={false}
         bordered
