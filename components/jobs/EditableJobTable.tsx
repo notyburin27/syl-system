@@ -970,7 +970,7 @@ export default function EditableJobTable({
       </div>
 
       {/* Table */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div>
       <Table
         columns={columns}
         dataSource={dataSource}
