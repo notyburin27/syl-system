@@ -54,6 +54,7 @@ async function fetchOilPrices(month: number, yearCE: number): Promise<DayRecord[
       'x-requested-with': 'XMLHttpRequest',
     },
     body: body.toString(),
+    signal: AbortSignal.timeout(15_000),
   })
 
   if (!res.ok) {
@@ -69,22 +70,20 @@ async function fetchOilPrices(month: number, yearCE: number): Promise<DayRecord[
   return json.data
 }
 
-async function syncMonth(month: number, yearCE: number): Promise<{ created: number; updated: number }> {
+async function syncMonth(month: number, yearCE: number): Promise<{ count: number }> {
   const records = await fetchOilPrices(month, yearCE)
 
-  let created = 0
-  let updated = 0
+  let count = 0
 
   for (const day of records) {
     const dieselEntry = day.priceData.find((p) => p.OilTypeId === 'ดีเซล')
-    if (!dieselEntry) continue
+    if (!dieselEntry) {
+      console.warn(`[sync-fuel-price] no diesel entry for ${day.priceDate} — available types: ${day.priceData.map(p => p.OilTypeId).join(', ')}`)
+      continue
+    }
 
-    // ตัด time ออก เก็บแค่วันที่ (priceDate format: "2026-05-30T05:00")
+    // Stored as UTC midnight so the DATE column always yields the correct calendar date
     const effectiveDate = new Date(day.priceDate.split('T')[0] + 'T00:00:00.000Z')
-
-    const existing = await prisma.fuelPriceLog.findUnique({
-      where: { effectiveDate },
-    })
 
     await prisma.fuelPriceLog.upsert({
       where: { effectiveDate },
@@ -99,17 +98,14 @@ async function syncMonth(month: number, yearCE: number): Promise<{ created: numb
       },
     })
 
-    if (existing) {
-      updated++
-    } else {
-      created++
-    }
+    count++
   }
 
-  if (created === 0 && updated === 0) {
+  if (count === 0) {
     console.warn(`[sync-fuel-price] WARNING: no diesel data found for ${yearCE}-${String(month).padStart(2, '0')}`)
   }
-  return { created, updated }
+
+  return { count }
 }
 
 async function main() {
@@ -121,18 +117,16 @@ async function main() {
   if (isBackfill) {
     console.log(`[sync-fuel-price] backfill mode: ${BACKFILL_START.year}-${BACKFILL_START.month} → ${currentYear}-${currentMonth}`)
 
-    let totalCreated = 0
-    let totalUpdated = 0
+    let totalCount = 0
 
     let year = BACKFILL_START.year
     let month = BACKFILL_START.month
 
     while (year < currentYear || (year === currentYear && month <= currentMonth)) {
       console.log(`[sync-fuel-price] syncing ${year}-${String(month).padStart(2, '0')}...`)
-      const { created, updated } = await syncMonth(month, year)
-      console.log(`[sync-fuel-price]   created=${created} updated=${updated}`)
-      totalCreated += created
-      totalUpdated += updated
+      const { count } = await syncMonth(month, year)
+      console.log(`[sync-fuel-price]   upserted=${count}`)
+      totalCount += count
 
       month++
       if (month > 12) {
@@ -141,11 +135,11 @@ async function main() {
       }
     }
 
-    console.log(`[sync-fuel-price] backfill complete: total created=${totalCreated} updated=${totalUpdated}`)
+    console.log(`[sync-fuel-price] backfill complete: total upserted=${totalCount}`)
   } else {
     console.log(`[sync-fuel-price] normal mode: ${currentYear}-${String(currentMonth).padStart(2, '0')}`)
-    const { created, updated } = await syncMonth(currentMonth, currentYear)
-    console.log(`[sync-fuel-price] done: created=${created} updated=${updated}`)
+    const { count } = await syncMonth(currentMonth, currentYear)
+    console.log(`[sync-fuel-price] done: upserted=${count}`)
   }
 }
 
