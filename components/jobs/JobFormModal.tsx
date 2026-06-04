@@ -77,6 +77,7 @@ export default function JobFormModal({
   const [clearStatus, setClearStatus] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [transfers, setTransfers] = useState<JobTransfer[]>([]);
+  const [isCancelled, setIsCancelled] = useState(false);
 
   // Carry-over (ยกยอดไปงานอื่น)
   const [carryOverOpen, setCarryOverOpen] = useState(false);
@@ -152,7 +153,7 @@ export default function JobFormModal({
     .reduce((s, t) => s + Number(t.amount), 0);
 
   const difference =
-    driverOverall - Number(watchActualTransfer) - completedTransferSum;
+    (isCancelled ? 0 : driverOverall) - Number(watchActualTransfer) - completedTransferSum;
   const totalTransfer = completedTransferSum;
 
   useEffect(() => {
@@ -160,6 +161,7 @@ export default function JobFormModal({
       setCreatedJob(null);
       setSaveStatus("idle");
       setClearStatus(mode === "edit" && job ? !!job.clearStatus : false);
+      setIsCancelled(mode === "edit" && job ? !!job.isCancelled : false);
       setTransfers(mode === "edit" && job?.transfers ? job.transfers : []);
       setCarryOverOpen(false);
       setCarryOverMonth("");
@@ -983,7 +985,7 @@ export default function JobFormModal({
                   type="default"
                   style={{ width: 100 }}
                   icon={clearing ? <LoadingOutlined /> : clearStatus ? <UnlockOutlined /> : <CheckCircleOutlined />}
-                  disabled={clearing || (!isAdmin && clearStatus) || (!clearStatus && Math.round(difference) !== 0 && !carryOverDone)}
+                  disabled={clearing || (!isAdmin && clearStatus) || (!clearStatus && Math.round(difference) !== 0 && !carryOverDone && !isCancelled)}
                   onClick={async () => {
                     setClearing(true);
                     await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
@@ -1198,7 +1200,7 @@ export default function JobFormModal({
                       disabled
                       styles={{ input: { textAlign: "right" } }}
                       value={
-                        !driverOverall
+                        !driverOverall && !isCancelled
                           ? "-"
                           : difference > 0
                             ? `+${Math.round(difference)}`
@@ -1213,7 +1215,7 @@ export default function JobFormModal({
                   </Form.Item>
                 </Col>
                 {/* ปุ่มยกยอด หรือ chip job ที่ยกยอดไปแล้ว */}
-                {(carryOverDone || (driverOverall > 0 && difference < 0 && !isCleared && !watchActualTransfer)) && <Col span={3}>
+                {(carryOverDone || (driverOverall > 0 && difference < 0 && !isCleared && !watchActualTransfer && !isCancelled)) && <Col span={3}>
                   <Form.Item label="ยกยอดไป" style={{ marginBottom: 0 }}>
                     {carryOverDone ? (
                       <Space.Compact style={{ width: "100%" }}>
@@ -1239,7 +1241,7 @@ export default function JobFormModal({
                           style={{ borderColor: "#FFADD2" }}
                         />
                       </Space.Compact>
-                    ) : driverOverall > 0 && difference < 0 && !isCleared && !watchActualTransfer ? (
+                    ) : driverOverall > 0 && difference < 0 && !isCleared && !watchActualTransfer && !isCancelled ? (
                       <Button
                         size="small"
                         type="dashed"
