@@ -66,6 +66,7 @@ interface DraftRow {
   fuelCreditAmount: number | null
   clearStatus: boolean
   statementVerified: boolean
+  isCancelled: boolean
 }
 
 type RowData = (Job & { _tempId?: string }) | DraftRow
@@ -247,6 +248,7 @@ export default function EditableJobTable({
       fuelCreditAmount: null,
       clearStatus: false,
       statementVerified: false,
+      isCancelled: false,
     }
     setDraftRows((prev) => [...prev, newDraft])
   }
