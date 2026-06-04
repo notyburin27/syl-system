@@ -868,7 +868,9 @@ export default function JobFormModal({
   const renderTransferChip = (t: JobTransfer, index: number) => {
     const amt = Number(t.amount);
     const sign = amt > 0 ? "out" : amt < 0 ? "in" : "zero";
-    const bg = t.isCompleted ? "#D9F7BE" : "#D4EEF1";
+    // Completed transfers render with the native disabled style (like other locked inputs),
+    // not a green highlight. Custom background/border only apply while still editable.
+    const isInputDisabled = isCleared || t.isCompleted;
     const border =
       sign === "out" ? "#91CAFF" : sign === "in" ? "#FFD591" : "#D9D9D9";
 
@@ -897,8 +899,7 @@ export default function JobFormModal({
               size="small"
               key={`${t.id}-${amt}`}
               defaultValue={amt === 0 ? "" : amt}
-              readOnly={t.isCompleted}
-              disabled={isCleared}
+              disabled={isInputDisabled}
               onBlur={(e) => {
                 const raw = e.target.value.trim();
                 const newAmt = raw === "" ? 0 : Number(raw);
@@ -907,9 +908,9 @@ export default function JobFormModal({
               }}
               onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
               styles={{
-                input: { textAlign: "right", background: bg },
+                input: { textAlign: "right", ...(isInputDisabled ? {} : { background: "#D4EEF1" }) },
               }}
-              style={{ borderColor: border }}
+              style={isInputDisabled ? undefined : { borderColor: border }}
             />
             <Button
               size="small"
