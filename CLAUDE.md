@@ -1,5 +1,8 @@
 # SYL System - Project Conventions
 
+## Communication
+- **ตอบกลับผู้ใช้เป็นภาษาไทยเสมอ** (อธิบาย, ถามคำถาม, สรุปงาน ใช้ภาษาไทยทั้งหมด)
+
 ## Tech Stack
 - **Framework**: Next.js 15 (App Router)
 - **UI**: Ant Design (antd) v5 with Thai locale (th_TH), Font: Kanit
