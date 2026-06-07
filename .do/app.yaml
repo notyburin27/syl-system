@@ -26,3 +26,9 @@ jobs:
     schedule: "0 23 * * *"
     instance_count: 1
     instance_size_slug: basic-xxs
+  - name: check-line-images
+    kind: SCHEDULED
+    run_command: npx tsx scripts/check-line-images.ts
+    schedule: "0 * * * *" # ทุกชั่วโมง (UTC)
+    instance_count: 1
+    instance_size_slug: basic-xxs

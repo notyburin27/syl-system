@@ -3,6 +3,7 @@ import crypto from "crypto"
 import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { prisma } from "@/lib/prisma"
 import { spacesClient, SPACES_BUCKET, SPACES_CDN_BASE } from "@/lib/spaces"
+import { writeWebhookLog, formatError } from "@/lib/webhookLog"
 
 interface LineMessageEvent {
   type: string
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
   )
 
   // process ทุกรูปพร้อมกัน (parallel)
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     imageEvents.map(async (event) => {
       const groupId = event.source.groupId!
       const userId = event.source.userId!
@@ -143,6 +144,37 @@ export async function POST(req: NextRequest) {
       })
     })
   )
+
+  // log ผลและตอบ non-200 เมื่อมีรูป fail เพื่อให้ LINE redeliver
+  // (idempotency check ด้านบนกันรูปซ้ำตอน redeliver แล้ว)
+  const failures = results
+    .map((result, i) => ({ result, event: imageEvents[i] }))
+    .filter((x) => x.result.status === "rejected")
+
+  if (failures.length > 0) {
+    for (const f of failures) {
+      const reason = (f.result as PromiseRejectedResult).reason
+      console.error(
+        `[line-webhook] process image failed messageId=${f.event.message!.id} groupId=${f.event.source.groupId}:`,
+        reason
+      )
+      await writeWebhookLog({
+        level: "error",
+        source: "line-webhook",
+        messageId: f.event.message!.id,
+        groupId: f.event.source.groupId,
+        detail: formatError(reason),
+      })
+    }
+    return NextResponse.json(
+      { error: `Failed ${failures.length}/${imageEvents.length} images` },
+      { status: 500 }
+    )
+  }
+
+  if (imageEvents.length > 0) {
+    console.log(`[line-webhook] processed ${imageEvents.length} images`)
+  }
 
   return NextResponse.json({ status: "ok" })
 }
