@@ -14,14 +14,18 @@ import {
   LoadingOutlined,
   CheckOutlined,
   CheckCircleOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import EditableCell from './EditableCell'
 import QuickAddModal from './QuickAddModal'
 import ImportJobModal from './ImportJobModal'
 import JobFormModal from './JobFormModal'
+import LeaveManagerModal from './LeaveManagerModal'
 import type { Job, Customer, Driver, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS } from '@/types/job'
+import type { DriverLeave, CompanyHoliday } from '@/types/leave'
+import { LEAVE_TYPE_LABELS } from '@/types/leave'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 
@@ -69,13 +73,25 @@ interface DraftRow {
   isCancelled: boolean
 }
 
-type RowData = (Job & { _tempId?: string }) | DraftRow
+interface BannerRow {
+  _banner: 'leave' | 'holiday' | 'sunday' | 'noJob'
+  _bannerKey: string // unique key e.g. "banner-2026-06-04"
+  jobDate: string // YYYY-MM-DD — ใช้เรียงและแสดงเลขวัน
+  label: string // ข้อความที่แสดง เช่น "🌴 ลาป่วย — เป็นไข้"
+}
+
+type RowData = (Job & { _tempId?: string }) | DraftRow | BannerRow
+
+function isBanner(row: RowData): row is BannerRow {
+  return '_banner' in row
+}
 
 function isDraft(row: RowData): row is DraftRow {
-  return '_tempId' in row && !('id' in row)
+  return !isBanner(row) && '_tempId' in row && !('id' in row)
 }
 
 function getRowKey(row: RowData): string {
+  if (isBanner(row)) return row._bannerKey
   return isDraft(row) ? row._tempId : row.id
 }
 
@@ -150,6 +166,24 @@ export default function EditableJobTable({
   // Import modal
   const [importOpen, setImportOpen] = useState(false)
 
+  // Leave & holiday data (สำหรับ banner rows)
+  const [leaves, setLeaves] = useState<DriverLeave[]>([])
+  const [holidays, setHolidays] = useState<CompanyHoliday[]>([])
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false)
+
+  const fetchLeavesAndHolidays = useCallback(async () => {
+    try {
+      const [leaveRes, holidayRes] = await Promise.all([
+        fetch(`/api/jobs/leaves?driverId=${driverId}&month=${month}`),
+        fetch(`/api/jobs/holidays?month=${month}`),
+      ])
+      if (leaveRes.ok) setLeaves(await leaveRes.json())
+      if (holidayRes.ok) setHolidays(await holidayRes.json())
+    } catch {
+      // silent — banner เป็นข้อมูลเสริม ไม่ควรบล็อกตาราง
+    }
+  }, [driverId, month])
+
   const fetchJobs = useCallback(async () => {
     setLoading(true)
     try {
@@ -194,7 +228,8 @@ export default function EditableJobTable({
   useEffect(() => {
     fetchJobs()
     fetchReferenceData()
-  }, [fetchJobs, fetchReferenceData])
+    fetchLeavesAndHolidays()
+  }, [fetchJobs, fetchReferenceData, fetchLeavesAndHolidays])
 
   const factoryLocations = useMemo(
     () => locations.filter((l) => l.type === 'factory'),
@@ -205,16 +240,84 @@ export default function EditableJobTable({
     [locations]
   )
 
-  // Combined data: jobs + drafts
+  // Combined data: jobs + drafts (+ banner rows สำหรับวันลา/วันหยุด/ไม่มีงาน)
   const dataSource: RowData[] = useMemo(() => {
     const sorted = [...jobs].sort(
       (a, b) => new Date(a.jobDate).getTime() - new Date(b.jobDate).getTime()
     )
+
+    // ตอน edit mode ไม่แสดง banner (ให้สะอาดสำหรับแก้ไข) — แค่ jobs + drafts
     if (editMode) {
       return [...sorted, ...draftRows]
     }
-    return sorted
-  }, [jobs, draftRows, editMode])
+
+    // นับวันที่มีงานแล้ว (งานชนะทุกอย่าง — วันไหนมีงานไม่ขึ้น banner)
+    const jobDateSet = new Set(
+      jobs.map((j) => dayjs(j.jobDate).format('YYYY-MM-DD'))
+    )
+    const leaveMap = new Map<string, DriverLeave>()
+    leaves.forEach((l) => leaveMap.set(dayjs(l.leaveDate).format('YYYY-MM-DD'), l))
+    const holidayMap = new Map<string, CompanyHoliday>()
+    holidays.forEach((h) => holidayMap.set(dayjs(h.holidayDate).format('YYYY-MM-DD'), h))
+
+    const [year, mon] = month.split('-').map(Number)
+    const daysInMonth = dayjs(`${month}-01`).daysInMonth()
+    const today = dayjs().startOf('day')
+
+    const banners: BannerRow[] = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = dayjs(new Date(year, mon - 1, d))
+      const key = date.format('YYYY-MM-DD')
+
+      // วันที่มีงาน → ไม่ขึ้น banner (งานชนะ)
+      if (jobDateSet.has(key)) continue
+
+      // วันลา → ขึ้นเสมอ แม้อนาคต (ข้อมูลที่ตั้งใจใส่)
+      const leave = leaveMap.get(key)
+      if (leave) {
+        const noteSuffix = leave.note ? ` — ${leave.note}` : ''
+        banners.push({
+          _banner: 'leave',
+          _bannerKey: `banner-${key}`,
+          jobDate: key,
+          label: `🌴 ${LEAVE_TYPE_LABELS[leave.leaveType]}${noteSuffix}`,
+        })
+        continue
+      }
+
+      // banner วันว่าง (วันหยุด/อาทิตย์/ไม่มีงาน) → ซ่อนถ้าเป็นอนาคต
+      if (date.isAfter(today)) continue
+
+      const holiday = holidayMap.get(key)
+      if (holiday) {
+        banners.push({
+          _banner: 'holiday',
+          _bannerKey: `banner-${key}`,
+          jobDate: key,
+          label: `🔴 วันหยุด — ${holiday.name}`,
+        })
+      } else if (date.day() === 0) {
+        banners.push({
+          _banner: 'sunday',
+          _bannerKey: `banner-${key}`,
+          jobDate: key,
+          label: '🔴 วันอาทิตย์',
+        })
+      } else {
+        banners.push({
+          _banner: 'noJob',
+          _bannerKey: `banner-${key}`,
+          jobDate: key,
+          label: '🔵 ไม่มีงาน',
+        })
+      }
+    }
+
+    // รวม jobs + banners เรียงตามวันที่
+    return [...sorted, ...banners].sort(
+      (a, b) => new Date(a.jobDate).getTime() - new Date(b.jobDate).getTime()
+    )
+  }, [jobs, draftRows, editMode, leaves, holidays, month])
 
   const handleAddRow = () => {
     const newDraft: DraftRow = {
@@ -407,6 +510,7 @@ export default function EditableJobTable({
   }
 
   const handleDeleteJob = async (row: RowData) => {
+    if (isBanner(row)) return
     if (isDraft(row)) {
       setDraftRows((prev) => prev.filter((d) => d._tempId !== row._tempId))
       return
@@ -454,6 +558,7 @@ export default function EditableJobTable({
 
   // Computed fields
   const computeDriverOverall = (row: RowData) => {
+    if (isBanner(row)) return null
     const hasAny = row.advance || row.toll || row.pickupFee || row.returnFee || row.liftFee || row.storageFee || row.tire || row.other
     if (!hasAny) return null
     return (
@@ -481,6 +586,7 @@ export default function EditableJobTable({
   }
 
   const computeDifference = (row: RowData) => {
+    if (isBanner(row)) return null
     const cancelled = !isDraft(row) && (row as Job).isCancelled
     const overall = computeDriverOverall(row)
     // Cancelled jobs void the driver's closing fees: difference = −(prev + completed transfers).
@@ -496,7 +602,7 @@ export default function EditableJobTable({
     return completed
   }
 
-  const isAdvanceType = (row: RowData) => row.jobType === 'advance'
+  const isAdvanceType = (row: RowData) => !isBanner(row) && row.jobType === 'advance'
 
   // Helper to render editable cell
   const renderCell = (
@@ -511,6 +617,17 @@ export default function EditableJobTable({
       dateFormat?: string
     }
   ) => {
+    // Banner row: แสดง label ในคอลัมน์ jobNumber, เลขวันใน jobDate, ที่เหลือว่าง
+    if (isBanner(row)) {
+      if (field === 'jobNumber') {
+        return <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{row.label}</span>
+      }
+      if (field === 'jobDate') {
+        return <span>{dayjs(row.jobDate).format('DD')}</span>
+      }
+      return null
+    }
+
     const rowKey = getRowKey(row)
     const isLocked = row.clearStatus
     const rowIsDraft = isDraft(row)
@@ -837,7 +954,7 @@ export default function EditableJobTable({
           key: 'carryOverTo',
           width: 120,
           render: (_: unknown, row: RowData) => {
-            const jobNumber = !isDraft(row) && !isAdvanceType(row) ? (row.carryOverToJob?.jobNumber ?? null) : null
+            const jobNumber = !isBanner(row) && !isDraft(row) && !isAdvanceType(row) ? (row.carryOverToJob?.jobNumber ?? null) : null
             return (
               <EditableCell
                 value={jobNumber}
@@ -855,7 +972,7 @@ export default function EditableJobTable({
           key: 'remarks',
           width: 180,
           render: (_: unknown, row: RowData) => {
-            const remarks = !isDraft(row) ? (row.remarks ?? null) : null
+            const remarks = !isBanner(row) && !isDraft(row) ? (row.remarks ?? null) : null
             return (
               <EditableCell
                 value={remarks}
@@ -893,6 +1010,7 @@ export default function EditableJobTable({
           fixed: 'right' as const,
           align: 'center' as const,
           render: (_: unknown, row: RowData) => {
+            if (isBanner(row)) return null
             if (isDraft(row)) return null
             if (row.jobType === 'advance') return null
             if (row.clearStatus) return null
@@ -921,6 +1039,7 @@ export default function EditableJobTable({
                 width: 40,
                 fixed: 'right' as const,
                 render: (_: unknown, row: RowData) => {
+                  if (isBanner(row)) return null
                   if (row.clearStatus) {
                     const isUnlocking = !isDraft(row) && clearingId === row.id
                     return (
@@ -997,6 +1116,9 @@ export default function EditableJobTable({
               บันทึกล้มเหลว
             </span>
           )}
+          <Button data-testid="manage-leave-btn" icon={<CalendarOutlined />} onClick={() => setLeaveModalOpen(true)}>
+            จัดการวันลา
+          </Button>
           <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>
             Export Excel
           </Button>
@@ -1052,6 +1174,7 @@ export default function EditableJobTable({
         bordered
         rowClassName={(row) => {
           const r = row as RowData
+          if (isBanner(r)) return `banner-row banner-${r._banner}`
           if (isDraft(r)) return 'draft-row'
           if (r.jobType === 'advance') return 'advance-row'
           if (r.clearStatus) return 'locked-row'
@@ -1062,6 +1185,7 @@ export default function EditableJobTable({
         onRow={(row) => {
           if (!modalEditMode) return {}
           const r = row as RowData
+          if (isBanner(r)) return {}
           if (isDraft(r)) return {}
           return {
             onClick: async () => {
@@ -1130,6 +1254,17 @@ export default function EditableJobTable({
         driverId={driverId}
         onClose={() => setImportOpen(false)}
         onSuccess={fetchJobs}
+      />
+
+      {/* Leave Manager Modal */}
+      <LeaveManagerModal
+        open={leaveModalOpen}
+        driverId={driverId}
+        driverName={driverName}
+        month={month}
+        jobDates={jobs.map((j) => dayjs(j.jobDate).format('YYYY-MM-DD'))}
+        onClose={() => setLeaveModalOpen(false)}
+        onChange={fetchLeavesAndHolidays}
       />
 
       {/* Job Form Modal */}
@@ -1205,6 +1340,25 @@ export default function EditableJobTable({
         }
         .clickable-row:hover td {
           background-color: #e6f4ff !important;
+        }
+        /* Banner rows: วันลา = เหลือง, วันหยุด/อาทิตย์ = แดง, ไม่มีงาน = เทา */
+        .banner-leave td,
+        .banner-leave td.ant-table-cell-fix-left,
+        .banner-leave td.ant-table-cell-fix-right {
+          background-color: #fffbe6 !important;
+        }
+        .banner-holiday td,
+        .banner-holiday td.ant-table-cell-fix-left,
+        .banner-holiday td.ant-table-cell-fix-right,
+        .banner-sunday td,
+        .banner-sunday td.ant-table-cell-fix-left,
+        .banner-sunday td.ant-table-cell-fix-right {
+          background-color: #fff1f0 !important;
+        }
+        .banner-noJob td,
+        .banner-noJob td.ant-table-cell-fix-left,
+        .banner-noJob td.ant-table-cell-fix-right {
+          background-color: #fafafa !important;
         }
       `}</style>
     </div>

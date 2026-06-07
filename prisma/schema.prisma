@@ -26,8 +26,10 @@ model AuthUser {
   updatedAt DateTime @updatedAt
 
   // Relations
-  documents TransportDocument[]
-  jobs      Job[]
+  documents       TransportDocument[]
+  jobs            Job[]
+  driverLeaves    DriverLeave[]
+  companyHolidays CompanyHoliday[]
 
   @@index([username])
   @@map("auth_users")
@@ -184,6 +186,7 @@ model Driver {
 
   bankAccounts DriverBankAccount[]
   jobs         Job[]
+  leaves       DriverLeave[]
 
   @@index([name])
   @@index([groupName])
@@ -327,6 +330,39 @@ model JobTransfer {
 
   @@index([jobId])
   @@map("job_transfers")
+}
+
+// ==================== Leave & Holiday ====================
+
+model DriverLeave {
+  id          String   @id @default(cuid())
+  driverId    String
+  driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  leaveDate   DateTime @db.Date
+  leaveType   String   // "sick" | "personal" | "other"
+  note        String?
+  createdById String
+  createdBy   AuthUser @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([driverId, leaveDate])
+  @@index([driverId])
+  @@index([leaveDate])
+  @@map("driver_leaves")
+}
+
+model CompanyHoliday {
+  id          String   @id @default(cuid())
+  holidayDate DateTime @unique @db.Date
+  name        String
+  createdById String
+  createdBy   AuthUser @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([holidayDate])
+  @@map("company_holidays")
 }
 
 // ==================== Rate Tables ====================
