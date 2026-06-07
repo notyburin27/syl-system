@@ -3,6 +3,7 @@ import crypto from "crypto"
 import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { prisma } from "@/lib/prisma"
 import { spacesClient, SPACES_BUCKET, SPACES_CDN_BASE } from "@/lib/spaces"
+import { writeWebhookLog, formatError } from "@/lib/webhookLog"
 
 interface LineMessageEvent {
   type: string
@@ -152,10 +153,18 @@ export async function POST(req: NextRequest) {
 
   if (failures.length > 0) {
     for (const f of failures) {
+      const reason = (f.result as PromiseRejectedResult).reason
       console.error(
         `[line-webhook] process image failed messageId=${f.event.message!.id} groupId=${f.event.source.groupId}:`,
-        (f.result as PromiseRejectedResult).reason
+        reason
       )
+      await writeWebhookLog({
+        level: "error",
+        source: "line-webhook",
+        messageId: f.event.message!.id,
+        groupId: f.event.source.groupId,
+        detail: formatError(reason),
+      })
     }
     return NextResponse.json(
       { error: `Failed ${failures.length}/${imageEvents.length} images` },
