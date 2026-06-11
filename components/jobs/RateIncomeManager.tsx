@@ -8,7 +8,7 @@ import FuelRateViewModal from './FuelRateViewModal'
 import FuelRateUploadModal from './FuelRateUploadModal'
 import type { Customer, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
-import { effectiveIncome } from '@/lib/utils/fuelRateExcel'
+import { effectiveIncome, displayRangeLabel } from '@/lib/utils/fuelRateExcel'
 import dayjs from 'dayjs'
 
 interface FuelSurcharge {
@@ -134,16 +134,16 @@ export default function RateIncomeManager() {
   }
 
   const handleExport = () => {
+    // long format แถวละ 1 ช่วงราคาน้ำมัน — rate ที่ไม่มีช่วงออกแถวเดียวช่องช่วงว่าง
     const rows: (string | number)[][] = [
-      ['ลูกค้า', 'โรงงาน', 'ลักษณะงาน', 'SIZE', 'ราคาฐาน', 'ค่าขนส่ง (ณ ราคาน้ำมันปัจจุบัน)'],
-      ...filteredRates.map((r) => [
-        r.customer.name,
-        r.factoryLocation.name,
-        getJobTypeLabel(r.jobType),
-        r.size,
-        Number(r.income),
-        effectiveIncome(r, fuelPrice?.pricePerLiter ?? null),
-      ]),
+      ['ลูกค้า', 'โรงงาน', 'ลักษณะงาน', 'SIZE', 'ช่วงราคาน้ำมัน', 'ค่าขนส่ง'],
+      ...filteredRates.flatMap((r) => {
+        const base = [r.customer.name, r.factoryLocation.name, getJobTypeLabel(r.jobType), r.size]
+        if (r.fuelSurcharges.length === 0) return [[...base, '', Number(r.income)]]
+        return [...r.fuelSurcharges]
+          .sort((a, b) => Number(a.fuelPriceMin) - Number(b.fuelPriceMin))
+          .map((s) => [...base, displayRangeLabel(s.fuelPriceMin, s.fuelPriceMax), Number(r.income) + Number(s.surcharge)])
+      }),
     ]
     const ws = XLSX.utils.aoa_to_sheet(rows)
     const wb = XLSX.utils.book_new()
@@ -197,7 +197,7 @@ export default function RateIncomeManager() {
         <h2 style={{ margin: 0 }}>อัตราค่าขนส่ง</h2>
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export Excel</Button>
-          <Button icon={<UploadOutlined />} onClick={() => setUploadOpen(true)} data-testid="fuel-upload-open-btn">Upload Excel (ราคาตามน้ำมัน)</Button>
+          <Button type="primary" icon={<UploadOutlined />} onClick={() => setUploadOpen(true)} data-testid="fuel-upload-open-btn">Upload Excel (ราคาตามน้ำมัน)</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="rate-income-add-btn">เพิ่ม</Button>
         </Space>
       </div>

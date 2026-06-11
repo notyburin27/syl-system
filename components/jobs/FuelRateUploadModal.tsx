@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx'
 import {
   parseFuelRateRows,
   buildFuelRateSheetRows,
+  displayRangeLabel,
   FUEL_RATE_TEMPLATE_ROWS,
   type ParseFuelRateResult,
 } from '@/lib/utils/fuelRateExcel'
@@ -54,17 +55,6 @@ export default function FuelRateUploadModal({
     () =>
       rates.filter(
         (r) => r.customerId === customerId && r.factoryLocationId === factoryLocationId && r.fuelSurcharges.length > 0
-      ),
-    [rates, customerId, factoryLocationId]
-  )
-
-  // rate ทั้งหมด (รวมไม่มีช่วง) ไว้นับ "สร้างใหม่/อัปเดต" ใน preview
-  const existingRateKeys = useMemo(
-    () =>
-      new Set(
-        rates
-          .filter((r) => r.customerId === customerId && r.factoryLocationId === factoryLocationId)
-          .map((r) => `${r.jobType}|${r.size}`)
       ),
     [rates, customerId, factoryLocationId]
   )
@@ -126,16 +116,72 @@ export default function FuelRateUploadModal({
     onClose()
   }
 
+  // ข้อมูลปัจจุบันแตกเป็นแถวละช่วง — แสดงทันทีหลังเลือกลูกค้า+โรงงาน (ซ่อนเมื่อแนบไฟล์)
+  const currentRows = useMemo(
+    () =>
+      existingRates.flatMap((r) => {
+        const sorted = [...r.fuelSurcharges].sort((a, b) => Number(a.fuelPriceMin) - Number(b.fuelPriceMin))
+        return sorted.map((s, i) => ({
+          key: s.id,
+          jobType: r.jobType,
+          size: r.size,
+          rangeLabel: displayRangeLabel(s.fuelPriceMin, s.fuelPriceMax),
+          income: Number(r.income) + Number(s.surcharge),
+          isBase: i === 0,
+        }))
+      }),
+    [existingRates]
+  )
+
+  const currentColumns = [
+    { title: 'ลักษณะงาน', dataIndex: 'jobType', render: (v: string) => getJobTypeLabel(v) },
+    { title: 'SIZE', dataIndex: 'size' },
+    { title: 'ช่วงราคาน้ำมัน (บาท/ลิตร)', dataIndex: 'rangeLabel' },
+    {
+      title: 'ค่าขนส่ง (บาท)',
+      dataIndex: 'income',
+      align: 'right' as const,
+      render: (v: number, r: { isBase: boolean }) => (
+        <>
+          {v.toLocaleString()}
+          {r.isBase && <Typography.Text type="secondary" style={{ fontSize: 12 }}> (ราคาฐาน)</Typography.Text>}
+        </>
+      ),
+    },
+  ]
+
+  // แตกเป็นแถวละช่วง ให้ตรงกับไฟล์ที่ upload (ตรวจสายตาได้ทันที)
+  const previewRows = useMemo(() => {
+    if (!parsed || !parsed.ok) return []
+    return parsed.rates.flatMap((rate) =>
+      rate.ranges.map((range, i) => ({
+        key: `${rate.jobType}|${rate.size}|${range.fuelPriceMin}`,
+        jobType: rate.jobType,
+        size: rate.size,
+        rangeLabel: `${range.fuelPriceMin.toFixed(2)}-${range.fuelPriceMax.toFixed(2)}`,
+        income: range.income,
+        isBase: i === 0, // ช่วงต่ำสุด = ราคาฐาน
+        baseIncome: rate.baseIncome,
+      }))
+    )
+  }, [parsed])
+
+  type PreviewRow = (typeof previewRows)[number]
+
   const previewColumns = [
     { title: 'ลักษณะงาน', dataIndex: 'jobType', render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size' },
-    { title: 'ราคาฐาน', dataIndex: 'baseIncome', align: 'right' as const, render: (v: number) => v.toLocaleString() },
-    { title: 'จำนวนช่วง', key: 'count', align: 'right' as const, render: (_: unknown, r: { ranges: unknown[] }) => r.ranges.length },
+    { title: 'ช่วงราคาน้ำมัน (บาท/ลิตร)', dataIndex: 'rangeLabel' },
     {
-      title: 'สถานะ',
-      key: 'status',
-      render: (_: unknown, r: { jobType: string; size: string }) =>
-        existingRateKeys.has(`${r.jobType}|${r.size}`) ? 'อัปเดต' : 'สร้างใหม่',
+      title: 'ค่าขนส่ง (บาท)',
+      dataIndex: 'income',
+      align: 'right' as const,
+      render: (v: number, r: PreviewRow) => (
+        <>
+          {v.toLocaleString()}
+          {r.isBase && <Typography.Text type="secondary" style={{ fontSize: 12 }}> (ราคาฐาน)</Typography.Text>}
+        </>
+      ),
     },
   ]
 
@@ -144,7 +190,7 @@ export default function FuelRateUploadModal({
       title="Upload ตารางราคาตามน้ำมัน"
       open={open}
       onCancel={handleClose}
-      width={680}
+      width={960}
       okText="บันทึก"
       cancelText="ยกเลิก"
       onOk={handleSubmit}
@@ -152,7 +198,8 @@ export default function FuelRateUploadModal({
       okButtonProps={{ disabled: !selectionReady || !parsed || !parsed.ok, 'data-testid': 'fuel-upload-save-btn' } as { disabled: boolean; 'data-testid': string }}
     >
       <Space direction="vertical" style={{ width: '100%' }} size="middle">
-        <Space wrap>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Space wrap>
           <Select
             id="fuel-upload-customer"
             showSearch
@@ -175,11 +222,9 @@ export default function FuelRateUploadModal({
             onChange={(v) => { setFactoryLocationId(v); setFile(null); setParsed(null) }}
             popupMatchSelectWidth={false}
           />
-        </Space>
-
-        {selectionReady && (
-          <>
-            {existingRates.length > 0 ? (
+          </Space>
+          {selectionReady &&
+            (existingRates.length > 0 ? (
               <Button icon={<DownloadOutlined />} onClick={handleDownloadCurrent} data-testid="fuel-upload-download-current-btn">
                 ดาวน์โหลดข้อมูลปัจจุบัน (แก้แล้วอัปโหลดกลับ)
               </Button>
@@ -187,6 +232,29 @@ export default function FuelRateUploadModal({
               <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate} data-testid="fuel-upload-download-template-btn">
                 ดาวน์โหลด Template
               </Button>
+            ))}
+        </div>
+
+        {selectionReady && (
+          <>
+            {!file && (
+              <>
+                <Divider style={{ margin: '4px 0' }}>ข้อมูลปัจจุบัน</Divider>
+                {currentRows.length > 0 ? (
+                  <Table
+                    columns={currentColumns}
+                    dataSource={currentRows}
+                    rowKey="key"
+                    size="small"
+                    pagination={false}
+                    scroll={{ y: 320 }}
+                  />
+                ) : (
+                  <Typography.Text type="secondary">
+                    ยังไม่มีช่วงราคาน้ำมันของลูกค้า+โรงงานนี้ — ดาวน์โหลด Template เพื่อเริ่มกรอกได้เลย
+                  </Typography.Text>
+                )}
+              </>
             )}
 
             <Upload.Dragger accept=".xlsx,.xls" maxCount={1} showUploadList={!!file} beforeUpload={handleFile} onRemove={() => { setFile(null); setParsed(null) }}>
@@ -219,10 +287,11 @@ export default function FuelRateUploadModal({
                 />
                 <Table
                   columns={previewColumns}
-                  dataSource={parsed.rates}
-                  rowKey={(r) => `${r.jobType}|${r.size}`}
+                  dataSource={previewRows}
+                  rowKey="key"
                   size="small"
                   pagination={false}
+                  scroll={{ y: 320 }}
                 />
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   * ราคาฐานของแต่ละแถว = ค่าขนส่งของช่วงราคาน้ำมันต่ำสุดในไฟล์
