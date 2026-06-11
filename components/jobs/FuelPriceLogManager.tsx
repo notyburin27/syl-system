@@ -83,7 +83,7 @@ export default function FuelPriceLogManager() {
       dataIndex: 'effectiveDate',
       key: 'effectiveDate',
       width: 130,
-      render: (v: string) => dayjs(v).format('DD/MM/YYYY'),
+      render: (v: string) => dayjs(v).format('YYYY-MM-DD'),
     },
     {
       title: 'ราคาน้ำมัน (บาท/ลิตร)',
@@ -104,7 +104,7 @@ export default function FuelPriceLogManager() {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 120,
-      render: (v: string) => dayjs(v).format('DD/MM/YYYY'),
+      render: (v: string) => dayjs(v).format('YYYY-MM-DD'),
     },
     {
       title: 'จัดการ',
