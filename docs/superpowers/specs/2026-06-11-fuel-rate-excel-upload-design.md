@@ -105,4 +105,4 @@ Sheet แรก, header แถวแรก:
 ## การทดสอบ
 
 - **Unit test** (`lib/utils/fuelRateExcel.ts`): parse ถูก/ผิด format, ช่วงทับซ้อน, คำนวณราคาฐานจากช่วงต่ำสุด, แปลง max+0.01 ไป-กลับ, round-trip export → parse
-- **E2E (Playwright)**: upload happy path (เลือกลูกค้า+โรงงาน → แนบไฟล์ → preview → บันทึก → ตารางอัปเดต), ไฟล์ผิด format แสดง error, ราคา effective ในตารางเปลี่ยนตามราคาน้ำมัน, modal ดูช่วงราคา
+- **ไม่มี E2E** — ผู้ใช้ manual test เอง
