@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined, EyeOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
-import RateIncomeFuelSurchargeManager from './RateIncomeFuelSurchargeManager'
+import FuelRateViewModal from './FuelRateViewModal'
 import type { Customer, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
-import { SettingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 
 interface FuelSurcharge {
@@ -157,7 +156,16 @@ export default function RateIncomeManager() {
       title: 'จัดการ', key: 'actions', width: 120,
       render: (_: unknown, r: RateIncome) => (
         <Space>
-          <Button type="link" size="small" icon={<SettingOutlined />} title="ช่วงราคาน้ำมัน" onClick={() => setSurchargeTarget(r)} data-testid={`rate-income-surcharge-btn-${r.id}`} />
+          {r.fuelSurcharges.length > 0 && (
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              title="ดูช่วงราคาน้ำมัน"
+              onClick={() => setSurchargeTarget(r)}
+              data-testid={`rate-income-fuel-view-btn-${r.id}`}
+            />
+          )}
           <Button type="link" size="small" icon={<CopyOutlined />} title="คัดลอก" onClick={() => handleCopy(r)} data-testid={`rate-income-copy-btn-${r.id}`} />
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)} data-testid={`rate-income-edit-btn-${r.id}`} />
           <Popconfirm title="ยืนยันการลบ" onConfirm={() => handleDelete(r.id)} okText="ลบ" cancelText="ยกเลิก">
@@ -234,11 +242,13 @@ export default function RateIncomeManager() {
         </Form>
       </Modal>
 
-      <RateIncomeFuelSurchargeManager
+      <FuelRateViewModal
         open={!!surchargeTarget}
         onClose={() => setSurchargeTarget(null)}
-        rateIncomeId={surchargeTarget?.id ?? ''}
-        rateIncomeLabel={surchargeTarget ? `${surchargeTarget.jobType} / ${surchargeTarget.size} / ${surchargeTarget.factoryLocation.name} / ${surchargeTarget.customer.name}` : ''}
+        rateLabel={surchargeTarget ? `${getJobTypeLabel(surchargeTarget.jobType)} / ${surchargeTarget.size} / ${surchargeTarget.factoryLocation.name} / ${surchargeTarget.customer.name}` : ''}
+        baseIncome={surchargeTarget?.income ?? 0}
+        surcharges={surchargeTarget?.fuelSurcharges ?? []}
+        fuelPrice={fuelPrice?.pricePerLiter ?? null}
       />
 
       <ImportCSVModal
