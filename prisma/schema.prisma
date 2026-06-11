@@ -448,6 +448,20 @@ model RateDriverWage {
 
 // ==================== LINE Bot Module ====================
 
+model LineWebhookLog {
+  id        String   @id @default(cuid())
+  level     String   // "error" | "alert" | "info"
+  source    String   // "line-webhook" | "watchdog"
+  messageId String?
+  groupId   String?
+  detail    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([level])
+  @@map("line_webhook_logs")
+}
+
 model LineImage {
   id                String   @id @default(cuid())
   imageUrl          String
