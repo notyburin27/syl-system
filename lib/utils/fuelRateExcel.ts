@@ -148,3 +148,62 @@ export function parseFuelRateRows(rows: unknown[][]): ParseFuelRateResult {
   }
   return { ok: true, rates }
 }
+
+// ---------- export / template / effective ----------
+
+// รูปทรงข้อมูลจาก GET /api/rates/income (Prisma Decimal serialize เป็น string ได้)
+export interface RateWithSurcharges {
+  jobType: string
+  size: string
+  income: number | string
+  fuelSurcharges: {
+    fuelPriceMin: number | string
+    fuelPriceMax: number | string // ค่าแบบ stored (+0.01)
+    surcharge: number | string
+  }[]
+}
+
+const rangeLabel = (min: number | string, storedMax: number | string) =>
+  `${Number(min).toFixed(2)}-${fromStoredMax(Number(storedMax)).toFixed(2)}`
+
+// แถวสำหรับ export เป็น .xlsx (รวม header) — เฉพาะ rate ที่มีช่วงราคาน้ำมัน
+export function buildFuelRateSheetRows(rates: RateWithSurcharges[]): (string | number)[][] {
+  const rows: (string | number)[][] = [[...FUEL_RATE_HEADERS]]
+  for (const rate of rates) {
+    const sorted = [...rate.fuelSurcharges].sort(
+      (a, b) => Number(a.fuelPriceMin) - Number(b.fuelPriceMin)
+    )
+    for (const s of sorted) {
+      rows.push([
+        getJobTypeLabel(rate.jobType),
+        rate.size,
+        rangeLabel(s.fuelPriceMin, s.fuelPriceMax),
+        round2(Number(rate.income) + Number(s.surcharge)),
+      ])
+    }
+  }
+  return rows
+}
+
+export const FUEL_RATE_TEMPLATE_ROWS: (string | number)[][] = [
+  [...FUEL_RATE_HEADERS],
+  ['ขาเข้า', '20DC', '30.00-34.99', 10000],
+  ['ขาเข้า', '20DC', '35.00-39.99', 10500],
+  ['ขาเข้า', '40DC', '30.00-34.99', 12000],
+]
+
+// ป้ายช่วงราคาสำหรับแสดงผล (ใช้ใน FuelRateViewModal)
+export const displayRangeLabel = rangeLabel
+
+// ราคา effective ตามราคาน้ำมัน (logic เดียวกับ /api/jobs/calculate/income: >= min, < storedMax)
+export function effectiveIncome(
+  rate: Pick<RateWithSurcharges, 'income' | 'fuelSurcharges'>,
+  fuelPrice: number | null
+): number {
+  const base = Number(rate.income)
+  if (fuelPrice == null || !rate.fuelSurcharges?.length) return base
+  const matched = rate.fuelSurcharges.find(
+    (s) => fuelPrice >= Number(s.fuelPriceMin) && fuelPrice < Number(s.fuelPriceMax)
+  )
+  return matched ? round2(base + Number(matched.surcharge)) : base
+}

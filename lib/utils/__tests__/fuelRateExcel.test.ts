@@ -126,3 +126,69 @@ test('parseFuelRateRows: ช่วงมี gap ได้ ไม่ error', () =
   ])
   assert.equal(result.ok, true)
 })
+
+import {
+  buildFuelRateSheetRows,
+  FUEL_RATE_TEMPLATE_ROWS,
+  effectiveIncome,
+} from '../fuelRateExcel'
+
+test('buildFuelRateSheetRows: สร้างแถว long format จากข้อมูล DB (แปลง storedMax กลับ)', () => {
+  const rows = buildFuelRateSheetRows([
+    {
+      jobType: 'inbound',
+      size: '20DC',
+      income: 10000,
+      fuelSurcharges: [
+        { fuelPriceMin: 35, fuelPriceMax: 40, surcharge: 500 }, // stored: 40 = 39.99 รวมปลาย
+        { fuelPriceMin: 30, fuelPriceMax: 35, surcharge: 0 },
+      ],
+    },
+  ])
+  assert.deepEqual(rows, [
+    ['ลักษณะงาน', 'SIZE', 'ช่วงราคาน้ำมัน', 'ค่าขนส่ง'],
+    ['ขาเข้า', '20DC', '30.00-34.99', 10000],
+    ['ขาเข้า', '20DC', '35.00-39.99', 10500],
+  ])
+})
+
+test('round-trip: export → parse ได้ข้อมูลเดิม', () => {
+  const rows = buildFuelRateSheetRows([
+    {
+      jobType: 'outbound',
+      size: '40DC',
+      income: 12000,
+      fuelSurcharges: [
+        { fuelPriceMin: 30, fuelPriceMax: 35, surcharge: 0 },
+        { fuelPriceMin: 35, fuelPriceMax: 40, surcharge: 600 },
+      ],
+    },
+  ])
+  const parsed = parseFuelRateRows(rows)
+  assert.equal(parsed.ok, true)
+  if (!parsed.ok) return
+  assert.equal(parsed.rates[0].baseIncome, 12000)
+  assert.deepEqual(
+    parsed.rates[0].ranges.map((r) => r.surcharge),
+    [0, 600]
+  )
+})
+
+test('FUEL_RATE_TEMPLATE_ROWS: parse ผ่าน', () => {
+  assert.equal(parseFuelRateRows(FUEL_RATE_TEMPLATE_ROWS.map((r) => [...r])).ok, true)
+})
+
+test('effectiveIncome: เลือกช่วงตรงราคา, นอกช่วง/ไม่มีราคา/ไม่มีช่วง → ราคาฐาน', () => {
+  const rate = {
+    income: '10000', // Prisma Decimal มาเป็น string ได้
+    fuelSurcharges: [
+      { fuelPriceMin: '30', fuelPriceMax: '35', surcharge: '0' },
+      { fuelPriceMin: '35', fuelPriceMax: '40', surcharge: '500' },
+    ],
+  }
+  assert.equal(effectiveIncome(rate, 36.5), 10500)
+  assert.equal(effectiveIncome(rate, 39.99), 10500) // ขอบบนรวมปลาย (< 40)
+  assert.equal(effectiveIncome(rate, 50), 10000) // นอกช่วง → ฐาน
+  assert.equal(effectiveIncome(rate, null), 10000) // ไม่มีบันทึกราคาน้ำมัน
+  assert.equal(effectiveIncome({ income: 8000, fuelSurcharges: [] }, 36.5), 8000)
+})
