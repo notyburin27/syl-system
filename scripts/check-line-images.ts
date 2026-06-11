@@ -19,6 +19,11 @@ const prisma = createPrismaClient()
 const GAP_THRESHOLD_HOURS = 4 // ปกติรูปเข้าห่างกันไม่เกิน ~2-3 ชม. (ดูจากข้อมูลจริง มิ.ย. 2026)
 const LOG_RETENTION_DAYS = 90
 
+function formatGap(gapHours: number) {
+  if (gapHours < 1) return `${Math.round(gapHours * 60)} minutes`
+  return `${gapHours.toFixed(1)} hours`
+}
+
 async function main() {
   const now = new Date()
 
@@ -29,7 +34,7 @@ async function main() {
   })
 
   if (!latestImage) {
-    console.log('[watchdog] ยังไม่มีรูปในระบบ — ข้ามการตรวจ')
+    console.log('[watchdog] No images in the system yet — skipping check')
     return
   }
 
@@ -46,16 +51,16 @@ async function main() {
     })
 
     if (existingAlert) {
-      console.log(`[watchdog] gap ${gapHours.toFixed(1)} ชม. — เคย alert แล้ว ข้าม`)
+      console.log(`[watchdog] Gap of ${formatGap(gapHours)} — already alerted, skipping`)
     } else {
       const detail = `ไม่มีรูป LINE เข้าระบบมา ${gapHours.toFixed(1)} ชั่วโมง (รูปล่าสุด ${latestImage.createdAt.toISOString()})`
       await prisma.lineWebhookLog.create({
         data: { level: 'alert', source: 'watchdog', detail },
       })
-      console.error(`[watchdog] ALERT: ${detail}`)
+      console.error(`[watchdog] ALERT: No LINE images received for ${formatGap(gapHours)} (latest image at ${latestImage.createdAt.toISOString()})`)
     }
   } else {
-    console.log(`[watchdog] ปกติ — รูปล่าสุดเข้าเมื่อ ${gapHours.toFixed(1)} ชม. ก่อน`)
+    console.log(`[watchdog] OK — latest image received ${formatGap(gapHours)} ago`)
   }
 
   // 2) ลบ log เก่าเกิน retention
@@ -64,7 +69,7 @@ async function main() {
     where: { createdAt: { lt: cutoff } },
   })
   if (deleted.count > 0) {
-    console.log(`[watchdog] ลบ log เก่ากว่า ${LOG_RETENTION_DAYS} วัน: ${deleted.count} แถว`)
+    console.log(`[watchdog] Deleted ${deleted.count} log rows older than ${LOG_RETENTION_DAYS} days`)
   }
 }
 
