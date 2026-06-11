@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons'
-import ImportCSVModal from './ImportCSVModal'
+import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col, Typography } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ExportOutlined, CopyOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons'
+import * as XLSX from 'xlsx'
 import FuelRateViewModal from './FuelRateViewModal'
 import FuelRateUploadModal from './FuelRateUploadModal'
 import type { Customer, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
+import { effectiveIncome } from '@/lib/utils/fuelRateExcel'
 import dayjs from 'dayjs'
 
 interface FuelSurcharge {
@@ -41,7 +42,6 @@ export default function RateIncomeManager() {
   const [copyingRate, setCopyingRate] = useState(false)
   const [form] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
   const [surchargeTarget, setSurchargeTarget] = useState<RateIncome | null>(null)
   const [fuelPrice, setFuelPrice] = useState<{ pricePerLiter: number; effectiveDate: string } | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -134,15 +134,21 @@ export default function RateIncomeManager() {
   }
 
   const handleExport = () => {
-    const headers = ['jobType', 'size', 'factoryLocationName', 'customerName', 'income']
-    const labels = ['ลักษณะงาน', 'SIZE', 'โรงงาน', 'ลูกค้า', 'ค่าขนส่ง']
-    const rows = filteredRates.map(r => [r.jobType, r.size, r.factoryLocation.name, r.customer.name, Number(r.income)])
-    const csv = [headers.join(','), labels.join(','), ...rows.map(r => r.join(','))].join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url; link.download = 'rate_income.csv'; link.click()
-    URL.revokeObjectURL(url)
+    const rows: (string | number)[][] = [
+      ['ลูกค้า', 'โรงงาน', 'ลักษณะงาน', 'SIZE', 'ราคาฐาน', 'ค่าขนส่ง (ณ ราคาน้ำมันปัจจุบัน)'],
+      ...filteredRates.map((r) => [
+        r.customer.name,
+        r.factoryLocation.name,
+        getJobTypeLabel(r.jobType),
+        r.size,
+        Number(r.income),
+        effectiveIncome(r, fuelPrice?.pricePerLiter ?? null),
+      ]),
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'rate-income')
+    XLSX.writeFile(wb, 'rate_income.xlsx')
   }
 
   const factoryOptions = factoryLocations.map(l => ({ value: l.id, label: l.name }))
@@ -153,7 +159,14 @@ export default function RateIncomeManager() {
     { title: 'โรงงาน', key: 'factory', render: (_: unknown, r: RateIncome) => r.factoryLocation.name },
     { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 80 },
-    { title: 'ค่าขนส่ง', dataIndex: 'income', key: 'income', width: 110, align: 'right' as const, render: (v: number) => Number(v).toLocaleString() },
+    {
+      title: 'ค่าขนส่ง',
+      dataIndex: 'income',
+      key: 'income',
+      width: 110,
+      align: 'right' as const,
+      render: (_: unknown, r: RateIncome) => effectiveIncome(r, fuelPrice?.pricePerLiter ?? null).toLocaleString(),
+    },
     {
       title: 'จัดการ', key: 'actions', width: 120,
       render: (_: unknown, r: RateIncome) => (
@@ -183,8 +196,7 @@ export default function RateIncomeManager() {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>อัตราค่าขนส่ง</h2>
         <Space>
-          <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
-          <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
+          <Button icon={<ExportOutlined />} onClick={handleExport}>Export Excel</Button>
           <Button icon={<UploadOutlined />} onClick={() => setUploadOpen(true)} data-testid="fuel-upload-open-btn">Upload Excel (ราคาตามน้ำมัน)</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="rate-income-add-btn">เพิ่ม</Button>
         </Space>
@@ -213,6 +225,13 @@ export default function RateIncomeManager() {
         </Col>
       </Row>
 
+      <div style={{ marginBottom: 12 }}>
+        <Typography.Text type="secondary">
+          {fuelPrice
+            ? `⛽ ราคาน้ำมันปัจจุบัน ${fuelPrice.pricePerLiter.toFixed(2)} บาท/ลิตร (มีผล ${dayjs(fuelPrice.effectiveDate).format('YYYY-MM-DD')}) — ค่าขนส่งในตารางคำนวณตามราคานี้`
+            : '⛽ ยังไม่มีบันทึกราคาน้ำมัน — ค่าขนส่งในตารางเป็นราคาฐาน'}
+        </Typography.Text>
+      </div>
       <Table columns={columns} dataSource={filteredRates} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20 }} />
 
       <Modal
@@ -254,23 +273,6 @@ export default function RateIncomeManager() {
         fuelPrice={fuelPrice?.pricePerLiter ?? null}
       />
 
-      <ImportCSVModal
-        open={importOpen}
-        title="Import อัตราค่าขนส่ง"
-        apiEndpoint="/api/rates/income/import"
-        headers={['jobType', 'size', 'factoryLocationName', 'customerName', 'income', 'fuelPriceMin', 'fuelPriceMax', 'surcharge']}
-        headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', factoryLocationName: 'โรงงาน', customerName: 'ลูกค้า', income: 'ค่าขนส่ง', fuelPriceMin: 'ราคาน้ำมัน ≥', fuelPriceMax: 'ราคาน้ำมัน <', surcharge: 'ค่าปรับ income' }}
-        optionalHeaders={['fuelPriceMin', 'fuelPriceMax', 'surcharge']}
-        exampleRows={[
-          ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '', '', ''],
-          ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '0', '42.50', '0'],
-          ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '42.50', '47.50', '1000'],
-          ['ขาเข้า', '20DC', 'โรงงาน ABC', 'บริษัท XYZ', '10000', '47.50', '999', '2000'],
-        ]}
-        templateFileName="rate_income_template.csv"
-        onClose={() => setImportOpen(false)}
-        onSuccess={fetchRates}
-      />
       <FuelRateUploadModal
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
