@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined, EyeOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import FuelRateViewModal from './FuelRateViewModal'
+import FuelRateUploadModal from './FuelRateUploadModal'
 import type { Customer, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
 import dayjs from 'dayjs'
@@ -43,6 +44,7 @@ export default function RateIncomeManager() {
   const [importOpen, setImportOpen] = useState(false)
   const [surchargeTarget, setSurchargeTarget] = useState<RateIncome | null>(null)
   const [fuelPrice, setFuelPrice] = useState<{ pricePerLiter: number; effectiveDate: string } | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   // Filters
   const [filterJobType, setFilterJobType] = useState<string | undefined>()
@@ -183,6 +185,7 @@ export default function RateIncomeManager() {
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
+          <Button icon={<UploadOutlined />} onClick={() => setUploadOpen(true)} data-testid="fuel-upload-open-btn">Upload Excel (ราคาตามน้ำมัน)</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="rate-income-add-btn">เพิ่ม</Button>
         </Space>
       </div>
@@ -266,6 +269,14 @@ export default function RateIncomeManager() {
         ]}
         templateFileName="rate_income_template.csv"
         onClose={() => setImportOpen(false)}
+        onSuccess={fetchRates}
+      />
+      <FuelRateUploadModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        customers={customers}
+        factoryLocations={factoryLocations}
+        rates={rates}
         onSuccess={fetchRates}
       />
     </>
