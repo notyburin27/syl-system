@@ -1340,24 +1340,38 @@ export default function EditableJobTable({
         .clickable-row:hover td {
           background-color: #e6f4ff !important;
         }
-        /* Banner rows: วันลา = เหลือง, วันหยุด/อาทิตย์ = แดง, ไม่มีงาน = เทา */
-        .banner-leave td,
-        .banner-leave td.ant-table-cell-fix-left,
-        .banner-leave td.ant-table-cell-fix-right {
-          background-color: #fffbe6 !important;
+        /* Banner rows: read-only — ตัวอักษรจาง, cursor not-allowed, แถบสีซ้ายบอกสถานะ */
+        .banner-row td {
+          color: #8c8c8c !important;
+          cursor: not-allowed !important;
+        }
+        .banner-row:hover td {
+          /* ไม่ตอบสนอง hover เพื่อสื่อว่าแก้ไม่ได้ — คงสีพื้นเดิมไว้ */
+        }
+        /* แถบสีด้านซ้ายของแถว (cell แรก = คอลัมน์วันที่ ซึ่ง fixed-left) */
+        .banner-row td.ant-table-cell-fix-left:first-child {
+          border-left-width: 3px !important;
+          border-left-style: solid !important;
+        }
+        .banner-leave td {
+          background-color: #fff8db !important;
+        }
+        .banner-leave td.ant-table-cell-fix-left:first-child {
+          border-left-color: #fadb14 !important;
         }
         .banner-holiday td,
-        .banner-holiday td.ant-table-cell-fix-left,
-        .banner-holiday td.ant-table-cell-fix-right,
-        .banner-sunday td,
-        .banner-sunday td.ant-table-cell-fix-left,
-        .banner-sunday td.ant-table-cell-fix-right {
-          background-color: #fff1f0 !important;
+        .banner-sunday td {
+          background-color: #ffe3e0 !important;
         }
-        .banner-noJob td,
-        .banner-noJob td.ant-table-cell-fix-left,
-        .banner-noJob td.ant-table-cell-fix-right {
-          background-color: #fafafa !important;
+        .banner-holiday td.ant-table-cell-fix-left:first-child,
+        .banner-sunday td.ant-table-cell-fix-left:first-child {
+          border-left-color: #ff7875 !important;
+        }
+        .banner-noJob td {
+          background-color: #f0f0f0 !important;
+        }
+        .banner-noJob td.ant-table-cell-fix-left:first-child {
+          border-left-color: #bfbfbf !important;
         }
       `}</style>
     </div>
