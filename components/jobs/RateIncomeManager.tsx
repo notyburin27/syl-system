@@ -10,6 +10,13 @@ import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
 import { SettingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 
+interface FuelSurcharge {
+  id: string
+  fuelPriceMin: number | string
+  fuelPriceMax: number | string
+  surcharge: number | string
+}
+
 interface RateIncome {
   id: string
   jobType: string
@@ -20,6 +27,7 @@ interface RateIncome {
   createdAt: string
   factoryLocation: { id: string; name: string }
   customer: { id: string; name: string }
+  fuelSurcharges: FuelSurcharge[]
 }
 
 export default function RateIncomeManager() {
@@ -35,6 +43,7 @@ export default function RateIncomeManager() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [surchargeTarget, setSurchargeTarget] = useState<RateIncome | null>(null)
+  const [fuelPrice, setFuelPrice] = useState<{ pricePerLiter: number; effectiveDate: string } | null>(null)
 
   // Filters
   const [filterJobType, setFilterJobType] = useState<string | undefined>()
@@ -46,7 +55,11 @@ export default function RateIncomeManager() {
     setLoading(true)
     try {
       const res = await fetch('/api/rates/income')
-      if (res.ok) setRates(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setRates(data.rates)
+        setFuelPrice(data.fuelPrice)
+      }
     } catch { message.error('เกิดข้อผิดพลาดในการดึงข้อมูล') }
     finally { setLoading(false) }
   }, [message])

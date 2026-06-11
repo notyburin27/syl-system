@@ -6,14 +6,27 @@ export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rates = await prisma.rateIncome.findMany({
-    include: {
-      factoryLocation: { select: { id: true, name: true } },
-      customer: { select: { id: true, name: true } },
-    },
-    orderBy: [{ customer: { name: "asc" } }, { factoryLocation: { name: "asc" } }, { jobType: "asc" }, { size: "asc" }],
+  const [rates, fuelLog] = await Promise.all([
+    prisma.rateIncome.findMany({
+      include: {
+        factoryLocation: { select: { id: true, name: true } },
+        customer: { select: { id: true, name: true } },
+        fuelSurcharges: { orderBy: { fuelPriceMin: "asc" } },
+      },
+      orderBy: [{ customer: { name: "asc" } }, { factoryLocation: { name: "asc" } }, { jobType: "asc" }, { size: "asc" }],
+    }),
+    prisma.fuelPriceLog.findFirst({
+      where: { effectiveDate: { lte: new Date() } },
+      orderBy: { effectiveDate: "desc" },
+    }),
+  ]);
+
+  return NextResponse.json({
+    rates,
+    fuelPrice: fuelLog
+      ? { pricePerLiter: Number(fuelLog.pricePerLiter), effectiveDate: fuelLog.effectiveDate }
+      : null,
   });
-  return NextResponse.json(rates);
 }
 
 export async function POST(req: Request) {
