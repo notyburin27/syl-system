@@ -19,8 +19,8 @@ export async function GET(req: Request) {
     if (month) {
       const [year, mon] = month.split("-").map(Number);
       where.holidayDate = {
-        gte: new Date(year, mon - 1, 1),
-        lt: new Date(year, mon, 1),
+        gte: new Date(Date.UTC(year, mon - 1, 1)),
+        lt: new Date(Date.UTC(year, mon, 1)),
       };
     }
 
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     const [y, m, d] = (holidayDate as string).split("-").map(Number);
-    const date = new Date(y, m - 1, d);
+    const date = new Date(Date.UTC(y, m - 1, d));
 
     const holiday = await prisma.companyHoliday.create({
       data: { holidayDate: date, name: name.trim(), createdById: (session.user as { id: string }).id },

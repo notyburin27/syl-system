@@ -28,8 +28,8 @@ export async function GET(req: Request) {
     if (month) {
       const [year, mon] = month.split("-").map(Number);
       where.leaveDate = {
-        gte: new Date(year, mon - 1, 1),
-        lt: new Date(year, mon, 1),
+        gte: new Date(Date.UTC(year, mon - 1, 1)),
+        lt: new Date(Date.UTC(year, mon, 1)),
       };
     }
 
@@ -73,12 +73,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // leaveDate มาเป็น "YYYY-MM-DD" — ตีความเป็นวันที่ท้องถิ่นเที่ยงคืน
+    // leaveDate มาเป็น "YYYY-MM-DD" — เก็บเป็น UTC เที่ยงคืน (@db.Date)
     const [y, m, d] = (leaveDate as string).split("-").map(Number);
-    const date = new Date(y, m - 1, d);
+    const date = new Date(Date.UTC(y, m - 1, d));
 
     // Guard 1: วันอาทิตย์เป็นวันหยุดอยู่แล้ว
-    if (date.getDay() === 0) {
+    if (date.getUTCDay() === 0) {
       return NextResponse.json(
         { error: "วันอาทิตย์เป็นวันหยุดอยู่แล้ว" },
         { status: 400 }

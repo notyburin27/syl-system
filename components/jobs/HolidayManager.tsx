@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Button, Modal, Form, Input, DatePicker, App, Space, Popconfirm } from 'antd'
+import { Table, Button, Modal, Form, Input, DatePicker, App } from 'antd'
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { CompanyHoliday } from '@/types/leave'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -10,7 +10,7 @@ import 'dayjs/locale/th'
 dayjs.locale('th')
 
 export default function HolidayManager() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [holidays, setHolidays] = useState<CompanyHoliday[]>([])
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -100,15 +100,23 @@ export default function HolidayManager() {
       key: 'actions',
       width: 100,
       render: (_: unknown, record: CompanyHoliday) => (
-        <Popconfirm
-          title="ยืนยันการลบ"
-          description="ต้องการลบวันหยุดนี้ใช่หรือไม่?"
-          onConfirm={() => handleDelete(record.id)}
-          okText="ลบ"
-          cancelText="ยกเลิก"
-        >
-          <Button data-testid={`delete-holiday-${record.id}`} type="link" size="small" danger icon={<DeleteOutlined />} />
-        </Popconfirm>
+        <Button
+          data-testid={`delete-holiday-${record.id}`}
+          type="link"
+          size="small"
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() =>
+            modal.confirm({
+              title: 'ยืนยันการลบ',
+              content: 'ต้องการลบวันหยุดนี้ใช่หรือไม่?',
+              okText: 'ลบ',
+              okType: 'danger',
+              cancelText: 'ยกเลิก',
+              onOk: () => handleDelete(record.id),
+            })
+          }
+        />
       ),
     },
   ]
@@ -127,6 +135,7 @@ export default function HolidayManager() {
         dataSource={holidays}
         rowKey="id"
         loading={loading}
+        size="small"
         pagination={{ pageSize: 20 }}
       />
 

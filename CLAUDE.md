@@ -30,6 +30,7 @@ prisma/             # Database schema
 - State management: `useState`, `useEffect` (no external state library)
 - Form state: `Form.useForm()` from antd
 - Notifications: `App.useApp().message` from antd
+- Confirm การลบ/action สำคัญ: ใช้ `App.useApp().modal` → `modal.confirm({...})` (ไม่ใช้ `Popconfirm`)
 
 ### API Routes
 - Auth check: `const session = await auth(); if (!session?.user) return 401`

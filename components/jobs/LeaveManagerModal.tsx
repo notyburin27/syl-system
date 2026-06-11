@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Modal, Calendar, Select, Input, Button, App, Tag, Spin, Space, Popconfirm } from 'antd'
-import type { Dayjs } from 'dayjs'
+import { Modal, Select, Input, Button, App, Spin } from 'antd'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 import type { DriverLeave, CompanyHoliday } from '@/types/leave'
@@ -22,6 +21,23 @@ interface Props {
 
 type DayStatus = 'leave' | 'job' | 'holiday' | 'sunday' | 'available'
 
+const WEEKDAY_LABELS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+
+const STATUS_STYLE: Record<DayStatus, { bg: string; label?: string; labelColor?: string }> = {
+  leave: { bg: '#fff7c2', labelColor: '#ad8b00' },
+  job: { bg: '#f0f0f0', label: 'มีงาน', labelColor: '#8c8c8c' },
+  holiday: { bg: '#ffccc7', label: 'วันหยุด', labelColor: '#cf1322' },
+  sunday: { bg: '#ffe7e5', label: 'อาทิตย์', labelColor: '#cf1322' },
+  available: { bg: '#ffffff' },
+}
+
+// สร้างคีย์วันที่แบบ UTC-safe (ไม่พึ่ง new Date เพื่อเลี่ยง timezone offset)
+function dateKey(year: number, mon: number, day: number): string {
+  const mm = String(mon).padStart(2, '0')
+  const dd = String(day).padStart(2, '0')
+  return `${year}-${mm}-${dd}`
+}
+
 export default function LeaveManagerModal({
   open,
   driverId,
@@ -37,12 +53,12 @@ export default function LeaveManagerModal({
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // วันที่ที่กำลังเลือกอยู่ + form
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null)
+  // วันที่ที่กำลังเลือก (YYYY-MM-DD) + form
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [leaveType, setLeaveType] = useState<'sick' | 'personal' | 'other'>('sick')
   const [note, setNote] = useState('')
 
-  const monthValue = useMemo(() => dayjs(`${month}-01`), [month])
+  const [year, mon] = useMemo(() => month.split('-').map(Number), [month])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -63,7 +79,7 @@ export default function LeaveManagerModal({
   useEffect(() => {
     if (open) {
       fetchData()
-      setSelectedDate(null)
+      setSelectedKey(null)
       setNote('')
       setLeaveType('sick')
     }
@@ -82,24 +98,34 @@ export default function LeaveManagerModal({
   }, [leaves])
 
   const getStatus = useCallback(
-    (date: Dayjs): DayStatus => {
-      const key = date.format('YYYY-MM-DD')
+    (key: string, weekday: number): DayStatus => {
       if (leaveMap.has(key)) return 'leave'
       if (jobDateSet.has(key)) return 'job'
       if (holidayMap.has(key)) return 'holiday'
-      if (date.day() === 0) return 'sunday'
+      if (weekday === 0) return 'sunday'
       return 'available'
     },
     [leaveMap, jobDateSet, holidayMap]
   )
 
-  const handleSelectDate = (date: Dayjs) => {
-    // เลือกเฉพาะวันในเดือนที่ดูอยู่
-    if (date.format('YYYY-MM') !== month) return
-    const status = getStatus(date)
+  // สร้างตารางวันแบบ grid: weekday ของวันที่ 1 ใช้ UTC เพื่อเลี่ยง offset
+  const cells = useMemo(() => {
+    const daysInMonth = dayjs(`${month}-01`).daysInMonth()
+    const firstWeekday = new Date(Date.UTC(year, mon - 1, 1)).getUTCDay()
+    const result: ({ day: number; key: string; weekday: number } | null)[] = []
+    for (let i = 0; i < firstWeekday; i++) result.push(null)
+    for (let day = 1; day <= daysInMonth; day++) {
+      const weekday = (firstWeekday + day - 1) % 7
+      result.push({ day, key: dateKey(year, mon, day), weekday })
+    }
+    return result
+  }, [month, year, mon])
+
+  const handleSelectDay = (key: string, weekday: number) => {
+    const status = getStatus(key, weekday)
     if (status === 'job' || status === 'holiday' || status === 'sunday') return
-    setSelectedDate(date)
-    const existing = leaveMap.get(date.format('YYYY-MM-DD'))
+    setSelectedKey(key)
+    const existing = leaveMap.get(key)
     if (existing) {
       setLeaveType(existing.leaveType)
       setNote(existing.note || '')
@@ -110,18 +136,13 @@ export default function LeaveManagerModal({
   }
 
   const handleSaveLeave = async () => {
-    if (!selectedDate) return
+    if (!selectedKey) return
     setSubmitting(true)
     try {
       const res = await fetch('/api/jobs/leaves', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          driverId,
-          leaveDate: selectedDate.format('YYYY-MM-DD'),
-          leaveType,
-          note,
-        }),
+        body: JSON.stringify({ driverId, leaveDate: selectedKey, leaveType, note }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -129,7 +150,7 @@ export default function LeaveManagerModal({
         return
       }
       message.success('ลงวันลาสำเร็จ')
-      setSelectedDate(null)
+      setSelectedKey(null)
       setNote('')
       await fetchData()
       onChange()
@@ -141,8 +162,8 @@ export default function LeaveManagerModal({
   }
 
   const handleDeleteLeave = async () => {
-    if (!selectedDate) return
-    const existing = leaveMap.get(selectedDate.format('YYYY-MM-DD'))
+    if (!selectedKey) return
+    const existing = leaveMap.get(selectedKey)
     if (!existing) return
     setSubmitting(true)
     try {
@@ -153,7 +174,7 @@ export default function LeaveManagerModal({
         return
       }
       message.success('ยกเลิกวันลาสำเร็จ')
-      setSelectedDate(null)
+      setSelectedKey(null)
       setNote('')
       await fetchData()
       onChange()
@@ -164,120 +185,117 @@ export default function LeaveManagerModal({
     }
   }
 
-  const cellRender = (date: Dayjs) => {
-    if (date.format('YYYY-MM') !== month) return null
-    const status = getStatus(date)
-    const key = date.format('YYYY-MM-DD')
-    if (status === 'leave') {
-      const l = leaveMap.get(key)!
-      return <Tag color="gold" style={{ margin: 0 }}>{LEAVE_TYPE_LABELS[l.leaveType]}</Tag>
-    }
-    if (status === 'job') return <Tag style={{ margin: 0 }}>มีงาน</Tag>
-    if (status === 'holiday') return <Tag color="red" style={{ margin: 0 }}>วันหยุด</Tag>
-    if (status === 'sunday') return <Tag color="red" style={{ margin: 0 }}>อาทิตย์</Tag>
-    return null
-  }
-
-  const fullCellRender = (date: Dayjs, info: { originNode: React.ReactNode }) => {
-    if (date.format('YYYY-MM') !== month) return info.originNode
-    const status = getStatus(date)
-    const disabled = status === 'job' || status === 'holiday' || status === 'sunday'
-    const isSelected = selectedDate?.isSame(date, 'day')
-    return (
-      <div
-        onClick={() => handleSelectDate(date)}
-        style={{
-          minHeight: 60,
-          padding: 4,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          opacity: disabled ? 0.45 : 1,
-          border: isSelected ? '2px solid #1677ff' : '1px solid transparent',
-          borderRadius: 6,
-          background: isSelected ? '#e6f4ff' : undefined,
-        }}
-      >
-        <div style={{ textAlign: 'right', fontWeight: 500 }}>{date.date()}</div>
-        <div style={{ marginTop: 2 }}>{cellRender(date)}</div>
-      </div>
-    )
-  }
-
-  const existingLeave = selectedDate ? leaveMap.get(selectedDate.format('YYYY-MM-DD')) : undefined
+  const existingLeave = selectedKey ? leaveMap.get(selectedKey) : undefined
 
   return (
     <Modal
       title={`จัดการวันลา — ${driverName}`}
       open={open}
       onCancel={onClose}
-      footer={<Button onClick={onClose}>ปิด</Button>}
-      width={680}
+      footer={null}
+      width={920}
     >
       <Spin spinning={loading}>
         <div style={{ marginBottom: 8, fontSize: 13, color: '#888' }}>
           คลิกวันที่ต้องการลงลา (วันที่มีงาน / วันหยุด / วันอาทิตย์ จะเลือกไม่ได้)
         </div>
-        <Calendar
-          fullscreen={false}
-          value={monthValue}
-          fullCellRender={fullCellRender}
-          headerRender={() => (
-            <div style={{ padding: '8px 0', fontWeight: 600, fontSize: 16, textAlign: 'center' }}>
-              {monthValue.format('MMMM YYYY')}
-            </div>
-          )}
-        />
 
-        {selectedDate && (
-          <div style={{ marginTop: 16, padding: 16, background: '#fafafa', borderRadius: 8 }}>
-            <div style={{ fontWeight: 600, marginBottom: 12 }}>
-              {existingLeave ? 'แก้ไขวันลา' : 'ลงวันลา'} — {selectedDate.format('D MMMM YYYY')}
+        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+          {/* ซ้าย: ปฏิทิน grid (fix width) */}
+          <div style={{ width: 520, flexShrink: 0 }}>
+            <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 16, marginBottom: 12 }}>
+              {dayjs(`${month}-01`).format('MMMM YYYY')}
             </div>
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              <div>
-                <div style={{ marginBottom: 4 }}>ประเภทการลา</div>
-                <Select
-                  id="leave-type-select"
-                  value={leaveType}
-                  onChange={setLeaveType}
-                  options={LEAVE_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                  style={{ width: '100%' }}
-                />
-              </div>
-              <div>
-                <div style={{ marginBottom: 4 }}>หมายเหตุ</div>
-                <Input.TextArea
-                  data-testid="leave-note-input"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="หมายเหตุ (ไม่บังคับ)"
-                  rows={2}
-                />
-              </div>
-              <Space>
-                <Button
-                  data-testid="save-leave-btn"
-                  type="primary"
-                  loading={submitting}
-                  onClick={handleSaveLeave}
-                >
-                  {existingLeave ? 'บันทึก' : 'ลงลา'}
-                </Button>
-                {existingLeave && (
-                  <Popconfirm
-                    title="ยกเลิกวันลา"
-                    description="ต้องการยกเลิกการลาวันนี้ใช่หรือไม่?"
-                    onConfirm={handleDeleteLeave}
-                    okText="ยกเลิกการลา"
-                    cancelText="ปิด"
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+              {WEEKDAY_LABELS.map((w, i) => (
+                <div key={w} style={{ textAlign: 'center', fontSize: 12, color: i === 0 ? '#cf1322' : '#888', padding: '4px 0' }}>
+                  {w}
+                </div>
+              ))}
+              {cells.map((cell, i) => {
+                if (!cell) return <div key={`empty-${i}`} />
+                const status = getStatus(cell.key, cell.weekday)
+                const style = STATUS_STYLE[status]
+                const disabled = status === 'job' || status === 'holiday' || status === 'sunday'
+                const isSelected = selectedKey === cell.key
+                const leave = leaveMap.get(cell.key)
+                const tagText = status === 'leave' && leave ? LEAVE_TYPE_LABELS[leave.leaveType] : style.label
+                return (
+                  <div
+                    key={cell.key}
+                    data-testid={`leave-day-${cell.key}`}
+                    onClick={() => handleSelectDay(cell.key, cell.weekday)}
+                    style={{
+                      minHeight: 56,
+                      padding: 4,
+                      borderRadius: 6,
+                      background: style.bg,
+                      border: isSelected ? '2px solid #1677ff' : '1px solid #f0f0f0',
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                    }}
                   >
-                    <Button danger loading={submitting}>ยกเลิกการลา</Button>
-                  </Popconfirm>
-                )}
-                <Button onClick={() => setSelectedDate(null)}>ปิด</Button>
-              </Space>
-            </Space>
+                    <div style={{ textAlign: 'right', fontWeight: 500, fontSize: 13 }}>{cell.day}</div>
+                    {tagText && (
+                      <div style={{ fontSize: 11, color: style.labelColor, fontWeight: 500, lineHeight: 1.2 }}>
+                        {tagText}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        )}
+
+          {/* ขวา: form ลงลา (ค้างไว้ตลอด) */}
+          <div style={{ flex: 1, padding: 16, background: '#fafafa', borderRadius: 8, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, marginBottom: 12 }}>
+              {selectedKey
+                ? `${existingLeave ? 'แก้ไขวันลา' : 'ลงวันลา'} — ${dayjs(selectedKey).format('D MMMM YYYY')}`
+                : 'เลือกวันจากปฏิทิน'}
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>ประเภทการลา</div>
+              <Select
+                id="leave-type-select"
+                value={leaveType}
+                onChange={setLeaveType}
+                disabled={!selectedKey}
+                options={LEAVE_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 4 }}>หมายเหตุ</div>
+              <Input.TextArea
+                data-testid="leave-note-input"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                disabled={!selectedKey}
+                placeholder="หมายเหตุ (ไม่บังคับ)"
+                rows={3}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                data-testid="save-leave-btn"
+                type="primary"
+                loading={submitting}
+                disabled={!selectedKey}
+                onClick={handleSaveLeave}
+              >
+                {existingLeave ? 'บันทึก' : 'ลงลา'}
+              </Button>
+              {existingLeave && (
+                <Button danger loading={submitting} onClick={handleDeleteLeave}>
+                  ยกเลิกการลา
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
       </Spin>
     </Modal>
   )

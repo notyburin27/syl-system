@@ -15,6 +15,12 @@ type JobWithRelations = Job & {
   carryOverToJob?: { jobNumber: string } | null
 }
 
+// แถว banner (วันลา/วันหยุด/อาทิตย์/ไม่มีงาน) ที่ caller ประกอบมาแล้ว
+export type ExportBanner = {
+  day: number // วันที่ของเดือน (1-31)
+  label: string // ข้อความ เช่น "🌴 ลาป่วย" / "🔴 วันหยุด"
+}
+
 // Amounts of completed transfers, in the order they were stored (caller orders by createdAt asc)
 function completedTransferAmounts(job: JobWithRelations): number[] {
   return (job.transfers ?? []).filter((t) => t.isCompleted).map((t) => Number(t.amount))
@@ -68,6 +74,7 @@ export function generateJobsExcel(
   month: string,
   vehicleNumber?: string,
   isAdmin = false,
+  banners: ExportBanner[] = [],
 ): Buffer {
   const financeMainCount = isAdmin ? 2 : 0
 
@@ -86,7 +93,7 @@ export function generateJobsExcel(
   ]
 
   const colHeaders = [
-    '#', 'JOB/เลขที่', 'วันที่', 'ลักษณะงาน', 'ลูกค้า', 'SIZE',
+    'วันที่', 'JOB/เลขที่', 'ลักษณะงาน', 'ลูกค้า', 'SIZE',
     'สถานที่รับตู้', 'โรงงาน', 'สถานที่คืนตู้',
     ...(isAdmin ? ['ค่าขนส่ง', 'ค่าเที่ยวคนขับ'] : []),
     'ยกยอด', 'เบิกล่วงหน้า', 'ค่าทางด่วน', 'ค่ารับตู้', 'ค่าคืนตู้', 'ค่ายกตู้', 'ค่าฝากตู้', 'ค่ายาง', 'อื่นๆ',
@@ -95,15 +102,16 @@ export function generateJobsExcel(
     'เคลียร์', 'ยกเลิก',
   ]
 
-  const dataRows = jobs.map((job, idx) => {
+  const totalCols = colHeaders.length
+  const jobRows = jobs.map((job) => {
     const advance = isAdvanceType(job)
     const amounts = advance ? [] : completedTransferAmounts(job)
     // One cell per transfer column; blank when this job has fewer transfers than maxTransfers
     const transferCells = Array.from({ length: maxTransfers }, (_, i) => (i < amounts.length ? amounts[i] : ''))
-    return [
-    idx + 1,
-    job.jobNumber,
+    const day = job.jobDate ? dayjs(job.jobDate).date() : 0
+    const cells: (string | number)[] = [
     job.jobDate ? dayjs(job.jobDate).format('DD/MM/YYYY') : '',
+    job.jobNumber,
     getJobTypeLabel(job.jobType),
     job.customer?.name ?? '',
     job.size ?? '',
@@ -138,7 +146,24 @@ export function generateJobsExcel(
     job.clearStatus ? '✓' : '',
     job.isCancelled ? '✓' : '',
     ]
+    return { day, cells }
   })
+
+  // คอลัมน์ index: วันที่=0, JOB=1, ลักษณะงาน=2, ลูกค้า=3, SIZE=4
+  const BANNER_LABEL_COL = 1 // JOB/เลขที่
+  const BANNER_LABEL_SPAN = 4 // JOB+ลักษณะงาน+ลูกค้า+SIZE
+  // banner rows: วันที่ = เลขวัน, label ที่ JOB (merge 4 คอลัมน์), ที่เหลือว่าง
+  const bannerRows = banners.map((b) => {
+    const cells: (string | number)[] = Array(totalCols).fill('')
+    cells[0] = String(b.day) // คอลัมน์วันที่
+    cells[BANNER_LABEL_COL] = b.label // JOB+ลักษณะงาน+ลูกค้า+SIZE (merge)
+    return { day: b.day, cells, isBanner: true }
+  })
+
+  // รวม jobs + banners เรียงตามวันที่
+  const jobRowsTagged = jobRows.map((r) => ({ ...r, isBanner: false }))
+  const merged = [...jobRowsTagged, ...bannerRows].sort((a, b) => a.day - b.day)
+  const dataRows = merged.map((row) => row.cells)
 
   const aoa = [
     [`รายการงานวิ่ง - ${vehicleNumber ? `${driverName} ${vehicleNumber}` : driverName} - เดือน ${dayjs(month).format('MMMM YYYY')}`],
@@ -148,12 +173,22 @@ export function generateJobsExcel(
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
 
-  // Merge title row across all columns
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: colHeaders.length - 1 } }]
+  // Merge title row across all columns + merge JOB+ลักษณะงาน+ลูกค้า+SIZE สำหรับแถว banner
+  // dataRows เริ่มที่แถว index 2 (row 0 = title, row 1 = colHeaders)
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: colHeaders.length - 1 } },
+    ...merged
+      .map((row, idx) =>
+        row.isBanner
+          ? { s: { r: idx + 2, c: BANNER_LABEL_COL }, e: { r: idx + 2, c: BANNER_LABEL_COL + BANNER_LABEL_SPAN - 1 } }
+          : null
+      )
+      .filter((m): m is { s: { r: number; c: number }; e: { r: number; c: number } } => m !== null),
+  ]
 
   // Column widths
   ws['!cols'] = [
-    { wch: 5 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 8 },
+    { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 8 },
     { wch: 16 }, { wch: 16 }, { wch: 16 },
     ...(isAdmin ? [{ wch: 10 }, { wch: 12 }] : []),
     { wch: 14 },

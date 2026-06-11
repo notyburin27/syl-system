@@ -280,7 +280,7 @@ export default function EditableJobTable({
           _banner: 'leave',
           _bannerKey: `banner-${key}`,
           jobDate: key,
-          label: `🌴 ${LEAVE_TYPE_LABELS[leave.leaveType]}${noteSuffix}`,
+          label: `${LEAVE_TYPE_LABELS[leave.leaveType]}${noteSuffix}`,
         })
         continue
       }
@@ -294,21 +294,21 @@ export default function EditableJobTable({
           _banner: 'holiday',
           _bannerKey: `banner-${key}`,
           jobDate: key,
-          label: `🔴 วันหยุด — ${holiday.name}`,
+          label: holiday.name,
         })
       } else if (date.day() === 0) {
         banners.push({
           _banner: 'sunday',
           _bannerKey: `banner-${key}`,
           jobDate: key,
-          label: '🔴 วันอาทิตย์',
+          label: 'วันอาทิตย์',
         })
       } else {
         banners.push({
           _banner: 'noJob',
           _bannerKey: `banner-${key}`,
           jobDate: key,
-          label: '🔵 ไม่มีงาน',
+          label: 'ไม่มีงาน',
         })
       }
     }
@@ -617,7 +617,7 @@ export default function EditableJobTable({
       dateFormat?: string
     }
   ) => {
-    // Banner row: แสดง label ในคอลัมน์ jobNumber, เลขวันใน jobDate, ที่เหลือว่าง
+    // Banner row: เลขวันใน jobDate, label พาด 4 คอลัมน์ (JOB+ลักษณะงาน+ลูกค้า+SIZE)
     if (isBanner(row)) {
       if (field === 'jobNumber') {
         return <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{row.label}</span>
@@ -754,11 +754,13 @@ export default function EditableJobTable({
 
   const columns = [
     {
-      title: '#',
-      key: 'index',
-      width: 40,
+      title: 'วันที่',
+      dataIndex: 'jobDate',
+      key: 'jobDate',
+      width: 60,
       fixed: 'left' as const,
-      render: (_: unknown, __: unknown, index: number) => index + 1,
+      render: (_: unknown, row: RowData) =>
+        renderCell(row, 'jobDate', 'date', undefined, { dateFormat: 'DD' }),
     },
     {
       title: 'ข้อมูลงาน',
@@ -768,24 +770,19 @@ export default function EditableJobTable({
           dataIndex: 'jobNumber',
           key: 'jobNumber',
           width: 155,
+          // banner row: label พาด 4 คอลัมน์ (JOB+ลักษณะงาน+ลูกค้า+SIZE)
+          onCell: (row: RowData) => (isBanner(row) ? { colSpan: 4 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'jobNumber', 'text', undefined, {
               disabled: isAdvanceType(row) && !isDraft(row),
             }),
         },
         {
-          title: 'วันที่',
-          dataIndex: 'jobDate',
-          key: 'jobDate',
-          width: 60,
-          render: (_: unknown, row: RowData) =>
-            renderCell(row, 'jobDate', 'date', undefined, { dateFormat: 'DD' }),
-        },
-        {
           title: 'ลักษณะงาน',
           dataIndex: 'jobType',
           key: 'jobType',
           width: 100,
+          onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'jobType', 'select', JOB_TYPES.map((t) => ({ value: t.value, label: t.label }))),
         },
@@ -794,6 +791,7 @@ export default function EditableJobTable({
           dataIndex: 'customerId',
           key: 'customerId',
           width: 140,
+          onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'customerId', 'select', customers.map((c) => ({ value: c.id, label: c.name })), {
               dropdownRenderExtra: addButton('customer', undefined, row, 'customerId'),
@@ -804,6 +802,7 @@ export default function EditableJobTable({
           dataIndex: 'size',
           key: 'size',
           width: 70,
+          onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'size', 'select', SIZE_OPTIONS.map((s) => ({ value: s, label: s })), {
               disabled: isAdvanceType(row),
