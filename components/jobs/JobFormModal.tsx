@@ -1573,7 +1573,6 @@ export default function JobFormModal({
                   <Input.TextArea
                     data-testid="job-remarks-input"
                     autoSize={{ minRows: 2, maxRows: 6 }}
-                    disabled={isCleared}
                     onBlur={() => isCreated && handleFieldBlur("remarks")}
                   />
                 </Form.Item>

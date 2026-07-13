@@ -54,19 +54,32 @@ export async function PATCH(
   try {
     const { id } = await params;
 
-    // Check if job is cleared/locked
     const existing = await prisma.job.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "ไม่พบงาน" }, { status: 404 });
     }
-    if (existing.clearStatus) {
+    const body = await req.json();
+
+    // ฟิลด์น้ำมัน/ไมล์/หมายเหตุ ยังแก้ได้แม้งานถูกเคลียร์ (ข้อมูลมาทีหลังการปิดยอด)
+    const clearedEditableFields = [
+      "mileage",
+      "fuelOfficeLiters",
+      "fuelCashLiters",
+      "fuelCashAmount",
+      "fuelCreditLiters",
+      "fuelCreditAmount",
+      "remarks",
+    ];
+
+    if (
+      existing.clearStatus &&
+      !Object.keys(body).every((f) => clearedEditableFields.includes(f))
+    ) {
       return NextResponse.json(
         { error: "งานนี้ถูกล็อคแล้ว ไม่สามารถแก้ไขได้" },
         { status: 403 }
       );
     }
-
-    const body = await req.json();
 
     // Build update data from provided fields only
     const allowedFields = [
