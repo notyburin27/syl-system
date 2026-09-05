@@ -19,7 +19,7 @@ import JobTableCell from './JobTableCell'
 import JobFormModal from './JobFormModal'
 import LeaveManagerModal from './LeaveManagerModal'
 import type { Job, Customer, Location } from '@/types/job'
-import { JOB_TYPES, SIZE_OPTIONS } from '@/types/job'
+import { JOB_TYPES, SIZE_OPTIONS, getNoJobReasonLabel } from '@/types/job'
 import type { DriverLeave, CompanyHoliday } from '@/types/leave'
 import { LEAVE_TYPE_LABELS } from '@/types/leave'
 import dayjs from 'dayjs'
@@ -430,6 +430,21 @@ export default function EditableJobTable({
   const isAdvanceType = (row: RowData) =>
     !isBanner(row) && (row.jobType === 'advance' || row.jobType === 'noJob')
 
+  // record ไม่มีงาน: แสดงเหตุผล/หมายเหตุแทนเลข JOB และพาดคอลัมน์เหมือน banner
+  const isNoJobRecord = (row: RowData): row is Job =>
+    !isBanner(row) && row.jobType === 'noJob'
+
+  // "ไม่มีงาน (ซ่อมรถ: เปลี่ยนยาง)" / "ไม่มีงาน (ซ่อมรถ)" / "ไม่มีงาน"
+  const noJobLabel = (row: Job) => {
+    const reason = row.noJobReason ? getNoJobReasonLabel(row.noJobReason) : ''
+    const remarks = row.remarks?.trim() || ''
+    const detail = reason && remarks ? `${reason}: ${remarks}` : reason || remarks
+    return detail ? `ไม่มีงาน (${detail})` : 'ไม่มีงาน'
+  }
+
+  // แถวที่พาด 4 คอลัมน์แรกของกลุ่ม "ข้อมูลงาน" (banner + record ไม่มีงาน)
+  const isMergedInfoRow = (row: RowData) => isBanner(row) || isNoJobRecord(row)
+
   // Helper to render editable cell
   const renderCell = (
     row: RowData,
@@ -504,19 +519,23 @@ export default function EditableJobTable({
           dataIndex: 'jobNumber',
           key: 'jobNumber',
           width: 155,
-          // banner row: label พาด 4 คอลัมน์ (JOB+ลักษณะงาน+ลูกค้า+SIZE)
-          onCell: (row: RowData) => (isBanner(row) ? { colSpan: 4 } : {}),
+          // banner + record ไม่มีงาน: label พาด 4 คอลัมน์ (JOB+ลักษณะงาน+ลูกค้า+SIZE)
+          onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 4 } : {}),
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'jobNumber', 'text', undefined, {
-              disabled: isAdvanceType(row),
-            }),
+            isNoJobRecord(row) ? (
+              <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{noJobLabel(row)}</span>
+            ) : (
+              renderCell(row, 'jobNumber', 'text', undefined, {
+                disabled: isAdvanceType(row),
+              })
+            ),
         },
         {
           title: 'ลักษณะงาน',
           dataIndex: 'jobType',
           key: 'jobType',
           width: 100,
-          onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
+          onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'jobType', 'select', jobTypeOptions),
         },
@@ -525,7 +544,7 @@ export default function EditableJobTable({
           dataIndex: 'customerId',
           key: 'customerId',
           width: 140,
-          onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
+          onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'customerId', 'select', customerOptions, {
             }),
@@ -535,7 +554,7 @@ export default function EditableJobTable({
           dataIndex: 'size',
           key: 'size',
           width: 70,
-          onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
+          onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'size', 'select', sizeOptions, {
               disabled: isAdvanceType(row),
@@ -863,8 +882,15 @@ export default function EditableJobTable({
           </Button>
           <Button
               data-testid="toggle-modal-edit-btn"
-              type="primary"
-              icon={<FormOutlined />}
+              // โหมดปกติ = ปุ่ม outline สีน้ำเงิน (ชวนกด), โหมดแก้ไข = ปุ่มทึบสีเขียว (ยืนยันจบงาน)
+              type={modalEditMode ? 'primary' : 'default'}
+              icon={modalEditMode ? <CheckOutlined /> : <FormOutlined />}
+              style={{
+                width: 190,
+                ...(modalEditMode
+                  ? { backgroundColor: '#52c41a', borderColor: '#52c41a' }
+                  : { color: '#1677ff', borderColor: '#1677ff' }),
+              }}
               onClick={() => {
                 if (modalEditMode) {
                   fetchJobs()
@@ -884,7 +910,7 @@ export default function EditableJobTable({
         dataSource={dataSource}
         rowKey={(row) => getRowKey(row as RowData)}
         loading={loading}
-        scroll={{ x: 4000, y: `calc(100vh - ${modalEditMode ? 374 : 310}px)` }}
+        scroll={{ x: 4000, y: `calc(100vh - ${modalEditMode ? 297 : 233}px)` }}
         size="small"
         pagination={false}
         bordered

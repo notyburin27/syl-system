@@ -192,21 +192,22 @@ test.describe.serial('QA feedback batch', () => {
     const driverOverall = modal.locator('.ant-form-item').filter({ hasText: 'รวมคนรถปิดงาน' }).locator('input')
     const difference = modal.locator('.ant-form-item').filter({ hasText: 'ส่วนต่าง' }).locator('input')
 
-    // Item 5: น้ำมันสด (฿) ต้องแสดงพื้นหลังฟ้าจริงแบบเดียวกับช่องค่าใช้จ่ายอื่น
+    // Item 5: น้ำมันสด (฿) ต้องแสดงพื้นหลังเหลืองจริงแบบเดียวกับช่องค่าใช้จ่ายอื่น
     // (เช็คสีที่ render จริง ไม่ใช่แค่ class เพราะ antd สลับโครงสร้าง DOM ตามว่ามีค่าหรือไม่)
     const liftFee = modal.locator('.ant-form-item').filter({ hasText: 'ค่ายกตู้' }).locator('input')
-    await expect(fuelCash).toHaveCSS('background-color', 'rgb(212, 238, 241)')
-    await expect(liftFee).toHaveCSS('background-color', 'rgb(212, 238, 241)')
+    await expect(fuelCash).toHaveCSS('background-color', 'rgb(255, 243, 196)')
+    await expect(liftFee).toHaveCSS('background-color', 'rgb(255, 243, 196)')
 
     // Item 5: กรอกน้ำมันสด → รวมเข้า "รวมคนรถปิดงาน"
     await fuelCash.fill('250')
     // สีต้องคงอยู่หลังมีค่า (antd เปลี่ยนไปใช้ affix wrapper)
-    await expect(fuelCash).toHaveCSS('background-color', 'rgb(212, 238, 241)')
+    await expect(fuelCash).toHaveCSS('background-color', 'rgb(255, 243, 196)')
     await expect(driverOverall).toHaveValue('250', { timeout: 5_000 })
 
-    // Item 4: ส่วนต่างเป็นบวก → พื้นหลังช่องเป็นสีฟ้า (ตัวอักษรคงสีปกติ)
+    // Item 4: ส่วนต่างเป็นบวก → พื้นหลังฟ้าอ่อน + ตัวอักษรน้ำเงินสด
     await expect(difference).toHaveValue('+250', { timeout: 5_000 })
     await expect(difference).toHaveCSS('background-color', 'rgb(230, 244, 255)')
+    await expect(difference).toHaveCSS('color', 'rgb(22, 119, 255)')
 
     // Item 12: ส่วนต่าง != 0 → ปุ่มเคลียร์กดไม่ได้
     const clearBtn = page.getByTestId('job-clear-status-btn')

@@ -32,7 +32,7 @@ body {
 .input-bg-highlight.ant-input-affix-wrapper,
 .input-bg-highlight input.ant-input,
 input.ant-input.input-bg-highlight {
-  background-color: #D4EEF1 !important;
+  background-color: #FFF3C4 !important;
 }
 
 /* Ensure forms are responsive */

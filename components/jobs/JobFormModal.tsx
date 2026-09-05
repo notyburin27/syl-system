@@ -178,16 +178,15 @@ export default function JobFormModal({
     (isCancelled ? 0 : driverOverall) - Number(watchActualTransfer) - completedTransferSum;
   const totalTransfer = completedTransferSum;
 
-  // ส่วนต่าง: ระบายพื้นหลังช่องแทนการย้อมตัวอักษร — ติดลบ = แดง, บวก = ฟ้า,
-  // 0/ไม่มีค่า = พื้นหลัง disabled ปกติ (ตัวอักษรคงสีปกติทุกกรณี)
+  // ส่วนต่าง: ติดลบ = แดงสด, บวก = น้ำเงินสด, 0/ไม่มีค่า = พื้นหลัง disabled ปกติ
   const roundedDifference = Math.round(difference);
-  const differenceBgColor =
+  const differenceStyle =
     !driverOverall && !isCancelled
       ? undefined
       : roundedDifference < 0
-        ? "#fff1f0"
+        ? { backgroundColor: "#fff1f0", color: "#f5222d", borderColor: "#ffa39e" }
         : roundedDifference > 0
-          ? "#e6f4ff"
+          ? { backgroundColor: "#e6f4ff", color: "#1677ff", borderColor: "#91caff" }
           : undefined;
 
   useEffect(() => {
@@ -1334,9 +1333,7 @@ export default function JobFormModal({
                       styles={{
                         input: {
                           textAlign: "right",
-                          ...(differenceBgColor
-                            ? { backgroundColor: differenceBgColor, fontWeight: 600 }
-                            : {}),
+                          ...(differenceStyle ? { ...differenceStyle, fontWeight: 700 } : {}),
                         },
                       }}
                       value={
@@ -1513,19 +1510,19 @@ export default function JobFormModal({
 
               <Divider style={{ margin: "8px 0" }} />
               <Row gutter={12}>
-                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance || isTowingLinked, false, "#FFF3C4")}</Col>
                 <Col span={3}>
-                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
+                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance || isTowingLinked, false, "#FFF3C4")}
                 </Col>
                 <Col span={3}>
-                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
+                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance || isTowingLinked, false, "#FFF3C4")}
                 </Col>
-                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance || isTowingLinked, false, "#FFF3C4")}</Col>
                 <Col span={3}>
-                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
+                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance || isTowingLinked, false, "#FFF3C4")}
                 </Col>
-                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
-                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance || isTowingLinked, false, "#FFF3C4")}</Col>
+                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance || isTowingLinked, false, "#FFF3C4")}</Col>
                 <Col span={3}>
                   <Form.Item label="รวมคนรถปิดงาน">
                     <Input disabled styles={{ input: { textAlign: "right" } }} value={driverOverall || "-"} />
@@ -1545,7 +1542,7 @@ export default function JobFormModal({
                   {numberInput("fuelCashLiters", "น้ำมันสด (ลิตร)", isAdvance, true)}
                 </Col>
                 <Col span={3}>
-                  {numberInput("fuelCashAmount", "น้ำมันสด (฿)", isAdvance, true, "#D4EEF1")}
+                  {numberInput("fuelCashAmount", "น้ำมันสด (฿)", isAdvance, true, "#FFF3C4")}
                 </Col>
                 <Col span={3}>
                   {numberInput("fuelCreditLiters", "เครดิต (ลิตร)", isAdvance, true)}
