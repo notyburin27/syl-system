@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs'
 import type { Job } from '@/types/job'
-import { JOB_TYPES } from '@/types/job'
+import { JOB_TYPES, getNoJobReasonLabel } from '@/types/job'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 
@@ -22,8 +22,8 @@ export type ExportBanner = {
 }
 
 const FONT_NAME = 'Angsana New'
-const FONT_SIZE = 20
-const TITLE_FONT_SIZE = 28
+const FONT_SIZE = 16
+const TITLE_FONT_SIZE = 22
 const NUM_FMT = '#,##0'
 const DATE_FMT = '[$-1070000]d/m/yy;@' // วันที่แบบไทย (d/m/yy)
 
@@ -84,6 +84,19 @@ function isAdvanceType(job: Job): boolean {
   return job.jobType === 'advance'
 }
 
+// record ไม่มีงาน: แสดงเหตุผล/หมายเหตุแทนเลข JOB และ merge คอลัมน์เหมือน banner (ตรงกับตาราง UI)
+function isNoJobType(job: Job): boolean {
+  return job.jobType === 'noJob'
+}
+
+// "ไม่มีงาน (ซ่อมรถ: เปลี่ยนยาง)" / "ไม่มีงาน (ซ่อมรถ)" / "ไม่มีงาน"
+function noJobLabel(job: Job): string {
+  const reason = job.noJobReason ? getNoJobReasonLabel(job.noJobReason) : ''
+  const remarks = job.remarks?.trim() || ''
+  const detail = reason && remarks ? `${reason}: ${remarks}` : reason || remarks
+  return detail ? `ไม่มีงาน (${detail})` : 'ไม่มีงาน'
+}
+
 type ColumnSpec = {
   header: string
   width: number
@@ -91,6 +104,8 @@ type ColumnSpec = {
   numeric?: boolean
   /** รวมยอดท้ายตาราง (=SUM ของช่วงข้อมูล) */
   sum?: boolean
+  /** ขอบซ้าย/ขวาเข้ม (medium) เพื่อแยกคอลัมน์ยอดเงินสำคัญออกจากกลุ่มอื่น */
+  strongBorder?: boolean
 }
 
 function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
@@ -105,8 +120,8 @@ function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
     { header: 'สถานที่คืนตู้', width: 16.2 },
     ...(isAdmin
       ? [
-          { header: 'ค่าขนส่ง', width: 11.7, numeric: true, sum: true },
-          { header: 'ค่าเที่ยวคนขับ', width: 12, numeric: true, sum: true },
+          { header: 'ค่าขนส่ง', width: 11.7, numeric: true, sum: true, strongBorder: true },
+          { header: 'ค่าเที่ยวคนขับ', width: 12, numeric: true, sum: true, strongBorder: true },
         ]
       : []),
     { header: 'ยกยอด', width: 11.5, numeric: true, sum: true },
@@ -118,7 +133,7 @@ function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
     { header: 'ค่าฝากตู้', width: 9.5, numeric: true, sum: true },
     { header: 'ค่ายาง', width: 9.5, numeric: true, sum: true },
     { header: 'อื่นๆ', width: 9.5, numeric: true, sum: true },
-    { header: 'รวมคนรถปิดงาน', width: 17, numeric: true, sum: true },
+    { header: 'รวมคนรถปิดงาน', width: 17, numeric: true, sum: true, strongBorder: true },
     { header: 'หมายเหตุ', width: 20 },
     { header: 'ไมล์รถ', width: 10.2 },
     { header: 'น้ำมัน OFF (ลิตร)', width: 12.2, numeric: true, sum: true },
@@ -155,16 +170,18 @@ export async function generateJobsExcel(
   type CellValue = string | number | Date | null
   const jobRows = jobs.map((job) => {
     const advance = isAdvanceType(job)
+    const noJob = isNoJobType(job)
     const amounts = advance ? [] : completedTransferAmounts(job)
     // One cell per transfer column; blank when this job has fewer transfers than maxTransfers
     const transferCells = Array.from({ length: maxTransfers }, (_, i) => (i < amounts.length ? amounts[i] : null))
     const day = job.jobDate ? dayjs(job.jobDate).date() : 0
     const cells: CellValue[] = [
       job.jobDate ? utcDate(dayjs(job.jobDate).year(), dayjs(job.jobDate).month() + 1, dayjs(job.jobDate).date()) : null,
-      job.jobNumber,
-      getJobTypeLabel(job.jobType),
-      job.customer?.name ?? null,
-      job.size ?? null,
+      // ไม่มีงาน = label พาด 4 คอลัมน์, เบิกล่วงหน้า = ไม่โชว์เลขที่ ADV
+      noJob ? noJobLabel(job) : advance ? null : job.jobNumber,
+      noJob ? null : getJobTypeLabel(job.jobType),
+      noJob ? null : (job.customer?.name ?? null),
+      noJob ? null : (job.size ?? null),
       job.pickupLocation?.name ?? null,
       job.factoryLocation?.name ?? null,
       job.returnLocation?.name ?? null,
@@ -179,7 +196,8 @@ export async function generateJobsExcel(
       job.tire != null ? Number(job.tire) : null,
       job.other != null ? Number(job.other) : null,
       advance ? null : computeDriverOverall(job),
-      job.remarks ?? null,
+      noJob ? null : (job.remarks ?? null), // ไม่มีงาน: หมายเหตุอยู่ใน label แล้ว
+
       job.mileage != null ? Number(job.mileage) : null,
       job.fuelOfficeLiters != null ? Number(job.fuelOfficeLiters) : null,
       job.fuelCashLiters != null ? Number(job.fuelCashLiters) : null,
@@ -193,7 +211,7 @@ export async function generateJobsExcel(
       job.clearStatus ? '✓' : null,
       job.isCancelled ? '✓' : null,
     ]
-    return { day, cells, isBanner: false }
+    return { day, cells, isBanner: false, isMerged: noJob }
   })
 
   // คอลัมน์ index: วันที่=0, JOB=1, ลักษณะงาน=2, ลูกค้า=3, SIZE=4
@@ -205,7 +223,7 @@ export async function generateJobsExcel(
     const cells: CellValue[] = Array(totalCols).fill(null)
     cells[0] = utcDate(bannerYear, bannerMonth, b.day)
     cells[BANNER_LABEL_COL] = b.label
-    return { day: b.day, cells, isBanner: true }
+    return { day: b.day, cells, isBanner: true, isMerged: true }
   })
 
   // รวม jobs + banners เรียงตามวันที่
@@ -231,7 +249,10 @@ export async function generateJobsExcel(
 
   // --- Header ---
   const headerRow = ws.getRow(HEADER_ROW)
-  headerRow.height = 30
+  headerRow.height = 44 // รองรับ header 2 บรรทัด (wrapText)
+  // คอลัมน์ยอดเงินสำคัญใช้ขอบข้างเข้ม (medium) เพื่อแยกกลุ่มออกจากคอลัมน์รอบๆ
+  const sideStyle = (i: number): ExcelJS.BorderStyle => (columns[i].strongBorder ? 'medium' : 'thin')
+
   columns.forEach((col, i) => {
     const cell = headerRow.getCell(i + 1)
     cell.value = col.header
@@ -240,8 +261,8 @@ export async function generateJobsExcel(
     cell.border = {
       top: { style: 'medium' },
       bottom: { style: 'medium' },
-      left: { style: 'thin' },
-      right: { style: 'thin' },
+      left: { style: sideStyle(i) },
+      right: { style: sideStyle(i) },
     }
   })
 
@@ -253,7 +274,7 @@ export async function generateJobsExcel(
       const cell = excelRow.getCell(i + 1)
       if (value !== null) cell.value = value
       cell.font = { name: FONT_NAME, size: FONT_SIZE }
-      cell.border = { bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+      cell.border = { bottom: { style: 'thin' }, left: { style: sideStyle(i) }, right: { style: sideStyle(i) } }
       if (i === 0) {
         cell.numFmt = DATE_FMT
         cell.alignment = { horizontal: 'center', vertical: 'middle' }
@@ -264,7 +285,7 @@ export async function generateJobsExcel(
         cell.alignment = { vertical: 'middle' }
       }
     })
-    if (row.isBanner) {
+    if (row.isMerged) {
       const r = FIRST_DATA_ROW + idx
       ws.mergeCells(r, BANNER_LABEL_COL + 1, r, BANNER_LABEL_COL + BANNER_LABEL_SPAN)
     }
@@ -299,26 +320,37 @@ export async function generateJobsExcel(
     amountCell.numFmt = NUM_FMT
     amountCell.font = { name: FONT_NAME, size: FONT_SIZE, bold: true }
     amountCell.alignment = { vertical: 'middle' }
-    amountCell.border = { left: { style: 'thin' }, right: { style: 'thin' } }
+
+    // ตีขอบทุกคอลัมน์ในแถวนี้ ไม่งั้นกรอบด้านล่างตารางจะขาดเป็นช่วงๆ
+    // แถวแรกของกลุ่มสรุปปิดขอบบนด้วย เพื่อให้บล็อกสรุปมีกรอบครบทั้งสี่ด้าน
+    columns.forEach((_, i) => {
+      row.getCell(i + 1).border = {
+        ...(rowIdx === summaryStartRow ? { top: { style: 'medium' as const } } : {}),
+        left: { style: sideStyle(i) },
+        right: { style: sideStyle(i) },
+      }
+    })
 
     ws.mergeCells(rowIdx, 1, rowIdx, 5)
   })
 
   // แถวรวมยอด (แถวสุดท้ายของกลุ่มสรุป)
+  // ตีขอบทุกคอลัมน์ ไม่ใช่เฉพาะช่องที่มีสูตร ไม่งั้นกรอบล่างจะขาดเป็นช่วงๆ
   const totalRow = ws.getRow(summaryLastRow)
   columns.forEach((col, i) => {
-    if (!col.sum) return
     const cell = totalRow.getCell(i + 1)
-    const letter = ws.getColumn(i + 1).letter
-    cell.value = { formula: `SUM(${letter}${FIRST_DATA_ROW}:${letter}${lastDataRow})` }
-    cell.numFmt = NUM_FMT
+    if (col.sum) {
+      const letter = ws.getColumn(i + 1).letter
+      cell.value = { formula: `SUM(${letter}${FIRST_DATA_ROW}:${letter}${lastDataRow})` }
+      cell.numFmt = NUM_FMT
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    }
     cell.font = { name: FONT_NAME, size: FONT_SIZE, bold: true }
-    cell.alignment = { horizontal: 'center', vertical: 'middle' }
     cell.border = {
       top: { style: 'medium' },
       bottom: { style: 'medium' },
-      left: { style: 'thin' },
-      right: { style: 'thin' },
+      left: { style: sideStyle(i) },
+      right: { style: sideStyle(i) },
     }
   })
 
