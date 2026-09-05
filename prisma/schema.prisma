@@ -181,6 +181,7 @@ model Driver {
   vehicleRegistration String?
   groupName           String?
   isActive            Boolean             @default(true)
+  resignedAt          DateTime?           @db.Date
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
@@ -277,6 +278,9 @@ model Job {
 
   // Remarks
   remarks           String?
+
+  // ไม่มีงาน (jobType = "noJob") — เหตุผลและหมายเหตุ
+  noJobReason       String?
 
   // Carry-over relation
   carryOverToJobId  String?

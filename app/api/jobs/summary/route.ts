@@ -14,11 +14,6 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month"); // format: 2026-03
 
-    const drivers = await prisma.driver.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-    });
-
     let dateFilter: { gte: Date; lt: Date } | undefined;
     if (month) {
       const [year, mon] = month.split("-").map(Number);
@@ -27,6 +22,24 @@ export async function GET(req: Request) {
         lt: new Date(year, mon, 1),
       };
     }
+
+    // คนขับที่ลาออกแล้วจะไม่แสดงในเดือนถัดจากเดือนที่ลาออก
+    // (ลาออก ส.ค. → ยังเห็นในเดือน ส.ค. แต่ไม่เห็นตั้งแต่ ก.ย. เป็นต้นไป)
+    const driverWhere: {
+      isActive: boolean;
+      OR?: Array<{ resignedAt: null } | { resignedAt: { gte: Date } }>;
+    } = { isActive: true };
+    if (dateFilter) {
+      driverWhere.OR = [
+        { resignedAt: null },
+        { resignedAt: { gte: dateFilter.gte } },
+      ];
+    }
+
+    const drivers = await prisma.driver.findMany({
+      where: driverWhere,
+      orderBy: { name: "asc" },
+    });
 
     const summary = await Promise.all(
       drivers.map(async (driver) => {
@@ -49,6 +62,7 @@ export async function GET(req: Request) {
             storageFee: true,
             tire: true,
             other: true,
+            fuelCashAmount: true,
             driverWage: true,
           },
         });
@@ -61,7 +75,8 @@ export async function GET(req: Request) {
           Number(j.liftFee || 0) +
           Number(j.storageFee || 0) +
           Number(j.tire || 0) +
-          Number(j.other || 0);
+          Number(j.other || 0) +
+          Number(j.fuelCashAmount || 0);
 
         const mainJobs = jobs.filter((j) => MAIN_JOB_TYPES.includes(j.jobType));
         const towingJobs = jobs.filter((j) => j.jobType === "towing");

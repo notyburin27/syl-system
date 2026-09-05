@@ -18,6 +18,8 @@ interface EditableCellProps {
   precision?: number
   dropdownRenderExtra?: React.ReactNode
   dateFormat?: string
+  /** สีตัวอักษรสำหรับ cellType 'computed' (เช่น ส่วนต่างบวก/ลบ) */
+  valueColor?: string
 }
 
 export default function EditableCell({
@@ -32,6 +34,7 @@ export default function EditableCell({
   precision = 0,
   dropdownRenderExtra,
   dateFormat = 'DD/MM/YYYY',
+  valueColor,
 }: EditableCellProps) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(value)
@@ -103,8 +106,8 @@ export default function EditableCell({
   if (cellType === 'computed') {
     const displayVal = format ? format(value) : (typeof value === 'number' ? value.toLocaleString('th-TH', { minimumFractionDigits: precision, maximumFractionDigits: precision }) : (value ?? '-'))
     return (
-      <div style={{ ...cellStyle, cursor: 'default', color: '#666', justifyContent: 'flex-end' }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ ...cellStyle, cursor: 'default', color: valueColor ?? '#666', justifyContent: 'flex-end' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: valueColor ? 600 : undefined }}>
           {String(displayVal)}
         </span>
       </div>

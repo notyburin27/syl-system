@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
@@ -27,12 +28,14 @@ export default async function DriverJobPage({ params, searchParams }: Props) {
   const isAdmin = (session.user as { role?: string }).role === 'ADMIN'
 
   return (
-    <EditableJobTable
-      driverId={driverId}
-      driverName={driver.name}
-      vehicleNumber={driver.vehicleNumber}
-      month={currentMonth}
-      isAdmin={isAdmin}
-    />
+    <Suspense>
+      <EditableJobTable
+        driverId={driverId}
+        driverName={driver.name}
+        vehicleNumber={driver.vehicleNumber}
+        month={currentMonth}
+        isAdmin={isAdmin}
+      />
+    </Suspense>
   )
 }

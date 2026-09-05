@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Table, Button, App, Divider } from 'antd'
+import { Table, Button, App, Divider, DatePicker } from 'antd'
 import {
   EditOutlined,
   FormOutlined,
@@ -16,7 +16,7 @@ import {
   CheckCircleOutlined,
   CalendarOutlined,
 } from '@ant-design/icons'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import EditableCell from './EditableCell'
 import QuickAddModal from './QuickAddModal'
 import ImportJobModal from './ImportJobModal'
@@ -104,6 +104,7 @@ export default function EditableJobTable({
 }: EditableJobTableProps) {
   const { message, modal } = App.useApp()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
   const [editMode, setEditMode] = useState(false)
@@ -529,6 +530,23 @@ export default function EditableJobTable({
     }
   }
 
+  // เปลี่ยนเดือน — sync ลง query param เพื่อให้ refresh/แชร์ลิงก์ได้
+  const handleMonthChange = (val: dayjs.Dayjs | null) => {
+    if (!val) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('month', val.format('YYYY-MM'))
+    router.push(`/jobs/${driverId}?${params.toString()}`)
+  }
+
+  // กลับไปหน้ารายการ พร้อมคืน tab กลุ่ม + เดือนเดิมที่คลิกเข้ามา
+  const handleBack = () => {
+    const params = new URLSearchParams()
+    params.set('month', month)
+    const group = searchParams.get('group')
+    if (group) params.set('group', group)
+    router.push(`/jobs?${params.toString()}`)
+  }
+
   const handleToggleClear = async (jobId: string) => {
     try {
       const res = await fetch(`/api/jobs/${jobId}/clear`, { method: 'PATCH' })
@@ -559,7 +577,7 @@ export default function EditableJobTable({
   // Computed fields
   const computeDriverOverall = (row: RowData) => {
     if (isBanner(row)) return null
-    const hasAny = row.advance || row.toll || row.pickupFee || row.returnFee || row.liftFee || row.storageFee || row.tire || row.other
+    const hasAny = row.advance || row.toll || row.pickupFee || row.returnFee || row.liftFee || row.storageFee || row.tire || row.other || row.fuelCashAmount
     if (!hasAny) return null
     return (
       Number(row.advance || 0) +
@@ -569,7 +587,8 @@ export default function EditableJobTable({
       Number(row.liftFee || 0) +
       Number(row.storageFee || 0) +
       Number(row.tire || 0) +
-      Number(row.other || 0)
+      Number(row.other || 0) +
+      Number(row.fuelCashAmount || 0)
     )
   }
 
@@ -602,7 +621,9 @@ export default function EditableJobTable({
     return completed
   }
 
-  const isAdvanceType = (row: RowData) => !isBanner(row) && row.jobType === 'advance'
+  // งานประเภทพิเศษ (เบิกล่วงหน้า / ไม่มีงาน) ไม่มีข้อมูลการเงิน+น้ำมัน — คอลัมน์เหล่านั้นถูกปิด
+  const isAdvanceType = (row: RowData) =>
+    !isBanner(row) && (row.jobType === 'advance' || row.jobType === 'noJob')
 
   // Helper to render editable cell
   const renderCell = (
@@ -931,12 +952,20 @@ export default function EditableJobTable({
           width: 110,
           render: (_: unknown, row: RowData) => {
             const diff = isAdvanceType(row) ? null : computeDifference(row)
+            const rounded = diff == null ? null : Math.round(diff)
             return (
               <EditableCell
                 value={diff}
                 cellType="computed"
                 editable={false}
                 locked={false}
+                valueColor={
+                  rounded == null || rounded === 0
+                    ? undefined
+                    : rounded < 0
+                      ? '#cf1322'
+                      : '#1677ff'
+                }
                 onSave={async () => true}
                 format={(v) => {
                   if (v == null) return '-'
@@ -1011,15 +1040,22 @@ export default function EditableJobTable({
           render: (_: unknown, row: RowData) => {
             if (isBanner(row)) return null
             if (isDraft(row)) return null
-            if (row.jobType === 'advance') return null
+            if (row.jobType === 'advance' || row.jobType === 'noJob') return null
             if (row.clearStatus) return null
             const isClearing = clearingId === row.id
+            // เคลียร์ได้เมื่อส่วนต่างเป็น 0 เท่านั้น (ยกยอดไปงานอื่นแล้วถือว่าปิดยอดได้)
+            const diff = computeDifference(row)
+            const hasCarryOver = !isDraft(row) && !!(row as Job).carryOverToJobId
+            const cancelled = !isDraft(row) && !!(row as Job).isCancelled
+            const diffBlocked =
+              !hasCarryOver && !cancelled && diff !== null && Math.round(diff) !== 0
             return (
               <Button
                 type="link"
                 size="small"
                 icon={isClearing ? <LoadingOutlined /> : <CheckCircleOutlined />}
-                disabled={isClearing}
+                disabled={isClearing || diffBlocked}
+                title={diffBlocked ? 'ส่วนต่างต้องเป็น 0 จึงจะเคลียร์ได้' : undefined}
                 onClick={async (e) => {
                   e.stopPropagation()
                   setClearingId(row.id)
@@ -1090,12 +1126,21 @@ export default function EditableJobTable({
       {/* Header */}
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Button data-testid="back-to-jobs-btn" icon={<ArrowLeftOutlined />} onClick={() => router.push('/jobs')}>
+          <Button data-testid="back-to-jobs-btn" icon={<ArrowLeftOutlined />} onClick={handleBack}>
             กลับ
           </Button>
           <h2 style={{ margin: 0 }}>
-            {driverName}{vehicleNumber ? ` (${vehicleNumber})` : ''} — {dayjs(month + '-01').format('MMMM YYYY')}
+            {driverName}{vehicleNumber ? ` (${vehicleNumber})` : ''}
           </h2>
+          <DatePicker
+            id="job-month-picker"
+            picker="month"
+            value={dayjs(month + '-01')}
+            onChange={handleMonthChange}
+            format="MMMM YYYY"
+            allowClear={false}
+            style={{ width: 180 }}
+          />
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {saveStatus === 'saving' && (
@@ -1175,6 +1220,7 @@ export default function EditableJobTable({
           const r = row as RowData
           if (isBanner(r)) return `banner-row banner-${r._banner}`
           if (isDraft(r)) return 'draft-row'
+          if (r.jobType === 'noJob') return 'no-job-row'
           if (r.jobType === 'advance') return 'advance-row'
           if (r.clearStatus) return 'locked-row'
           if (!isDraft(r) && (r as Job).isCancelled) return 'cancelled-row'
@@ -1222,7 +1268,7 @@ export default function EditableJobTable({
           <Button
             data-testid="add-job-btn"
             icon={<PlusOutlined />}
-            type="dashed"
+            type="primary"
             block
             onClick={() => {
               setFormModalJob(null)
@@ -1367,8 +1413,15 @@ export default function EditableJobTable({
         .banner-sunday td.ant-table-cell-fix-left:first-child {
           border-left-color: #ff7875 !important;
         }
-        .banner-noJob td {
+        .banner-noJob td,
+        .no-job-row td {
           background-color: #f0f0f0 !important;
+        }
+        .no-job-row td {
+          color: #8c8c8c !important;
+        }
+        .no-job-row td.ant-table-cell-fix-left:first-child {
+          border-left: 3px solid #bfbfbf !important;
         }
         .banner-noJob td.ant-table-cell-fix-left:first-child {
           border-left-color: #bfbfbf !important;

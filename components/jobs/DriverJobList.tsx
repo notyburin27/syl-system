@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, Row, Col, DatePicker, Spin, Empty, Input, Tabs, Divider } from 'antd'
 import { TruckOutlined, SearchOutlined } from '@ant-design/icons'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverJobSummary } from '@/types/job'
 import dayjs from 'dayjs'
 
@@ -117,11 +117,17 @@ function DriverCard({ s, onCardClick, isAdmin }: { s: DriverJobSummary; onCardCl
 
 export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // คืน state จาก query param (ใช้ตอนกด "กลับ" จากหน้ารายละเอียดคนขับ)
+  const initialMonth = searchParams.get('month')
+  const initialGroup = searchParams.get('group')
   const [summaries, setSummaries] = useState<DriverJobSummary[]>([])
   const [loading, setLoading] = useState(false)
-  const [month, setMonth] = useState(dayjs())
+  const [month, setMonth] = useState(
+    initialMonth && dayjs(initialMonth + '-01').isValid() ? dayjs(initialMonth + '-01') : dayjs()
+  )
   const [searchText, setSearchText] = useState('')
-  const [activeGroup, setActiveGroup] = useState<string>(OTHER_GROUP_KEY)
+  const [activeGroup, setActiveGroup] = useState<string>(initialGroup || OTHER_GROUP_KEY)
 
   const fetchSummary = useCallback(async (m: dayjs.Dayjs) => {
     setLoading(true)
@@ -153,6 +159,8 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   }, [summaries, isAdmin])
 
   useEffect(() => {
+    // ถ้ามี group จาก query param แล้ว ไม่ต้อง default ไป tab แรก
+    if (initialGroup) return
     if (groups.length > 0 && activeGroup === OTHER_GROUP_KEY) {
       setActiveGroup(groups[0])
     }
@@ -181,8 +189,9 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   }, [summaries, activeGroup, searchText])
 
   const handleCardClick = (driverId: string) => {
-    const monthStr = month.format('YYYY-MM')
-    router.push(`/jobs/${driverId}?month=${monthStr}`)
+    const params = new URLSearchParams({ month: month.format('YYYY-MM') })
+    if (activeGroup !== OTHER_GROUP_KEY) params.set('group', activeGroup)
+    router.push(`/jobs/${driverId}?${params.toString()}`)
   }
 
   return (

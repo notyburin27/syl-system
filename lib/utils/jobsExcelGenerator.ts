@@ -27,7 +27,7 @@ function completedTransferAmounts(job: JobWithRelations): number[] {
 }
 
 function computeDriverOverall(job: Job): number | null {
-  const hasAny = job.advance || job.toll || job.pickupFee || job.returnFee || job.liftFee || job.storageFee || job.tire || job.other
+  const hasAny = job.advance || job.toll || job.pickupFee || job.returnFee || job.liftFee || job.storageFee || job.tire || job.other || job.fuelCashAmount
   if (!hasAny) return null
   return (
     Number(job.advance || 0) +
@@ -37,7 +37,8 @@ function computeDriverOverall(job: Job): number | null {
     Number(job.liftFee || 0) +
     Number(job.storageFee || 0) +
     Number(job.tire || 0) +
-    Number(job.other || 0)
+    Number(job.other || 0) +
+    Number(job.fuelCashAmount || 0)
   )
 }
 
