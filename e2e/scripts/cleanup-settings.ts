@@ -5,9 +5,12 @@ import path from 'path'
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
 
+// local Postgres (docker) ไม่รองรับ SSL — เปิดเฉพาะตอนต่อ DB บนคลาวด์
+const connectionString = process.env.DATABASE_URL!
+const isLocal = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString)
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL!,
-  ssl: { rejectUnauthorized: false },
+  connectionString,
+  ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
 })
 const prisma = new PrismaClient({ adapter })
 

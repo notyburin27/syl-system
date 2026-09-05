@@ -81,6 +81,28 @@ export async function PATCH(
       );
     }
 
+    // เลขที่งานห้ามซ้ำกับงานอื่น (ยกเว้นตัวเอง)
+    if ("jobNumber" in body) {
+      const jobNumber = String(body.jobNumber ?? "").trim();
+      if (!jobNumber) {
+        return NextResponse.json(
+          { error: "กรุณากรอก JOB/เลขที่" },
+          { status: 400 }
+        );
+      }
+      const duplicate = await prisma.job.findFirst({
+        where: { jobNumber, id: { not: id } },
+        select: { id: true },
+      });
+      if (duplicate) {
+        return NextResponse.json(
+          { error: "เลขที่งานนี้มีอยู่แล้ว" },
+          { status: 400 }
+        );
+      }
+      body.jobNumber = jobNumber;
+    }
+
     // Build update data from provided fields only
     const allowedFields = [
       "jobDate",
@@ -112,6 +134,7 @@ export async function PATCH(
       "fuelCreditLiters",
       "fuelCreditAmount",
       "remarks",
+      "noJobReason",
       "carryOverToJobId",
       "isCancelled",
     ];

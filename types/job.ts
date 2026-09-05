@@ -22,6 +22,7 @@ export interface Driver {
   vehicleRegistration: string | null;
   groupName: string | null;
   isActive: boolean;
+  resignedAt: string | null;
   bankAccounts: DriverBankAccount[];
   createdAt: string;
   updatedAt: string;
@@ -120,6 +121,7 @@ export interface Job {
   statementVerified: boolean;
   isCancelled: boolean;
   remarks: string | null;
+  noJobReason: string | null;
   carryOverToJobId: string | null;
   carryOverToJob?: { jobNumber: string } | null;
   transfers?: JobTransfer[];
@@ -152,7 +154,22 @@ export const JOB_TYPES = [
   { value: "flatbed",  label: "พื้นเรียบ" },
   { value: "mill",     label: "โรงสี" },
   { value: "advance",  label: "เบิกล่วงหน้า" },
+  { value: "noJob",    label: "ไม่มีงาน" },
 ] as const;
+
+/** เหตุผลของงานประเภท "ไม่มีงาน" */
+export const NO_JOB_REASONS = [
+  { value: "repair",    label: "ซ่อมรถ" },
+  { value: "lowVolume", label: "งานน้อย" },
+  { value: "cancelled", label: "งานยกเลิก" },
+  { value: "other",     label: "อื่นๆ" },
+] as const;
+
+export type NoJobReason = (typeof NO_JOB_REASONS)[number]["value"];
+
+export function getNoJobReasonLabel(value: string): string {
+  return NO_JOB_REASONS.find((r) => r.value === value)?.label ?? value;
+}
 
 export const SIZE_OPTIONS = [
   "20DC",
@@ -160,6 +177,11 @@ export const SIZE_OPTIONS = [
   "20RF",
   "40RF",
   "2x20DC",
+  "45HC",
+  "20OT",
+  "40OT",
+  "20FL",
+  "40FL",
   "truck",
 ] as const;
 

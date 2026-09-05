@@ -20,7 +20,6 @@ import {
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import {
-  readWorkOrderExcel,
   validateWorkOrderExcelFile,
   generateWorkOrderPdf,
   WorkOrderRow,
@@ -69,7 +68,12 @@ export default function WorkOrdersPage() {
 
     setParsing(true);
     try {
-      const parsed = await readWorkOrderExcel(file);
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/work-orders/parse", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "อ่านไฟล์ไม่สำเร็จ");
+      const parsed = data.rows as WorkOrderRow[];
       if (parsed.length === 0) {
         message.warning("ไม่พบข้อมูลในไฟล์ Excel");
         setRows([]);

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm, AutoComplete } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons'
+import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm, AutoComplete, DatePicker } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Driver, DriverBankAccount } from '@/types/job'
 import dayjs from 'dayjs'
@@ -24,6 +24,12 @@ export default function DriverManager() {
   const [bankSubmitLoading, setBankSubmitLoading] = useState(false)
   const [importDriverOpen, setImportDriverOpen] = useState(false)
   const [importBankOpen, setImportBankOpen] = useState(false)
+
+  // Resign modal (ลาออก)
+  const [resignModalOpen, setResignModalOpen] = useState(false)
+  const [resigningDriver, setResigningDriver] = useState<Driver | null>(null)
+  const [resignForm] = Form.useForm()
+  const [resignSubmitLoading, setResignSubmitLoading] = useState(false)
 
   const fetchDrivers = useCallback(async () => {
     setLoading(true)
@@ -90,6 +96,57 @@ export default function DriverManager() {
       message.error('เกิดข้อผิดพลาด')
     } finally {
       setSubmitLoading(false)
+    }
+  }
+
+  const handleOpenResignModal = (driver: Driver) => {
+    setResigningDriver(driver)
+    resignForm.setFieldsValue({
+      resignedAt: driver.resignedAt ? dayjs(driver.resignedAt) : null,
+    })
+    setResignModalOpen(true)
+  }
+
+  const handleResignSubmit = async (values: { resignedAt: dayjs.Dayjs }) => {
+    if (!resigningDriver) return
+    setResignSubmitLoading(true)
+    try {
+      const res = await fetch(`/api/drivers/${resigningDriver.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resignedAt: values.resignedAt.format('YYYY-MM-DD') }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        message.error(error.error || 'เกิดข้อผิดพลาด')
+        return
+      }
+      message.success('บันทึกวันที่ลาออกสำเร็จ')
+      setResignModalOpen(false)
+      fetchDrivers()
+    } catch {
+      message.error('เกิดข้อผิดพลาด')
+    } finally {
+      setResignSubmitLoading(false)
+    }
+  }
+
+  const handleCancelResign = async (driver: Driver) => {
+    try {
+      const res = await fetch(`/api/drivers/${driver.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resignedAt: null }),
+      })
+      if (res.ok) {
+        message.success('ยกเลิกการลาออกสำเร็จ')
+        fetchDrivers()
+      } else {
+        const error = await res.json()
+        message.error(error.error || 'เกิดข้อผิดพลาด')
+      }
+    } catch {
+      message.error('เกิดข้อผิดพลาด')
     }
   }
 
@@ -260,19 +317,27 @@ export default function DriverManager() {
     },
     {
       title: 'สถานะ',
-      dataIndex: 'isActive',
       key: 'isActive',
-      width: 100,
-      render: (isActive: boolean) => (
-        <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
-        </Tag>
-      ),
+      width: 140,
+      render: (_: unknown, record: Driver) => {
+        if (record.resignedAt) {
+          return (
+            <Tag color="default">
+              ลาออก {dayjs(record.resignedAt).format('DD/MM/YYYY')}
+            </Tag>
+          )
+        }
+        return (
+          <Tag color={record.isActive ? 'green' : 'red'}>
+            {record.isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
+          </Tag>
+        )
+      },
     },
     {
       title: 'จัดการ',
       key: 'actions',
-      width: 120,
+      width: 160,
       render: (_: unknown, record: Driver) => (
         <Space>
           <Button
@@ -282,6 +347,32 @@ export default function DriverManager() {
             icon={<EditOutlined />}
             onClick={() => handleOpenModal(record)}
           />
+          {record.resignedAt ? (
+            <Popconfirm
+              title="ยกเลิกการลาออก"
+              description="ต้องการยกเลิกการลาออกของคนขับนี้ใช่หรือไม่?"
+              onConfirm={() => handleCancelResign(record)}
+              okText="ยืนยัน"
+              cancelText="ยกเลิก"
+            >
+              <Button
+                data-testid={`cancel-resign-driver-btn-${record.id}`}
+                type="link"
+                size="small"
+                icon={<LogoutOutlined />}
+                title="ยกเลิกการลาออก"
+              />
+            </Popconfirm>
+          ) : (
+            <Button
+              data-testid={`resign-driver-btn-${record.id}`}
+              type="link"
+              size="small"
+              icon={<LogoutOutlined />}
+              title="ลาออก"
+              onClick={() => handleOpenResignModal(record)}
+            />
+          )}
           <Popconfirm
             title="ยืนยันการลบ"
             description="ต้องการลบคนขับนี้ใช่หรือไม่?"
@@ -421,6 +512,29 @@ export default function DriverManager() {
             rules={[{ required: true, message: 'กรุณากรอกชื่อบัญชี' }]}
           >
             <Input data-testid="bank-account-name-input" placeholder="ชื่อบัญชี" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Resign modal (ลาออก) */}
+      <Modal
+        title={`ลาออก — ${resigningDriver?.name ?? ''}`}
+        open={resignModalOpen}
+        onCancel={() => setResignModalOpen(false)}
+        onOk={() => resignForm.submit()}
+        confirmLoading={resignSubmitLoading}
+        okText="บันทึก"
+        cancelText="ยกเลิก"
+        destroyOnHidden
+      >
+        <Form form={resignForm} layout="vertical" onFinish={handleResignSubmit}>
+          <Form.Item
+            name="resignedAt"
+            label="วันที่ลาออก"
+            rules={[{ required: true, message: 'กรุณาเลือกวันที่ลาออก' }]}
+            extra="คนขับจะไม่แสดงในรายการงานขนส่งตั้งแต่เดือนถัดจากเดือนที่ลาออก"
+          >
+            <DatePicker id="driver-resigned-at" format="DD/MM/YYYY" style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>

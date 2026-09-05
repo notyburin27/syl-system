@@ -13,7 +13,10 @@ export async function PATCH(
 
   try {
     const { id } = await params;
-    const existing = await prisma.job.findUnique({ where: { id } });
+    const existing = await prisma.job.findUnique({
+      where: { id },
+      include: { transfers: true },
+    });
 
     if (!existing) {
       return NextResponse.json({ error: "ไม่พบงาน" }, { status: 404 });
@@ -33,6 +36,33 @@ export async function PATCH(
         data: { clearStatus: false },
       });
       return NextResponse.json(job);
+    }
+
+    // เคลียร์ได้เมื่อส่วนต่างเป็น 0 เท่านั้น
+    // (ยกเว้นงานที่ยกยอดไปงานอื่น หรืองานที่ถูกยกเลิก ซึ่งปิดยอดด้วยวิธีอื่นแล้ว)
+    if (!existing.carryOverToJobId && !existing.isCancelled) {
+      const driverOverall =
+        Number(existing.advance ?? 0) +
+        Number(existing.toll ?? 0) +
+        Number(existing.pickupFee ?? 0) +
+        Number(existing.returnFee ?? 0) +
+        Number(existing.liftFee ?? 0) +
+        Number(existing.storageFee ?? 0) +
+        Number(existing.tire ?? 0) +
+        Number(existing.other ?? 0) +
+        Number(existing.fuelCashAmount ?? 0);
+      const completedTransferSum = existing.transfers
+        .filter((t) => t.isCompleted)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const difference =
+        driverOverall - Number(existing.actualTransferPrev ?? 0) - completedTransferSum;
+
+      if (Math.round(difference) !== 0) {
+        return NextResponse.json(
+          { error: "ส่วนต่างต้องเป็น 0 จึงจะเคลียร์งานได้" },
+          { status: 400 }
+        );
+      }
     }
 
     // Check clearStatus (lock)

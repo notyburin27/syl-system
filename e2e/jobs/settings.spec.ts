@@ -18,6 +18,21 @@ async function selectOption(page: Page, selectId: string, text: string) {
   await dropdown.locator('.ant-select-item-option-content', { hasText: text }).first().click()
 }
 
+/**
+ * กดปุ่มเปิด modal แล้วรอ dialog — retry ถ้ายังไม่เปิด
+ *
+ * dev server hydrate ช้ากว่า SSR paint: ปุ่มโผล่บนจอแล้วแต่ onClick ยังไม่ผูก
+ * คลิกครั้งแรกจึงหายไปเงียบๆ เป็นครั้งคราว (flaky)
+ */
+async function openModal(page: Page, testId: string) {
+  const dialog = page.getByRole('dialog')
+  await expect(async () => {
+    await page.getByTestId(testId).click()
+    await expect(dialog).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+  return dialog
+}
+
 async function login(page: Page) {
   await page.goto('/login')
   await page.getByPlaceholder('ชื่อผู้ใช้').fill('testadmin')
@@ -72,9 +87,7 @@ test.describe.serial('ราคาน้ำมัน — CRUD', () => {
     await page.goto('/jobs/settings/fuel-price')
     await expect(page.getByText('บันทึกราคาน้ำมัน')).toBeVisible()
 
-    await page.getByTestId('fuel-price-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    const dialog = await openModal(page, 'fuel-price-add-btn')
 
     await page.locator('#fuel-price-effective-date').fill('01/12/2099')
     await page.locator('#fuel-price-effective-date').press('Tab')
@@ -92,9 +105,7 @@ test.describe.serial('ราคาน้ำมัน — CRUD', () => {
 
   test('Case 2: validation — ส่ง form เปล่าต้องแสดง error', async ({ page }) => {
     await page.goto('/jobs/settings/fuel-price')
-    await page.getByTestId('fuel-price-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    const dialog = await openModal(page, 'fuel-price-add-btn')
 
     await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
     await expect(dialog.getByText('กรุณาเลือกวันที่')).toBeVisible({ timeout: 3_000 })
@@ -155,15 +166,15 @@ test.describe.serial('อัตราค่าคืนตู้รับตู�
     await page.goto('/jobs/settings/rates/transfer')
     await expect(page.getByText('อัตราค่าคืนตู้รับตู้')).toBeVisible()
 
-    await page.getByTestId('rate-transfer-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    const dialog = await openModal(page, 'rate-transfer-add-btn')
 
     await page.locator('#rate-transfer-job-type').click()
     await page.locator('.ant-select-item-option-content', { hasText: 'ขาเข้า' }).click()
 
     await page.locator('#rate-transfer-size').click()
-    await page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ }).click()
+    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
+    await sizeOption.scrollIntoViewIfNeeded()
+    await sizeOption.click()
 
     await selectOption(page, 'rate-transfer-location', locGeneralName)
 
@@ -178,9 +189,7 @@ test.describe.serial('อัตราค่าคืนตู้รับตู�
 
   test('Case 2: validation — ส่ง form เปล่าต้องแสดง error', async ({ page }) => {
     await page.goto('/jobs/settings/rates/transfer')
-    await page.getByTestId('rate-transfer-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    const dialog = await openModal(page, 'rate-transfer-add-btn')
 
     await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
     await expect(dialog.getByText('กรุณาเลือกลักษณะงาน')).toBeVisible({ timeout: 3_000 })
@@ -263,15 +272,15 @@ test.describe.serial('อัตราค่าขนส่ง — CRUD', () => {
     await page.goto('/jobs/settings/rates/income')
     await expect(page.getByText('อัตราค่าขนส่ง')).toBeVisible()
 
-    await page.getByTestId('rate-income-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    const dialog = await openModal(page, 'rate-income-add-btn')
 
     await page.locator('#rate-income-job-type').click()
     await page.locator('.ant-select-item-option-content', { hasText: 'ขาเข้า' }).click()
 
     await page.locator('#rate-income-size').click()
-    await page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ }).click()
+    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
+    await sizeOption.scrollIntoViewIfNeeded()
+    await sizeOption.click()
 
     await selectOption(page, 'rate-income-factory', locFactoryName)
     await selectOption(page, 'rate-income-customer', customerName)
@@ -286,9 +295,7 @@ test.describe.serial('อัตราค่าขนส่ง — CRUD', () => {
 
   test('Case 2: validation — ส่ง form เปล่าต้องแสดง error', async ({ page }) => {
     await page.goto('/jobs/settings/rates/income')
-    await page.getByTestId('rate-income-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    const dialog = await openModal(page, 'rate-income-add-btn')
 
     await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
     await expect(dialog.getByText('กรุณาเลือกลักษณะงาน')).toBeVisible({ timeout: 3_000 })
@@ -321,33 +328,37 @@ test.describe.serial('อัตราค่าขนส่ง — CRUD', () => {
     await expect(page.getByText('12,000')).toBeVisible({ timeout: 5_000 })
   })
 
-  test('Case 4: เพิ่มช่วงราคาน้ำมัน (surcharge) → ปรากฏใน modal ช่วงราคา', async ({ page }) => {
+  test('Case 4: อัปโหลด Excel ช่วงราคาน้ำมัน → surcharge ปรากฏใน modal ช่วงราคา', async ({ page }) => {
     const { locationFactoryId, customerId } = await seedRefData(page, test.info().testId)
     const res = await page.request.post('/api/rates/income', {
-      data: { jobType: 'outbound', size: '20DC', factoryLocationId: locationFactoryId, customerId, income: 8000 },
+      data: { jobType: 'inbound', size: '20DC', factoryLocationId: locationFactoryId, customerId, income: 8000 },
     })
     expect(res.ok()).toBeTruthy()
     const { id } = (await res.json()) as { id: string }
 
+    // surcharge แก้ผ่าน Upload Excel เท่านั้น — สร้างไฟล์จาก endpoint template แล้วอัปโหลดกลับ
+    const templateRes = await page.request.get('/api/rates/income/fuel-table/export?template=1')
+    expect(templateRes.ok()).toBeTruthy()
+    const templateXlsx = await templateRes.body()
+
+    const importRes = await page.request.post('/api/rates/income/fuel-table/import', {
+      multipart: {
+        customerId,
+        factoryLocationId: locationFactoryId,
+        file: { name: 'fuel-rates.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: templateXlsx },
+      },
+    })
+    expect(importRes.ok()).toBeTruthy()
+
     await page.goto('/jobs/settings/rates/income')
-    await expect(page.getByText('8,000')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText('10,000')).toBeVisible({ timeout: 5_000 })
 
-    await page.getByTestId(`rate-income-surcharge-btn-${id}`).click()
+    // เปิด modal ดูช่วงราคาของอัตรา "ขาเข้า / 20DC" ที่ import มา
+    await page.getByTestId(`rate-income-fuel-view-btn-${id}`).first().click()
     const surchargeModal = page.getByRole('dialog')
-    await expect(surchargeModal.getByText('ช่วงราคาน้ำมัน → ค่าปรับ Income')).toBeVisible()
-
-    await surchargeModal.getByTestId('surcharge-add-btn').click()
-    const formModal = page.locator('.ant-modal').last()
-    await expect(formModal.getByText('เพิ่มช่วงราคาน้ำมัน')).toBeVisible()
-
-    await page.getByTestId('surcharge-fuel-min-input').fill('40.00')
-    await page.getByTestId('surcharge-fuel-max-input').fill('45.00')
-    await page.getByTestId('surcharge-amount-input').fill('500')
-
-    await formModal.getByRole('button', { name: 'เพิ่ม' }).click()
-    await expect(page.getByText('เพิ่มสำเร็จ')).toBeVisible({ timeout: 5_000 })
-    await expect(surchargeModal.getByText('40.00')).toBeVisible({ timeout: 5_000 })
-    await expect(surchargeModal.getByText('+500')).toBeVisible()
+    await expect(surchargeModal.getByText('ช่วงราคาน้ำมัน', { exact: true })).toBeVisible()
+    await expect(surchargeModal.getByText('30.00-34.99')).toBeVisible({ timeout: 5_000 })
+    await expect(surchargeModal.getByText('35.00-39.99')).toBeVisible()
   })
 
   test('Case 5: ลบอัตราค่าขนส่ง → หายออกจากตาราง', async ({ page }) => {
@@ -380,15 +391,15 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     await page.goto('/jobs/settings/rates/driver-wage')
     await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible()
 
-    await page.getByTestId('rate-driver-wage-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
     await page.locator('#rate-driver-wage-job-type').click()
     await page.locator('.ant-select-item-option-content', { hasText: 'ขาเข้า' }).click()
 
     await page.locator('#rate-driver-wage-size').click()
-    await page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ }).click()
+    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
+    await sizeOption.scrollIntoViewIfNeeded()
+    await sizeOption.click()
 
     await selectOption(page, 'rate-driver-wage-factory', locFactoryName)
 
@@ -402,9 +413,8 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
 
   test('Case 2: เพิ่มค่าเที่ยวประเภท "ทอยตู้" — ไม่ต้องเลือกโรงงาน', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
-    await page.getByTestId('rate-driver-wage-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
     await page.locator('#rate-driver-wage-job-type').click()
     await page.locator('.ant-select-item-option-content', { hasText: 'ทอยตู้' }).click()
@@ -412,7 +422,9 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     await expect(dialog.getByLabel('โรงงาน')).not.toBeVisible()
 
     await page.locator('#rate-driver-wage-size').click()
-    await page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ }).click()
+    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
+    await sizeOption.scrollIntoViewIfNeeded()
+    await sizeOption.click()
 
     await page.getByTestId('rate-driver-wage-amount-input').fill('1800')
 
@@ -423,9 +435,8 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
 
   test('Case 3: validation — ส่ง form เปล่าต้องแสดง error', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
-    await page.getByTestId('rate-driver-wage-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
     await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
     await expect(dialog.getByText('กรุณาเลือกลักษณะงาน')).toBeVisible({ timeout: 3_000 })
@@ -434,9 +445,8 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
 
   test('Case 4: "เบิกล่วงหน้า" ต้องไม่อยู่ใน dropdown ลักษณะงาน', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
-    await page.getByTestId('rate-driver-wage-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
     await page.locator('#rate-driver-wage-job-type').click()
     await expect(page.locator('.ant-select-item-option-content', { hasText: 'เบิกล่วงหน้า' })).not.toBeVisible()
@@ -485,9 +495,8 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
 
   test('Case 7: "พื้นเรียบ" → SIZE dropdown แสดงเฉพาะ "truck"', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
-    await page.getByTestId('rate-driver-wage-add-btn').click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
     await page.locator('#rate-driver-wage-job-type').click()
     await page.locator('.ant-select-item-option-content', { hasText: 'พื้นเรียบ' }).click()

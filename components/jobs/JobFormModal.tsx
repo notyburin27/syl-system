@@ -30,7 +30,7 @@ import {
 import { Popconfirm } from "antd";
 import dayjs from "dayjs";
 import type { Job, Customer, Location, JobTransfer, JobTowingLink, TowingJobSummary, MainJobSummary } from "@/types/job";
-import { JOB_TYPES, SIZE_OPTIONS } from "@/types/job";
+import { JOB_TYPES, SIZE_OPTIONS, NO_JOB_REASONS } from "@/types/job";
 import QuickAddModal from "./QuickAddModal";
 
 interface JobFormModalProps {
@@ -112,22 +112,40 @@ export default function JobFormModal({
 
   const jobTypeWatch = Form.useWatch("jobType", form);
   const isAdvance = jobTypeWatch === "advance";
+  // "ไม่มีงาน" ใช้ฟอร์มแบบพิเศษเหมือนเบิกล่วงหน้า (ระบบออกเลขให้, ไม่มีข้อมูลการเงิน)
+  const isNoJob = jobTypeWatch === "noJob";
+  const isSpecialType = isAdvance || isNoJob;
   const watchPickupLocationId = Form.useWatch("pickupLocationId", form);
   const watchReturnLocationId = Form.useWatch("returnLocationId", form);
 
   // Fetch and preview next ADV number when jobType switches to เบิกล่วงหน้า
   useEffect(() => {
-    if (isAdvance && mode === "create" && !createdJob) {
-      fetch("/api/jobs/advance-number")
+    if (isSpecialType && mode === "create" && !createdJob) {
+      fetch(`/api/jobs/advance-number?jobType=${jobTypeWatch}`)
         .then((r) => r.json())
         .then((data) => {
           if (data.jobNumber) form.setFieldValue("jobNumber", data.jobNumber);
         })
         .catch(() => {});
-    } else if (!isAdvance && mode === "create" && !createdJob) {
+    } else if (!isSpecialType && mode === "create" && !createdJob) {
       form.setFieldValue("jobNumber", undefined);
     }
-  }, [isAdvance, mode, createdJob, form]);
+  }, [isSpecialType, jobTypeWatch, mode, createdJob, form]);
+
+  // คาดการณ์โอน: auto-sum จากคาดการณ์ค่ารับตู้ + ค่าคืนตู้ (realtime) — ช่อง read-only
+  const watchEstimatedPickupFee = Form.useWatch("estimatedPickupFee", form);
+  const watchEstimatedReturnFee = Form.useWatch("estimatedReturnFee", form);
+
+  useEffect(() => {
+    const pickup = String(watchEstimatedPickupFee ?? "").trim();
+    const ret = String(watchEstimatedReturnFee ?? "").trim();
+    if (pickup === "" && ret === "") {
+      form.setFieldValue("estimatedTransfer", undefined);
+      return;
+    }
+    const sum = (Number(pickup) || 0) + (Number(ret) || 0);
+    form.setFieldValue("estimatedTransfer", sum);
+  }, [watchEstimatedPickupFee, watchEstimatedReturnFee, form]);
 
   // Computed fields
   const watchAdvance = Form.useWatch("advance", form) || 0;
@@ -138,6 +156,7 @@ export default function JobFormModal({
   const watchStorageFee = Form.useWatch("storageFee", form) || 0;
   const watchTire = Form.useWatch("tire", form) || 0;
   const watchOther = Form.useWatch("other", form) || 0;
+  const watchFuelCashAmount = Form.useWatch("fuelCashAmount", form) || 0;
   const watchActualTransfer = Number(activeJob?.actualTransferPrev ?? 0);
 
   const driverOverall =
@@ -148,7 +167,8 @@ export default function JobFormModal({
     Number(watchLiftFee) +
     Number(watchStorageFee) +
     Number(watchTire) +
-    Number(watchOther);
+    Number(watchOther) +
+    Number(watchFuelCashAmount);
 
   const completedTransferSum = transfers
     .filter((t) => t.isCompleted)
@@ -157,6 +177,17 @@ export default function JobFormModal({
   const difference =
     (isCancelled ? 0 : driverOverall) - Number(watchActualTransfer) - completedTransferSum;
   const totalTransfer = completedTransferSum;
+
+  // ส่วนต่าง: ติดลบ = แดงสด, บวก = น้ำเงินสด, 0/ไม่มีค่า = พื้นหลัง disabled ปกติ
+  const roundedDifference = Math.round(difference);
+  const differenceStyle =
+    !driverOverall && !isCancelled
+      ? undefined
+      : roundedDifference < 0
+        ? { backgroundColor: "#fff1f0", color: "#f5222d", borderColor: "#ffa39e" }
+        : roundedDifference > 0
+          ? { backgroundColor: "#e6f4ff", color: "#1677ff", borderColor: "#91caff" }
+          : undefined;
 
   useEffect(() => {
     if (open) {
@@ -220,6 +251,7 @@ export default function JobFormModal({
           fuelCreditLiters: job.fuelCreditLiters,
           fuelCreditAmount: job.fuelCreditAmount,
           remarks: job.remarks,
+          noJobReason: job.noJobReason || undefined,
           clearStatus: job.clearStatus,
         });
       } else {
@@ -305,12 +337,23 @@ export default function JobFormModal({
       field === "pickupLocationId" ||
       field === "factoryLocationId" ||
       field === "returnLocationId" ||
-      field === "jobType"
+      field === "jobType" ||
+      field === "noJobReason"
     ) {
       value = rawValue ?? null;
     } else if (field === "remarks") {
       const str = String(rawValue ?? "").trim();
       value = str === "" ? null : str;
+    } else if (field === "jobNumber") {
+      const str = String(rawValue ?? "").trim();
+      if (str === "") {
+        // เลขที่งานว่างไม่ได้ — คืนค่าเดิม
+        form.setFieldValue("jobNumber", targetJob.jobNumber);
+        message.error("กรุณากรอก JOB/เลขที่");
+        return;
+      }
+      value = str;
+      form.setFieldValue("jobNumber", str);
     }
 
     // Check if value actually changed
@@ -363,7 +406,8 @@ export default function JobFormModal({
         const currentPickup = feeUpdates.estimatedPickupFee ?? Number(form.getFieldValue("estimatedPickupFee") || 0);
         const currentReturn = feeUpdates.estimatedReturnFee ?? Number(form.getFieldValue("estimatedReturnFee") || 0);
         const estimated = currentPickup + currentReturn;
-        form.setFieldsValue({ estimatedTransfer: estimated });
+        // ดึงค่าใหม่จากระบบ → กลับมาใช้ auto-sum แทนค่าที่เคยพิมพ์ทับ
+          form.setFieldsValue({ estimatedTransfer: estimated });
         if (isCreated) {
           await Promise.all([
             "estimatedPickupFee" in feeUpdates ? handleFieldBlur("estimatedPickupFee") : Promise.resolve(),
@@ -573,7 +617,7 @@ export default function JobFormModal({
               // อัปเดต estimatedTransfer รวม
               const pickup = Number(form.getFieldValue("estimatedPickupFee") || 0);
               const ret = Number(form.getFieldValue("estimatedReturnFee") || 0);
-              form.setFieldValue("estimatedTransfer", pickup + ret);
+                      form.setFieldValue("estimatedTransfer", pickup + ret);
               await handleFieldBlur(feeField);
             }
           } catch { /* ไม่ block UX ถ้า calc ล้มเหลว */ }
@@ -718,7 +762,7 @@ export default function JobFormModal({
     const jobDate = form.getFieldValue("jobDate");
     const jobType = form.getFieldValue("jobType");
 
-    if (!jobDate || !jobType || (!jobNumber && jobType !== "advance")) {
+    if (!jobDate || !jobType || (!jobNumber && jobType !== "advance" && jobType !== "noJob")) {
       return;
     }
 
@@ -732,6 +776,10 @@ export default function JobFormModal({
     }
 
     const advance = isAdvance ? parseNumber(form.getFieldValue("advance")) : undefined;
+    const noJobReason = isNoJob ? form.getFieldValue("noJobReason") : undefined;
+    const noJobRemarks = isNoJob
+      ? String(form.getFieldValue("remarks") ?? "").trim() || undefined
+      : undefined;
 
     setSaving(true);
     try {
@@ -744,6 +792,8 @@ export default function JobFormModal({
           jobType,
           driverId,
           ...(advance != null && { advance }),
+          ...(noJobReason && { noJobReason }),
+          ...(noJobRemarks && { remarks: noJobRemarks }),
         }),
       });
       if (!res.ok) {
@@ -843,6 +893,8 @@ export default function JobFormModal({
     <Select
       showSearch
       allowClear
+      // กด Tab ไล่ฟอร์มแล้วให้ dropdown เปิดเอง ไม่ต้องกดซ้ำ
+      showAction={["focus"]}
       disabled={fieldsDisabled || disabled || isCleared}
       popupMatchSelectWidth={false}
       styles={{ popup: { root: { minWidth: 200 } } }}
@@ -950,7 +1002,7 @@ export default function JobFormModal({
         onCancel={onClose}
         footer={
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
-              {!isAdvance && activeJob && (
+              {!isSpecialType && activeJob && (
                 <Tooltip title={completedTransferSum > 0 ? "" : "ต้องมียอดโอนก่อน"}>
                   <Checkbox
                     data-testid="job-cancel-checkbox"
@@ -987,7 +1039,7 @@ export default function JobFormModal({
                   บันทึกล้มเหลว
                 </span>
               )}
-              {isAdmin && !isAdvance && activeJob && (
+              {isAdmin && !isSpecialType && activeJob && (
                 <Button
                   data-testid="job-prefill-btn"
                   type="default"
@@ -1001,7 +1053,7 @@ export default function JobFormModal({
                   ดึงข้อมูล
                 </Button>
               )}
-              {!isAdvance && activeJob && (
+              {!isSpecialType && activeJob && (
                 <Button
                   data-testid="job-clear-status-btn"
                   type="default"
@@ -1010,19 +1062,33 @@ export default function JobFormModal({
                   disabled={clearing || (!isAdmin && clearStatus) || (!clearStatus && Math.round(difference) !== 0 && !carryOverDone && !isCancelled)}
                   onClick={async () => {
                     setClearing(true);
-                    await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
-                    setClearStatus((prev) => !prev);
-                    handleSaveStatus("saved");
-                    setClearing(false);
+                    try {
+                      const res = await fetch(`/api/jobs/${activeJob.id}/clear`, { method: "PATCH" });
+                      if (res.ok) {
+                        setClearStatus((prev) => !prev);
+                        handleSaveStatus("saved");
+                      } else {
+                        const err = await res.json().catch(() => ({}));
+                        message.error(err.error || "เปลี่ยนสถานะเคลียร์ไม่สำเร็จ");
+                        handleSaveStatus("error");
+                      }
+                    } catch {
+                      message.error("เปลี่ยนสถานะเคลียร์ไม่สำเร็จ");
+                      handleSaveStatus("error");
+                    } finally {
+                      setClearing(false);
+                    }
                   }}
                 >
                   {clearStatus ? "ปลดล็อค" : "เคลียร์"}
                 </Button>
               )}
-              <Button type="primary" onClick={onClose} style={{ width: 100 }}>บันทึก</Button>
+              <Button data-testid="job-form-close-btn" type="primary" onClick={onClose} style={{ width: 100 }}>บันทึก</Button>
             </div>
         }
         width="100%"
+        // ฟอร์มสูงเกือบเต็มจอ — ลดระยะห่างจากขอบบน (default antd = 100px) ให้เห็นเนื้อหาได้มากขึ้น
+        style={{ top: 16 }}
         destroyOnHidden
       >
         <Form form={form} layout="vertical" size="small">
@@ -1063,6 +1129,7 @@ export default function JobFormModal({
                     id="job-type-select"
                     showSearch
                     allowClear
+                    showAction={["focus"]}
                     disabled={isCleared || isTowingLinked || hasAnyTowingLink}
                     popupMatchSelectWidth={false}
                     styles={{ popup: { root: { minWidth: 200 } } }}
@@ -1084,9 +1151,14 @@ export default function JobFormModal({
               <Form.Item
                 label="JOB/เลขที่"
                 name="jobNumber"
-                rules={[{ required: !isCreated && mode === "create" && !isAdvance, message: "กรุณากรอก JOB/เลขที่" }]}
+                rules={[{ required: !isCreated && mode === "create" && !isSpecialType, message: "กรุณากรอก JOB/เลขที่" }]}
               >
-                <Input id="jobNumber" data-testid="job-number-input" disabled={mode === "edit" || isAdvance} />
+                <Input
+                  id="jobNumber"
+                  data-testid="job-number-input"
+                  disabled={isSpecialType || (isCreated && isCleared)}
+                  onBlur={() => isCreated && handleFieldBlur("jobNumber")}
+                />
               </Form.Item>
             </Col>
             {mode === "create" && !isCreated && isAdvance && (
@@ -1095,6 +1167,29 @@ export default function JobFormModal({
                   <Input allowClear styles={{ input: { textAlign: "right" } }} />
                 </Form.Item>
               </Col>
+            )}
+            {mode === "create" && !isCreated && isNoJob && (
+              <>
+                <Col span={3}>
+                  <Form.Item
+                    label="เหตุผล"
+                    name="noJobReason"
+                    rules={[{ required: true, message: "กรุณาเลือกเหตุผล" }]}
+                  >
+                    <Select
+                      id="no-job-reason-select"
+                      allowClear
+                      showAction={["focus"]}
+                      options={NO_JOB_REASONS.map((r) => ({ value: r.value, label: r.label }))}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item label="หมายเหตุ" name="remarks">
+                    <Input allowClear autoComplete="off" />
+                  </Form.Item>
+                </Col>
+              </>
             )}
             {mode === "create" && !isCreated && (
               <Col span={3}>
@@ -1105,7 +1200,7 @@ export default function JobFormModal({
                     loading={saving}
                     onClick={async () => {
                       try {
-                        const fieldsToValidate = isAdvance
+                        const fieldsToValidate = isSpecialType
                           ? ["jobDate", "jobType"]
                           : ["jobDate", "jobType", "jobNumber"];
                         await form.validateFields(fieldsToValidate);
@@ -1126,7 +1221,29 @@ export default function JobFormModal({
                 {numberInput("advance", "เบิกล่วงหน้า", false, true)}
               </Col>
             )}
-            {isCreated && !isAdvance && (
+            {isCreated && isNoJob && (
+              <>
+                <Col span={3}>
+                  <Form.Item label="เหตุผล" name="noJobReason">
+                    {selectDropdown(
+                      "noJobReason",
+                      NO_JOB_REASONS.map((r) => ({ value: r.value, label: r.label })),
+                    )}
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item label="หมายเหตุ" name="remarks">
+                    <Input
+                      allowClear
+                      autoComplete="off"
+                      disabled={isCleared}
+                      onBlur={() => handleFieldBlur("remarks")}
+                    />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
+            {isCreated && !isSpecialType && (
               <>
                 <Col span={3}>
                   <Form.Item label="ลูกค้า" name="customerId">
@@ -1188,27 +1305,20 @@ export default function JobFormModal({
           </Row>
 
           {/* Section 2 + 3: แสดงหลังสร้าง job แล้ว (ไม่แสดงถ้าเป็นเบิกล่วงหน้า) */}
-          {isCreated && !isAdvance && (
+          {isCreated && !isSpecialType && (
             <>
               <Divider style={{ margin: "8px 0" }} />
 
               <Row gutter={12}>
                 <Col span={3}>
-                  <Form.Item label="คาดการณ์ค่ารับตู้" name="estimatedPickupFee">
-                    <Input disabled styles={{ input: { textAlign: "right" } }} />
-                  </Form.Item>
+                  {numberInput("estimatedPickupFee", "คาดการณ์ค่ารับตู้")}
                 </Col>
                 <Col span={3}>
-                  <Form.Item label="คาดการณ์ค่าคืนตู้" name="estimatedReturnFee">
-                    <Input disabled styles={{ input: { textAlign: "right" } }} />
-                  </Form.Item>
+                  {numberInput("estimatedReturnFee", "คาดการณ์ค่าคืนตู้")}
                 </Col>
                 <Col span={3}>
-                  <Form.Item label="คาดการณ์โอน" name="estimatedTransfer">
-                    <Input
-                      disabled
-                      styles={{ input: { textAlign: "right" } }}
-                    />
+                  <Form.Item label="คาดการณ์โอน" name="estimatedTransfer" rules={[numberRule]}>
+                    <Input disabled styles={{ input: { textAlign: "right" } }} />
                   </Form.Item>
                 </Col>
                 <Col span={3}>
@@ -1220,7 +1330,12 @@ export default function JobFormModal({
                   <Form.Item label="ส่วนต่าง">
                     <Input
                       disabled
-                      styles={{ input: { textAlign: "right" } }}
+                      styles={{
+                        input: {
+                          textAlign: "right",
+                          ...(differenceStyle ? { ...differenceStyle, fontWeight: 700 } : {}),
+                        },
+                      }}
                       value={
                         !driverOverall && !isCancelled
                           ? "-"
@@ -1395,19 +1510,19 @@ export default function JobFormModal({
 
               <Divider style={{ margin: "8px 0" }} />
               <Row gutter={12}>
-                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("toll", "ค่าทางด่วน", isAdvance || isTowingLinked, false, "#FFF3C4")}</Col>
                 <Col span={3}>
-                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
+                  {numberInput("pickupFee", "ค่ารับตู้", isAdvance || isTowingLinked, false, "#FFF3C4")}
                 </Col>
                 <Col span={3}>
-                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
+                  {numberInput("returnFee", "ค่าคืนตู้", isAdvance || isTowingLinked, false, "#FFF3C4")}
                 </Col>
-                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("liftFee", "ค่ายกตู้", isAdvance || isTowingLinked, false, "#FFF3C4")}</Col>
                 <Col span={3}>
-                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance || isTowingLinked, false, "#D4EEF1")}
+                  {numberInput("storageFee", "ค่าฝากตู้", isAdvance || isTowingLinked, false, "#FFF3C4")}
                 </Col>
-                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
-                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance || isTowingLinked, false, "#D4EEF1")}</Col>
+                <Col span={3}>{numberInput("tire", "ค่ายาง", isAdvance || isTowingLinked, false, "#FFF3C4")}</Col>
+                <Col span={3}>{numberInput("other", "อื่นๆ", isAdvance || isTowingLinked, false, "#FFF3C4")}</Col>
                 <Col span={3}>
                   <Form.Item label="รวมคนรถปิดงาน">
                     <Input disabled styles={{ input: { textAlign: "right" } }} value={driverOverall || "-"} />
@@ -1427,7 +1542,7 @@ export default function JobFormModal({
                   {numberInput("fuelCashLiters", "น้ำมันสด (ลิตร)", isAdvance, true)}
                 </Col>
                 <Col span={3}>
-                  {numberInput("fuelCashAmount", "น้ำมันสด (฿)", isAdvance, true)}
+                  {numberInput("fuelCashAmount", "น้ำมันสด (฿)", isAdvance, true, "#FFF3C4")}
                 </Col>
                 <Col span={3}>
                   {numberInput("fuelCreditLiters", "เครดิต (ลิตร)", isAdvance, true)}

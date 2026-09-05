@@ -248,6 +248,7 @@ export default function ProtectedLayoutClient({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            borderBottom: "1px solid #e5e7eb",
             boxShadow: "0 1px 4px rgba(0,21,41,.08)",
           }}
         >
@@ -287,12 +288,21 @@ export default function ProtectedLayoutClient({
             </Space>
           </Dropdown>
         </Header>
-        <Content style={{ margin: "24px 16px 0", overflow: "initial", flex: 1, display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: 24, background: "#fff", flex: 1, display: "flex", flexDirection: "column" }}>
+        <Content style={{ margin: 0, overflow: "initial", flex: 1, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: 16, background: "#fff", flex: 1, display: "flex", flexDirection: "column" }}>
             {children}
           </div>
         </Content>
-        <Footer style={{ textAlign: "center" }}>
+        <Footer
+          style={{
+            textAlign: "center",
+            padding: "8px 24px",
+            fontSize: 12,
+            lineHeight: "16px",
+            color: "#8c8c8c",
+            borderTop: "1px solid #e5e7eb",
+          }}
+        >
           SYL System ©{new Date().getFullYear()}
         </Footer>
       </Layout>

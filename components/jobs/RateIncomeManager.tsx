@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col, Typography } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExportOutlined, CopyOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons'
-import * as XLSX from 'xlsx'
 import FuelRateViewModal from './FuelRateViewModal'
 import FuelRateUploadModal from './FuelRateUploadModal'
 import type { Customer, Location } from '@/types/job'
@@ -134,21 +133,13 @@ export default function RateIncomeManager() {
   }
 
   const handleExport = () => {
-    // long format แถวละ 1 ช่วงราคาน้ำมัน — rate ที่ไม่มีช่วงออกแถวเดียวช่องช่วงว่าง
-    const rows: (string | number)[][] = [
-      ['ลูกค้า', 'โรงงาน', 'ลักษณะงาน', 'SIZE', 'ช่วงราคาน้ำมัน', 'ค่าขนส่ง'],
-      ...filteredRates.flatMap((r) => {
-        const base = [r.customer.name, r.factoryLocation.name, getJobTypeLabel(r.jobType), r.size]
-        if (r.fuelSurcharges.length === 0) return [[...base, '', Number(r.income)]]
-        return [...r.fuelSurcharges]
-          .sort((a, b) => Number(a.fuelPriceMin) - Number(b.fuelPriceMin))
-          .map((s) => [...base, displayRangeLabel(s.fuelPriceMin, s.fuelPriceMax), Number(r.income) + Number(s.surcharge)])
-      }),
-    ]
-    const ws = XLSX.utils.aoa_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'rate-income')
-    XLSX.writeFile(wb, 'rate_income.xlsx')
+    // สร้างไฟล์ฝั่ง server — ไม่ต้องโหลด xlsx (~400KB) มาที่เครื่องผู้ใช้
+    const params = new URLSearchParams()
+    if (filterCustomer) params.set('customerId', filterCustomer)
+    if (filterFactory) params.set('factoryLocationId', filterFactory)
+    if (filterJobType) params.set('jobType', filterJobType)
+    if (filterSize) params.set('size', filterSize)
+    window.location.href = `/api/rates/income/export?${params}`
   }
 
   const factoryOptions = factoryLocations.map(l => ({ value: l.id, label: l.name }))

@@ -14,7 +14,17 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, vehicleNumber, vehicleRegistration, groupName } = body;
+    const { name, vehicleNumber, vehicleRegistration, groupName, resignedAt } = body;
+
+    // แก้เฉพาะวันที่ลาออก (จาก action "ลาออก") — ไม่ต้องส่งข้อมูลคนขับทั้งชุด
+    if ("resignedAt" in body && name === undefined) {
+      const driver = await prisma.driver.update({
+        where: { id },
+        data: { resignedAt: resignedAt ? new Date(resignedAt) : null },
+        include: { bankAccounts: true },
+      });
+      return NextResponse.json(driver);
+    }
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -30,6 +40,9 @@ export async function PATCH(
         vehicleNumber: vehicleNumber?.trim() || null,
         vehicleRegistration: vehicleRegistration?.trim() || null,
         groupName: groupName?.trim() || null,
+        ...("resignedAt" in body && {
+          resignedAt: resignedAt ? new Date(resignedAt) : null,
+        }),
       },
       include: { bankAccounts: true },
     });

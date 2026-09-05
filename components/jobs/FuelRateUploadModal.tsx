@@ -3,12 +3,8 @@
 import { useMemo, useState } from 'react'
 import { Modal, Select, Button, Upload, Table, Alert, App, Space, Typography, Divider } from 'antd'
 import { InboxOutlined, DownloadOutlined } from '@ant-design/icons'
-import * as XLSX from 'xlsx'
 import {
-  parseFuelRateRows,
-  buildFuelRateSheetRows,
   displayRangeLabel,
-  FUEL_RATE_TEMPLATE_ROWS,
   type ParseFuelRateResult,
 } from '@/lib/utils/fuelRateExcel'
 import { getJobTypeLabel } from '@/types/job'
@@ -47,6 +43,7 @@ export default function FuelRateUploadModal({
   const [file, setFile] = useState<File | null>(null)
   const [parsed, setParsed] = useState<ParseFuelRateResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [parsing, setParsing] = useState(false)
 
   const selectionReady = !!customerId && !!factoryLocationId
 
@@ -59,27 +56,38 @@ export default function FuelRateUploadModal({
     [rates, customerId, factoryLocationId]
   )
 
-  const downloadXlsx = (rows: (string | number)[][], filename: string) => {
-    const ws = XLSX.utils.aoa_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'fuel-rates')
-    XLSX.writeFile(wb, filename)
+  // ไฟล์สร้างฝั่ง server — ไม่ต้องโหลด xlsx (~400KB) มาที่เครื่องผู้ใช้
+  const handleDownloadCurrent = () => {
+    if (!selectionReady) return
+    const params = new URLSearchParams({ customerId: customerId!, factoryLocationId: factoryLocationId! })
+    window.location.href = `/api/rates/income/fuel-table/export?${params}`
   }
 
-  const handleDownloadCurrent = () => downloadXlsx(buildFuelRateSheetRows(existingRates), 'fuel_rates_current.xlsx')
-  const handleDownloadTemplate = () => downloadXlsx(FUEL_RATE_TEMPLATE_ROWS, 'fuel_rates_template.xlsx')
+  const handleDownloadTemplate = () => {
+    window.location.href = '/api/rates/income/fuel-table/export?template=1'
+  }
 
   const handleFile = async (f: File) => {
+    setParsing(true)
     try {
-      const workbook = XLSX.read(await f.arrayBuffer(), { type: 'array' })
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
-      const rows = sheet ? (XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as unknown[][]) : []
+      const formData = new FormData()
+      formData.append('file', f)
+      const res = await fetch('/api/rates/income/fuel-table/parse', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) {
+        setFile(null)
+        setParsed(null)
+        message.error(data.error || 'อ่านไฟล์ไม่ได้ กรุณาตรวจสอบว่าเป็นไฟล์ .xlsx')
+        return false
+      }
       setFile(f)
-      setParsed(parseFuelRateRows(rows))
+      setParsed(data as ParseFuelRateResult)
     } catch {
       setFile(null)
       setParsed(null)
       message.error('อ่านไฟล์ไม่ได้ กรุณาตรวจสอบว่าเป็นไฟล์ .xlsx')
+    } finally {
+      setParsing(false)
     }
     return false // ห้าม antd upload เอง
   }
@@ -195,7 +203,7 @@ export default function FuelRateUploadModal({
       cancelText="ยกเลิก"
       onOk={handleSubmit}
       confirmLoading={submitting}
-      okButtonProps={{ disabled: !selectionReady || !parsed || !parsed.ok, 'data-testid': 'fuel-upload-save-btn' } as { disabled: boolean; 'data-testid': string }}
+      okButtonProps={{ disabled: !selectionReady || !parsed || !parsed.ok || parsing, 'data-testid': 'fuel-upload-save-btn' } as { disabled: boolean; 'data-testid': string }}
     >
       <Space direction="vertical" style={{ width: '100%' }} size="middle">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -257,9 +265,9 @@ export default function FuelRateUploadModal({
               </>
             )}
 
-            <Upload.Dragger accept=".xlsx,.xls" maxCount={1} showUploadList={!!file} beforeUpload={handleFile} onRemove={() => { setFile(null); setParsed(null) }}>
+            <Upload.Dragger accept=".xlsx,.xls" maxCount={1} showUploadList={!!file} disabled={parsing} beforeUpload={handleFile} onRemove={() => { setFile(null); setParsed(null) }}>
               <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-              <p className="ant-upload-text">คลิกหรือลากไฟล์ Excel มาวางที่นี่</p>
+              <p className="ant-upload-text">{parsing ? 'กำลังอ่านไฟล์...' : 'คลิกหรือลากไฟล์ Excel มาวางที่นี่'}</p>
               <p className="ant-upload-hint">รูปแบบ: ลักษณะงาน | SIZE | ช่วงราคาน้ำมัน | ค่าขนส่ง (ราคาเต็มต่อช่วง)</p>
             </Upload.Dragger>
 

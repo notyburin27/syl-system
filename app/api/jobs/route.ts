@@ -75,18 +75,23 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { jobType, jobNumber, customerId, driverId, jobDate, ...rest } = body;
 
-    // Auto-generate job number for advance
+    // Auto-generate job number สำหรับงานประเภทพิเศษ (เบิกล่วงหน้า / ไม่มีงาน)
+    const AUTO_NUMBER_PREFIX: Record<string, string> = {
+      advance: "ADV",
+      noJob: "NJB",
+    };
     let finalJobNumber = jobNumber;
-    if (jobType === "advance" && !jobNumber) {
+    const autoPrefix = AUTO_NUMBER_PREFIX[jobType];
+    if (autoPrefix && !jobNumber) {
       const existing = await prisma.job.findMany({
-        where: { jobNumber: { startsWith: "ADV-" } },
+        where: { jobNumber: { startsWith: `${autoPrefix}-` } },
         select: { jobNumber: true },
       });
       const maxSeq = existing.reduce((max, j) => {
-        const n = parseInt(j.jobNumber.replace("ADV-", ""), 10);
+        const n = parseInt(j.jobNumber.replace(`${autoPrefix}-`, ""), 10);
         return isNaN(n) ? max : Math.max(max, n);
       }, 0);
-      finalJobNumber = `ADV-${String(maxSeq + 1).padStart(5, "0")}`;
+      finalJobNumber = `${autoPrefix}-${String(maxSeq + 1).padStart(5, "0")}`;
     }
 
     if (!finalJobNumber) {
@@ -124,6 +129,8 @@ export async function POST(req: Request) {
         storageFee: rest.storageFee ?? null,
         tire: rest.tire ?? null,
         other: rest.other ?? null,
+        noJobReason: rest.noJobReason || null,
+        remarks: rest.remarks || null,
         mileage: rest.mileage ?? null,
         fuelOfficeLiters: rest.fuelOfficeLiters ?? null,
         fuelCashLiters: rest.fuelCashLiters ?? null,

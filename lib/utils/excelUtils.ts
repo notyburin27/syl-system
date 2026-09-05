@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 import { TransportFormData } from "@/types/document";
 
@@ -96,68 +95,6 @@ const combineDateTimeFromExcel = (
     console.error('Error in combineDateTimeFromExcel:', error);
     return null;
   }
-};
-
-// Read and parse Excel file
-export const readExcelFile = (file: File): Promise<any[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-
-        const worksheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[worksheetName];
-
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-          header: 1,
-          defval: "",
-        }) as any[][];
-
-        if (jsonData.length < 2) {
-          reject(
-            new Error(
-              "Excel file must contain at least header row and one data row"
-            )
-          );
-          return;
-        }
-
-        const headers = jsonData[0];
-        const rows = jsonData.slice(1);
-
-        const parsedData = rows
-          .map((row, index) => {
-            const rowData: any = {};
-            headers.forEach((header: any, colIndex: number) => {
-              if (header && row[colIndex] !== undefined) {
-                rowData[header] = row[colIndex];
-              }
-            });
-            return { originalRowIndex: index + 2, data: rowData };
-          })
-          .filter((item) => {
-            const dateValue = item.data["วันที่"];
-            return (
-              dateValue !== undefined && dateValue !== "" && dateValue !== null
-            );
-          })
-          .map((item, filteredIndex) => ({
-            ...item,
-            rowIndex: filteredIndex + 1,
-          }));
-
-        resolve(parsedData);
-      } catch (error: any) {
-        reject(new Error(`Error parsing Excel file: ${error.message}`));
-      }
-    };
-
-    reader.onerror = () => reject(new Error("Error reading file"));
-    reader.readAsArrayBuffer(file);
-  });
 };
 
 // Convert Excel data to form data format
