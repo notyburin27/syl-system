@@ -27,8 +27,11 @@ body {
   font-weight: 500;
 }
 
+/* antd จะ render affix wrapper เฉพาะตอน input มีค่า (ปุ่ม clear โผล่)
+   ตอนว่างจะเป็น input เปล่าที่รับ className มาเอง — ต้อง match ทั้งสองกรณี */
 .input-bg-highlight.ant-input-affix-wrapper,
-.input-bg-highlight input.ant-input {
+.input-bg-highlight input.ant-input,
+input.ant-input.input-bg-highlight {
   background-color: #D4EEF1 !important;
 }
 

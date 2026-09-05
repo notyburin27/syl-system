@@ -6,11 +6,13 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient() {
+  // Postgres บนเครื่อง (docker สำหรับ e2e/dev) ไม่เปิด SSL — บังคับ SSL แล้วจะต่อไม่ติด
+  // DB บนคลาวด์ (staging/prod) ยังใช้ SSL เหมือนเดิม
+  const connectionString = process.env.DATABASE_URL!
+  const isLocal = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString)
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL!,
-    ssl: {
-      rejectUnauthorized: false,
-    },
+    connectionString,
+    ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
   })
   return new PrismaClient({
     adapter,

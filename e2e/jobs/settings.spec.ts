@@ -163,7 +163,9 @@ test.describe.serial('อัตราค่าคืนตู้รับตู�
     await page.locator('.ant-select-item-option-content', { hasText: 'ขาเข้า' }).click()
 
     await page.locator('#rate-transfer-size').click()
-    await page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ }).click()
+    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
+    await sizeOption.scrollIntoViewIfNeeded()
+    await sizeOption.click()
 
     await selectOption(page, 'rate-transfer-location', locGeneralName)
 
@@ -271,7 +273,9 @@ test.describe.serial('อัตราค่าขนส่ง — CRUD', () => {
     await page.locator('.ant-select-item-option-content', { hasText: 'ขาเข้า' }).click()
 
     await page.locator('#rate-income-size').click()
-    await page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ }).click()
+    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
+    await sizeOption.scrollIntoViewIfNeeded()
+    await sizeOption.click()
 
     await selectOption(page, 'rate-income-factory', locFactoryName)
     await selectOption(page, 'rate-income-customer', customerName)
@@ -388,7 +392,9 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     await page.locator('.ant-select-item-option-content', { hasText: 'ขาเข้า' }).click()
 
     await page.locator('#rate-driver-wage-size').click()
-    await page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ }).click()
+    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
+    await sizeOption.scrollIntoViewIfNeeded()
+    await sizeOption.click()
 
     await selectOption(page, 'rate-driver-wage-factory', locFactoryName)
 
@@ -412,7 +418,9 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     await expect(dialog.getByLabel('โรงงาน')).not.toBeVisible()
 
     await page.locator('#rate-driver-wage-size').click()
-    await page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ }).click()
+    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
+    await sizeOption.scrollIntoViewIfNeeded()
+    await sizeOption.click()
 
     await page.getByTestId('rate-driver-wage-amount-input').fill('1800')
 
