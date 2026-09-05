@@ -105,7 +105,7 @@ export async function GET(req: Request) {
     // Banner rows: วันลา / วันหยุด / วันอาทิตย์ / ไม่มีงาน (กติกาเดียวกับตาราง)
     const banners = await buildExportBanners(driverId, monthStr, jobs);
 
-    const buffer = generateJobsExcel(jobs as unknown as Parameters<typeof generateJobsExcel>[0], driverName, monthStr, vehicleNumber, isAdmin, banners);
+    const buffer = await generateJobsExcel(jobs as unknown as Parameters<typeof generateJobsExcel>[0], driverName, monthStr, vehicleNumber, isAdmin, banners);
 
     return new NextResponse(buffer as unknown as BodyInit, {
       headers: {

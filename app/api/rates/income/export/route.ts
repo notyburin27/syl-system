@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import * as XLSX from "xlsx";
+import { writeRowsToBuffer } from "@/lib/utils/excel";
 import { getJobTypeLabel } from "@/types/job";
 import { displayRangeLabel } from "@/lib/utils/fuelRateExcel";
 
@@ -42,10 +42,7 @@ export async function GET(req: Request) {
     }),
   ];
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "rate-income");
-  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const buf = await writeRowsToBuffer(rows, "rate-income");
 
   return new NextResponse(new Uint8Array(buf), {
     headers: {

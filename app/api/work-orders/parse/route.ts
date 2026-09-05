@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import * as XLSX from "xlsx";
+import { readSheetAsObjects } from "@/lib/utils/excel";
 import { mapExcelRowToWorkOrder } from "@/lib/utils/workOrderUtils";
 
-// อ่าน/แปลงไฟล์ฝั่ง server เพื่อไม่ต้องส่ง xlsx (~400KB) ไปที่เบราว์เซอร์
+// อ่าน/แปลงไฟล์ฝั่ง server เพื่อไม่ต้องส่ง excel parser ไปที่เบราว์เซอร์
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -15,11 +15,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonRows = (sheet
-      ? XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true })
-      : []) as Record<string, unknown>[];
+    const jsonRows = await readSheetAsObjects(await file.arrayBuffer());
 
     const trimmedRows = jsonRows.map((row) => {
       const trimmed: Record<string, unknown> = {};

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import * as XLSX from "xlsx";
+import { readSheetAsRows } from "@/lib/utils/excel";
 
-// อ่านไฟล์ฝั่ง server เพื่อไม่ต้องส่ง xlsx (~400KB) ไปที่เบราว์เซอร์
+// อ่านไฟล์ฝั่ง server เพื่อไม่ต้องส่ง excel parser ไปที่เบราว์เซอร์
 // คืน shape เดิมของ readExcelFile: { originalRowIndex, rowIndex, data }
 export async function POST(req: Request) {
   const session = await auth();
@@ -15,11 +15,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonData = (worksheet
-      ? XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" })
-      : []) as unknown[][];
+    const jsonData = await readSheetAsRows(await file.arrayBuffer());
 
     if (jsonData.length < 2) {
       return NextResponse.json(

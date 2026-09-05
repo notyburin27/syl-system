@@ -132,14 +132,11 @@ export default function JobFormModal({
     }
   }, [isSpecialType, jobTypeWatch, mode, createdJob, form]);
 
-  // คาดการณ์โอน: auto-sum จากคาดการณ์ค่ารับตู้ + ค่าคืนตู้ (realtime) แต่ผู้ใช้พิมพ์ทับได้
-  const [estimatedTransferOverridden, setEstimatedTransferOverridden] =
-    useState(false);
+  // คาดการณ์โอน: auto-sum จากคาดการณ์ค่ารับตู้ + ค่าคืนตู้ (realtime) — ช่อง read-only
   const watchEstimatedPickupFee = Form.useWatch("estimatedPickupFee", form);
   const watchEstimatedReturnFee = Form.useWatch("estimatedReturnFee", form);
 
   useEffect(() => {
-    if (estimatedTransferOverridden) return;
     const pickup = String(watchEstimatedPickupFee ?? "").trim();
     const ret = String(watchEstimatedReturnFee ?? "").trim();
     if (pickup === "" && ret === "") {
@@ -148,12 +145,7 @@ export default function JobFormModal({
     }
     const sum = (Number(pickup) || 0) + (Number(ret) || 0);
     form.setFieldValue("estimatedTransfer", sum);
-  }, [
-    watchEstimatedPickupFee,
-    watchEstimatedReturnFee,
-    estimatedTransferOverridden,
-    form,
-  ]);
+  }, [watchEstimatedPickupFee, watchEstimatedReturnFee, form]);
 
   // Computed fields
   const watchAdvance = Form.useWatch("advance", form) || 0;
@@ -186,22 +178,22 @@ export default function JobFormModal({
     (isCancelled ? 0 : driverOverall) - Number(watchActualTransfer) - completedTransferSum;
   const totalTransfer = completedTransferSum;
 
-  // ส่วนต่าง: ติดลบ = แดง, บวก = ฟ้า, 0/ไม่มีค่า = สีปกติ
+  // ส่วนต่าง: ระบายพื้นหลังช่องแทนการย้อมตัวอักษร — ติดลบ = แดง, บวก = ฟ้า,
+  // 0/ไม่มีค่า = พื้นหลัง disabled ปกติ (ตัวอักษรคงสีปกติทุกกรณี)
   const roundedDifference = Math.round(difference);
-  const differenceColor =
+  const differenceBgColor =
     !driverOverall && !isCancelled
       ? undefined
       : roundedDifference < 0
-        ? "#cf1322"
+        ? "#fff1f0"
         : roundedDifference > 0
-          ? "#1677ff"
+          ? "#e6f4ff"
           : undefined;
 
   useEffect(() => {
     if (open) {
       setCreatedJob(null);
       setSaveStatus("idle");
-      setEstimatedTransferOverridden(false);
       setClearStatus(mode === "edit" && job ? !!job.clearStatus : false);
       setIsCancelled(mode === "edit" && job ? !!job.isCancelled : false);
       setTransfers(mode === "edit" && job?.transfers ? job.transfers : []);
@@ -416,8 +408,7 @@ export default function JobFormModal({
         const currentReturn = feeUpdates.estimatedReturnFee ?? Number(form.getFieldValue("estimatedReturnFee") || 0);
         const estimated = currentPickup + currentReturn;
         // ดึงค่าใหม่จากระบบ → กลับมาใช้ auto-sum แทนค่าที่เคยพิมพ์ทับ
-        setEstimatedTransferOverridden(false);
-        form.setFieldsValue({ estimatedTransfer: estimated });
+          form.setFieldsValue({ estimatedTransfer: estimated });
         if (isCreated) {
           await Promise.all([
             "estimatedPickupFee" in feeUpdates ? handleFieldBlur("estimatedPickupFee") : Promise.resolve(),
@@ -627,8 +618,7 @@ export default function JobFormModal({
               // อัปเดต estimatedTransfer รวม
               const pickup = Number(form.getFieldValue("estimatedPickupFee") || 0);
               const ret = Number(form.getFieldValue("estimatedReturnFee") || 0);
-              setEstimatedTransferOverridden(false);
-              form.setFieldValue("estimatedTransfer", pickup + ret);
+                      form.setFieldValue("estimatedTransfer", pickup + ret);
               await handleFieldBlur(feeField);
             }
           } catch { /* ไม่ block UX ถ้า calc ล้มเหลว */ }
@@ -904,6 +894,8 @@ export default function JobFormModal({
     <Select
       showSearch
       allowClear
+      // กด Tab ไล่ฟอร์มแล้วให้ dropdown เปิดเอง ไม่ต้องกดซ้ำ
+      showAction={["focus"]}
       disabled={fieldsDisabled || disabled || isCleared}
       popupMatchSelectWidth={false}
       styles={{ popup: { root: { minWidth: 200 } } }}
@@ -1092,10 +1084,12 @@ export default function JobFormModal({
                   {clearStatus ? "ปลดล็อค" : "เคลียร์"}
                 </Button>
               )}
-              <Button type="primary" onClick={onClose} style={{ width: 100 }}>บันทึก</Button>
+              <Button data-testid="job-form-close-btn" type="primary" onClick={onClose} style={{ width: 100 }}>บันทึก</Button>
             </div>
         }
         width="100%"
+        // ฟอร์มสูงเกือบเต็มจอ — ลดระยะห่างจากขอบบน (default antd = 100px) ให้เห็นเนื้อหาได้มากขึ้น
+        style={{ top: 16 }}
         destroyOnHidden
       >
         <Form form={form} layout="vertical" size="small">
@@ -1136,6 +1130,7 @@ export default function JobFormModal({
                     id="job-type-select"
                     showSearch
                     allowClear
+                    showAction={["focus"]}
                     disabled={isCleared || isTowingLinked || hasAnyTowingLink}
                     popupMatchSelectWidth={false}
                     styles={{ popup: { root: { minWidth: 200 } } }}
@@ -1185,6 +1180,7 @@ export default function JobFormModal({
                     <Select
                       id="no-job-reason-select"
                       allowClear
+                      showAction={["focus"]}
                       options={NO_JOB_REASONS.map((r) => ({ value: r.value, label: r.label }))}
                     />
                   </Form.Item>
@@ -1323,13 +1319,7 @@ export default function JobFormModal({
                 </Col>
                 <Col span={3}>
                   <Form.Item label="คาดการณ์โอน" name="estimatedTransfer" rules={[numberRule]}>
-                    <Input
-                      allowClear
-                      autoComplete="off"
-                      disabled={isCleared}
-                      styles={{ input: { textAlign: "right" } }}
-                      onChange={() => setEstimatedTransferOverridden(true)}
-                    />
+                    <Input disabled styles={{ input: { textAlign: "right" } }} />
                   </Form.Item>
                 </Col>
                 <Col span={3}>
@@ -1344,8 +1334,8 @@ export default function JobFormModal({
                       styles={{
                         input: {
                           textAlign: "right",
-                          ...(differenceColor
-                            ? { color: differenceColor, WebkitTextFillColor: differenceColor, fontWeight: 600 }
+                          ...(differenceBgColor
+                            ? { backgroundColor: differenceBgColor, fontWeight: 600 }
                             : {}),
                         },
                       }}

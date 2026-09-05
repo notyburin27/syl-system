@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import * as XLSX from "xlsx";
+import { readSheetAsRows } from "@/lib/utils/excel";
 import { parseFuelRateRows, toStoredMax } from "@/lib/utils/fuelRateExcel";
 
 export async function POST(req: Request) {
@@ -26,11 +26,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ไม่พบลูกค้าหรือโรงงานที่เลือก" }, { status: 400 });
     }
 
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    if (!sheet) return NextResponse.json({ error: "ไฟล์ไม่มีข้อมูล" }, { status: 400 });
+    const rows = await readSheetAsRows(await file.arrayBuffer());
+    if (!rows.length) return NextResponse.json({ error: "ไฟล์ไม่มีข้อมูล" }, { status: 400 });
 
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown[][];
     const parsed = parseFuelRateRows(rows);
     if (!parsed.ok) {
       return NextResponse.json({ errors: parsed.errors }, { status: 400 });

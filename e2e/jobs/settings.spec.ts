@@ -325,33 +325,37 @@ test.describe.serial('อัตราค่าขนส่ง — CRUD', () => {
     await expect(page.getByText('12,000')).toBeVisible({ timeout: 5_000 })
   })
 
-  test('Case 4: เพิ่มช่วงราคาน้ำมัน (surcharge) → ปรากฏใน modal ช่วงราคา', async ({ page }) => {
+  test('Case 4: อัปโหลด Excel ช่วงราคาน้ำมัน → surcharge ปรากฏใน modal ช่วงราคา', async ({ page }) => {
     const { locationFactoryId, customerId } = await seedRefData(page, test.info().testId)
     const res = await page.request.post('/api/rates/income', {
-      data: { jobType: 'outbound', size: '20DC', factoryLocationId: locationFactoryId, customerId, income: 8000 },
+      data: { jobType: 'inbound', size: '20DC', factoryLocationId: locationFactoryId, customerId, income: 8000 },
     })
     expect(res.ok()).toBeTruthy()
     const { id } = (await res.json()) as { id: string }
 
+    // surcharge แก้ผ่าน Upload Excel เท่านั้น — สร้างไฟล์จาก endpoint template แล้วอัปโหลดกลับ
+    const templateRes = await page.request.get('/api/rates/income/fuel-table/export?template=1')
+    expect(templateRes.ok()).toBeTruthy()
+    const templateXlsx = await templateRes.body()
+
+    const importRes = await page.request.post('/api/rates/income/fuel-table/import', {
+      multipart: {
+        customerId,
+        factoryLocationId: locationFactoryId,
+        file: { name: 'fuel-rates.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: templateXlsx },
+      },
+    })
+    expect(importRes.ok()).toBeTruthy()
+
     await page.goto('/jobs/settings/rates/income')
-    await expect(page.getByText('8,000')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText('10,000')).toBeVisible({ timeout: 5_000 })
 
-    await page.getByTestId(`rate-income-surcharge-btn-${id}`).click()
+    // เปิด modal ดูช่วงราคาของอัตรา "ขาเข้า / 20DC" ที่ import มา
+    await page.getByTestId(`rate-income-fuel-view-btn-${id}`).first().click()
     const surchargeModal = page.getByRole('dialog')
-    await expect(surchargeModal.getByText('ช่วงราคาน้ำมัน → ค่าปรับ Income')).toBeVisible()
-
-    await surchargeModal.getByTestId('surcharge-add-btn').click()
-    const formModal = page.locator('.ant-modal').last()
-    await expect(formModal.getByText('เพิ่มช่วงราคาน้ำมัน')).toBeVisible()
-
-    await page.getByTestId('surcharge-fuel-min-input').fill('40.00')
-    await page.getByTestId('surcharge-fuel-max-input').fill('45.00')
-    await page.getByTestId('surcharge-amount-input').fill('500')
-
-    await formModal.getByRole('button', { name: 'เพิ่ม' }).click()
-    await expect(page.getByText('เพิ่มสำเร็จ')).toBeVisible({ timeout: 5_000 })
-    await expect(surchargeModal.getByText('40.00')).toBeVisible({ timeout: 5_000 })
-    await expect(surchargeModal.getByText('+500')).toBeVisible()
+    await expect(surchargeModal.getByText('ช่วงราคาน้ำมัน', { exact: true })).toBeVisible()
+    await expect(surchargeModal.getByText('30.00-34.99')).toBeVisible({ timeout: 5_000 })
+    await expect(surchargeModal.getByText('35.00-39.99')).toBeVisible()
   })
 
   test('Case 5: ลบอัตราค่าขนส่ง → หายออกจากตาราง', async ({ page }) => {

@@ -1,15 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Table, Button, App, Divider, DatePicker } from 'antd'
+import { Table, Button, App, DatePicker } from 'antd'
 import {
-  EditOutlined,
   FormOutlined,
   PlusOutlined,
   DeleteOutlined,
   UnlockOutlined,
   ArrowLeftOutlined,
-  ImportOutlined,
   DownloadOutlined,
   LoadingOutlined,
   CheckOutlined,
@@ -17,12 +15,10 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
-import EditableCell from './EditableCell'
-import QuickAddModal from './QuickAddModal'
-import ImportJobModal from './ImportJobModal'
+import JobTableCell from './JobTableCell'
 import JobFormModal from './JobFormModal'
 import LeaveManagerModal from './LeaveManagerModal'
-import type { Job, Customer, Driver, Location } from '@/types/job'
+import type { Job, Customer, Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS } from '@/types/job'
 import type { DriverLeave, CompanyHoliday } from '@/types/leave'
 import { LEAVE_TYPE_LABELS } from '@/types/leave'
@@ -39,40 +35,6 @@ interface EditableJobTableProps {
   isAdmin: boolean
 }
 
-interface DraftRow {
-  _tempId: string
-  jobDate: string | null
-  jobType: string
-  customerId: string
-  jobNumber: string
-  driverId: string
-  size: string | null
-  pickupLocationId: string | null
-  factoryLocationId: string | null
-  returnLocationId: string | null
-  estimatedTransfer: number | null
-  income: number | null
-  driverWage: number | null
-  actualTransferPrev: number | null
-  advance: number | null
-  toll: number | null
-  pickupFee: number | null
-  returnFee: number | null
-  liftFee: number | null
-  storageFee: number | null
-  tire: number | null
-  other: number | null
-  mileage: number | null
-  fuelOfficeLiters: number | null
-  fuelCashLiters: number | null
-  fuelCashAmount: number | null
-  fuelCreditLiters: number | null
-  fuelCreditAmount: number | null
-  clearStatus: boolean
-  statementVerified: boolean
-  isCancelled: boolean
-}
-
 interface BannerRow {
   _banner: 'leave' | 'holiday' | 'sunday' | 'noJob'
   _bannerKey: string // unique key e.g. "banner-2026-06-04"
@@ -80,19 +42,14 @@ interface BannerRow {
   label: string // ข้อความที่แสดง เช่น "🌴 ลาป่วย — เป็นไข้"
 }
 
-type RowData = (Job & { _tempId?: string }) | DraftRow | BannerRow
+type RowData = Job | BannerRow
 
 function isBanner(row: RowData): row is BannerRow {
   return '_banner' in row
 }
 
-function isDraft(row: RowData): row is DraftRow {
-  return !isBanner(row) && '_tempId' in row && !('id' in row)
-}
-
 function getRowKey(row: RowData): string {
-  if (isBanner(row)) return row._bannerKey
-  return isDraft(row) ? row._tempId : row.id
+  return isBanner(row) ? row._bannerKey : row.id
 }
 
 export default function EditableJobTable({
@@ -107,9 +64,7 @@ export default function EditableJobTable({
   const searchParams = useSearchParams()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
-  const [editMode, setEditMode] = useState(false)
   const [modalEditMode, setModalEditMode] = useState(false)
-  const [draftRows, setDraftRows] = useState<DraftRow[]>([])
 
   // Job form modal state
   const [formModalOpen, setFormModalOpen] = useState(false)
@@ -159,13 +114,8 @@ export default function EditableJobTable({
   const [locations, setLocations] = useState<Location[]>([])
 
   // Quick add modal
-  const [quickAddOpen, setQuickAddOpen] = useState(false)
-  const [quickAddType, setQuickAddType] = useState<'customer' | 'driver' | 'location'>('customer')
-  const [quickAddLocationType, setQuickAddLocationType] = useState<'factory' | 'general' | undefined>()
-  const [quickAddCallback, setQuickAddCallback] = useState<((item: { id: string }) => void) | null>(null)
 
   // Import modal
-  const [importOpen, setImportOpen] = useState(false)
 
   // Leave & holiday data (สำหรับ banner rows)
   const [leaves, setLeaves] = useState<DriverLeave[]>([])
@@ -200,23 +150,6 @@ export default function EditableJobTable({
     }
   }, [month, driverId, message])
 
-  // Fetch and sync silently (mutate in place, no re-render)
-  const fetchJobsSilent = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/jobs?month=${month}&driverId=${driverId}`)
-      if (res.ok) {
-        const data: Job[] = await res.json()
-        setJobs((prev) => {
-          prev.length = 0
-          prev.push(...data)
-          return prev
-        })
-      }
-    } catch {
-      // silent
-    }
-  }, [month, driverId])
-
   const fetchReferenceData = useCallback(async () => {
     const [custRes, locRes] = await Promise.all([
       fetch('/api/customers'),
@@ -241,7 +174,7 @@ export default function EditableJobTable({
     [locations]
   )
 
-  // identity คงที่เพื่อให้ React.memo ของ EditableCell ทำงาน (ไม่งั้นสร้าง array ใหม่ทุก render)
+  // identity คงที่เพื่อให้ React.memo ของ JobTableCell ทำงาน (ไม่งั้นสร้าง array ใหม่ทุก render)
   const jobTypeOptions = useMemo(() => JOB_TYPES.map((t) => ({ value: t.value, label: t.label })), [])
   const sizeOptions = useMemo(() => SIZE_OPTIONS.map((s) => ({ value: s, label: s })), [])
   const customerOptions = useMemo(() => customers.map((c) => ({ value: c.id, label: c.name })), [customers])
@@ -254,16 +187,11 @@ export default function EditableJobTable({
     [factoryLocations]
   )
 
-  // Combined data: jobs + drafts (+ banner rows สำหรับวันลา/วันหยุด/ไม่มีงาน)
+  // Combined data: jobs + banner rows (วันลา/วันหยุด/อาทิตย์/ไม่มีงาน)
   const dataSource: RowData[] = useMemo(() => {
     const sorted = [...jobs].sort(
       (a, b) => new Date(a.jobDate).getTime() - new Date(b.jobDate).getTime()
     )
-
-    // ตอน edit mode ไม่แสดง banner (ให้สะอาดสำหรับแก้ไข) — แค่ jobs + drafts
-    if (editMode) {
-      return [...sorted, ...draftRows]
-    }
 
     // นับวันที่มีงานแล้ว (งานชนะทุกอย่าง — วันไหนมีงานไม่ขึ้น banner)
     const jobDateSet = new Set(
@@ -331,44 +259,7 @@ export default function EditableJobTable({
     return [...sorted, ...banners].sort(
       (a, b) => new Date(a.jobDate).getTime() - new Date(b.jobDate).getTime()
     )
-  }, [jobs, draftRows, editMode, leaves, holidays, month])
-
-  const handleAddRow = () => {
-    const newDraft: DraftRow = {
-      _tempId: `draft_${Date.now()}`,
-      jobDate: null,
-      jobType: '',
-      customerId: '',
-      jobNumber: '',
-      driverId,
-      size: null,
-      pickupLocationId: null,
-      factoryLocationId: null,
-      returnLocationId: null,
-      estimatedTransfer: null,
-      income: null,
-      driverWage: null,
-      actualTransferPrev: null,
-      advance: null,
-      toll: null,
-      pickupFee: null,
-      returnFee: null,
-      liftFee: null,
-      storageFee: null,
-      tire: null,
-      other: null,
-      mileage: null,
-      fuelOfficeLiters: null,
-      fuelCashLiters: null,
-      fuelCashAmount: null,
-      fuelCreditLiters: null,
-      fuelCreditAmount: null,
-      clearStatus: false,
-      statementVerified: false,
-      isCancelled: false,
-    }
-    setDraftRows((prev) => [...prev, newDraft])
-  }
+  }, [jobs, leaves, holidays, month])
 
   // Debounced save: batch pending changes per job
   const pendingChangesRef = useRef<Map<string, Record<string, unknown>>>(new Map())
@@ -440,95 +331,8 @@ export default function EditableJobTable({
     })
   }, [flushSave, handleSaveStatus])
 
-  // Update draft row field
-  const updateDraft = (tempId: string, field: string, value: unknown) => {
-    setDraftRows((prev) =>
-      prev.map((d) => (d._tempId === tempId ? { ...d, [field]: value } : d))
-    )
-  }
-
-  // Create job from draft (triggered on blur of job_number)
-  const handleCreateJob = async (draft: DraftRow) => {
-    try {
-      const res = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobDate: draft.jobDate,
-          jobType: draft.jobType,
-          customerId: draft.customerId,
-          jobNumber: draft.jobNumber,
-          driverId: draft.driverId,
-          size: draft.size,
-          pickupLocationId: draft.pickupLocationId,
-          factoryLocationId: draft.factoryLocationId,
-          returnLocationId: draft.returnLocationId,
-          income: draft.income,
-          driverWage: draft.driverWage,
-          actualTransferPrev: draft.actualTransferPrev,
-          advance: draft.advance,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        message.error(err.error || 'สร้างงานล้มเหลว')
-        await fetchJobsSilent()
-        return false
-      }
-      const newJob = await res.json()
-      setJobs((prev) => {
-        prev.push(newJob)
-        return prev
-      })
-      setDraftRows((prev) => prev.filter((d) => d._tempId !== draft._tempId))
-      return true
-    } catch {
-      message.error('สร้างงานล้มเหลว')
-      await fetchJobsSilent()
-      return false
-    }
-  }
-
-  // Create เบิกล่วงหน้า job (requires: jobDate, jobType, advance)
-  const handleCreateAdvanceJob = async (draft: DraftRow) => {
-    if (!draft.jobDate || !draft.advance) return
-    try {
-      const res = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobDate: draft.jobDate,
-          jobType: 'advance',
-          customerId: draft.customerId || undefined,
-          driverId: draft.driverId,
-          advance: draft.advance,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        message.error(err.error || 'สร้างงานล้มเหลว')
-        await fetchJobsSilent()
-        return
-      }
-      const newJob = await res.json()
-      setJobs((prev) => {
-        prev.push(newJob)
-        return prev
-      })
-      setDraftRows((prev) => prev.filter((d) => d._tempId !== draft._tempId))
-      // created silently
-    } catch {
-      message.error('สร้างงานล้มเหลว')
-      await fetchJobsSilent()
-    }
-  }
-
   const handleDeleteJob = async (row: RowData) => {
     if (isBanner(row)) return
-    if (isDraft(row)) {
-      setDraftRows((prev) => prev.filter((d) => d._tempId !== row._tempId))
-      return
-    }
     try {
       const res = await fetch(`/api/jobs/${row.id}`, { method: 'DELETE' })
       if (res.ok) {
@@ -575,18 +379,6 @@ export default function EditableJobTable({
     }
   }
 
-  // Open quick add modal
-  const openQuickAdd = (
-    type: 'customer' | 'driver' | 'location',
-    locationType?: 'factory' | 'general',
-    callback?: (item: { id: string }) => void
-  ) => {
-    setQuickAddType(type)
-    setQuickAddLocationType(locationType)
-    setQuickAddCallback(() => callback || null)
-    setQuickAddOpen(true)
-  }
-
   // Computed fields
   const computeDriverOverall = (row: RowData) => {
     if (isBanner(row)) return null
@@ -619,7 +411,7 @@ export default function EditableJobTable({
 
   const computeDifference = (row: RowData) => {
     if (isBanner(row)) return null
-    const cancelled = !isDraft(row) && (row as Job).isCancelled
+    const cancelled = (row as Job).isCancelled
     const overall = computeDriverOverall(row)
     // Cancelled jobs void the driver's closing fees: difference = −(prev + completed transfers).
     if (overall === null && !cancelled) return null
@@ -646,7 +438,6 @@ export default function EditableJobTable({
     options?: { value: string; label: string }[],
     extraProps?: {
       precision?: number
-      dropdownRenderExtra?: React.ReactNode
       disabled?: boolean
       dateFormat?: string
     }
@@ -662,107 +453,19 @@ export default function EditableJobTable({
       return null
     }
 
-    const rowKey = getRowKey(row)
     const isLocked = row.clearStatus
-    const rowIsDraft = isDraft(row)
-    const needsCreate = rowIsDraft && !(row.jobNumber && row.jobDate) && field !== 'jobNumber' && field !== 'jobDate'
-    const fieldDisabled = extraProps?.disabled || needsCreate
-
     const cellValue = (row as unknown as Record<string, unknown>)[field]
 
     return (
-      <EditableCell
+      <JobTableCell
         value={cellValue}
         cellType={cellType}
-        editable={editMode && !isLocked && !fieldDisabled}
-        locked={isLocked}
         options={options}
         precision={extraProps?.precision}
-        dropdownRenderExtra={extraProps?.dropdownRenderExtra}
         dateFormat={extraProps?.dateFormat}
-        onSaveStatus={handleSaveStatus}
-        onSave={async (value) => {
-          // Validate date month matches current page month
-          if (field === 'jobDate' && value) {
-            const selectedMonth = dayjs(value as string).format('YYYY-MM')
-            if (selectedMonth !== month) {
-              modal.error({
-                title: 'วันที่ไม่ตรงกับเดือนปัจจุบัน',
-                content: `กรุณาเลือกวันที่ในเดือน ${dayjs(month).format('MMMM YYYY')}`,
-              })
-              throw new Error('')
-            }
-          }
-
-          if (rowIsDraft) {
-            updateDraft(rowKey, field, value)
-
-            // Auto-create when jobNumber + jobDate are both filled
-            if (field === 'jobNumber' || field === 'jobDate') {
-              const draft = draftRows.find((d) => d._tempId === rowKey)
-              if (draft) {
-                const updated = { ...draft, [field]: value }
-                if (updated.jobNumber && updated.jobDate) {
-                  return await handleCreateJob(updated)
-                }
-              }
-            }
-
-            // เบิกล่วงหน้า: auto-create when jobDate + jobType + advance are set
-            {
-              const draft = draftRows.find((d) => d._tempId === rowKey)
-              if (draft) {
-                const updated = { ...draft, [field]: value }
-                if (updated.jobType === 'advance' && updated.jobDate && updated.advance) {
-                  updateDraft(rowKey, 'actualTransferPrev', updated.advance)
-                  await handleCreateAdvanceJob(updated)
-                }
-              }
-            }
-
-            return true
-          }
-
-          // Existing job: PATCH
-          const success = await handleCellSave((row as Job).id, field, value)
-
-          return success
-        }}
       />
     )
   }
-
-  // Add button in dropdown
-  const addButton = (
-    type: 'customer' | 'driver' | 'location',
-    locType?: 'factory' | 'general',
-    row?: RowData,
-    field?: string
-  ) => (
-    <>
-      <Divider style={{ margin: '4px 0' }} />
-      <div
-        style={{ padding: '4px 8px' }}
-        onMouseDown={(e) => e.preventDefault()}
-      >
-        <Button
-          type="link"
-          size="small"
-          icon={<PlusOutlined />}
-          onClick={() => openQuickAdd(type, locType, row && field ? (item) => {
-            const rowKey = getRowKey(row)
-            if (isDraft(row)) {
-              updateDraft(rowKey, field, item.id)
-            } else {
-              handleCellSave((row as Job).id, field, item.id)
-            }
-          } : undefined)}
-        >
-          เพิ่มใหม่
-        </Button>
-      </div>
-    </>
-  )
 
   // Max completed transfers across all rows → one read-only column per transfer (matches Excel export)
   const maxTransfers = dataSource.reduce((max, row) => Math.max(max, completedTransferAmounts(row).length), 0)
@@ -774,12 +477,9 @@ export default function EditableJobTable({
       const amounts = completedTransferAmounts(row)
       const amount = i < amounts.length ? amounts[i] : null
       return (
-        <EditableCell
+        <JobTableCell
           value={amount}
           cellType="computed"
-          editable={false}
-          locked={false}
-          onSave={async () => true}
           format={(v) => (v == null ? '-' : (v as number).toLocaleString('th-TH'))}
         />
       )
@@ -808,7 +508,7 @@ export default function EditableJobTable({
           onCell: (row: RowData) => (isBanner(row) ? { colSpan: 4 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'jobNumber', 'text', undefined, {
-              disabled: isAdvanceType(row) && !isDraft(row),
+              disabled: isAdvanceType(row),
             }),
         },
         {
@@ -828,7 +528,6 @@ export default function EditableJobTable({
           onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'customerId', 'select', customerOptions, {
-              dropdownRenderExtra: addButton('customer', undefined, row, 'customerId'),
             }),
         },
         {
@@ -855,7 +554,6 @@ export default function EditableJobTable({
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'pickupLocationId', 'select', generalLocationOptions, {
               disabled: isAdvanceType(row),
-              dropdownRenderExtra: addButton('location', 'general', row, 'pickupLocationId'),
             }),
         },
         {
@@ -866,7 +564,6 @@ export default function EditableJobTable({
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'factoryLocationId', 'select', factoryLocationOptions, {
               disabled: isAdvanceType(row),
-              dropdownRenderExtra: addButton('location', 'factory', row, 'factoryLocationId'),
             }),
         },
         {
@@ -877,7 +574,6 @@ export default function EditableJobTable({
           render: (_: unknown, row: RowData) =>
             renderCell(row, 'returnLocationId', 'select', generalLocationOptions, {
               disabled: isAdvanceType(row),
-              dropdownRenderExtra: addButton('location', 'general', row, 'returnLocationId'),
             }),
         },
       ],
@@ -940,7 +636,7 @@ export default function EditableJobTable({
           key: 'driverOverall',
           width: 130,
           render: (_: unknown, row: RowData) => (
-            <EditableCell value={isAdvanceType(row) ? null : computeDriverOverall(row)} cellType="computed" editable={false} locked={false} onSave={async () => true} />
+            <JobTableCell value={isAdvanceType(row) ? null : computeDriverOverall(row)} cellType="computed" />
           ),
         },
         ...transferColumns,
@@ -949,12 +645,9 @@ export default function EditableJobTable({
           key: 'totalTransfer',
           width: 120,
           render: (_: unknown, row: RowData) => (
-            <EditableCell
+            <JobTableCell
               value={isAdvanceType(row) ? null : computeTotal(row)}
               cellType="computed"
-              editable={false}
-              locked={false}
-              onSave={async () => true}
               format={(v) => v == null ? '-' : (v as number).toLocaleString('th-TH')}
             />
           ),
@@ -967,11 +660,9 @@ export default function EditableJobTable({
             const diff = isAdvanceType(row) ? null : computeDifference(row)
             const rounded = diff == null ? null : Math.round(diff)
             return (
-              <EditableCell
+              <JobTableCell
                 value={diff}
                 cellType="computed"
-                editable={false}
-                locked={false}
                 valueColor={
                   rounded == null || rounded === 0
                     ? undefined
@@ -979,7 +670,6 @@ export default function EditableJobTable({
                       ? '#cf1322'
                       : '#1677ff'
                 }
-                onSave={async () => true}
                 format={(v) => {
                   if (v == null) return '-'
                   const n = Math.round(v as number)
@@ -995,14 +685,11 @@ export default function EditableJobTable({
           key: 'carryOverTo',
           width: 120,
           render: (_: unknown, row: RowData) => {
-            const jobNumber = !isBanner(row) && !isDraft(row) && !isAdvanceType(row) ? (row.carryOverToJob?.jobNumber ?? null) : null
+            const jobNumber = !isBanner(row) && !isAdvanceType(row) ? (row.carryOverToJob?.jobNumber ?? null) : null
             return (
-              <EditableCell
+              <JobTableCell
                 value={jobNumber}
                 cellType="computed"
-                editable={false}
-                locked={false}
-                onSave={async () => true}
                 format={(v) => (v == null ? '-' : String(v))}
               />
             )
@@ -1013,14 +700,11 @@ export default function EditableJobTable({
           key: 'remarks',
           width: 180,
           render: (_: unknown, row: RowData) => {
-            const remarks = !isBanner(row) && !isDraft(row) ? (row.remarks ?? null) : null
+            const remarks = !isBanner(row) ? (row.remarks ?? null) : null
             return (
-              <EditableCell
+              <JobTableCell
                 value={remarks}
                 cellType="computed"
-                editable={false}
-                locked={false}
-                onSave={async () => true}
                 format={(v) => (v == null || v === '' ? '-' : String(v))}
               />
             )
@@ -1052,14 +736,13 @@ export default function EditableJobTable({
           align: 'center' as const,
           render: (_: unknown, row: RowData) => {
             if (isBanner(row)) return null
-            if (isDraft(row)) return null
             if (row.jobType === 'advance' || row.jobType === 'noJob') return null
             if (row.clearStatus) return null
             const isClearing = clearingId === row.id
             // เคลียร์ได้เมื่อส่วนต่างเป็น 0 เท่านั้น (ยกยอดไปงานอื่นแล้วถือว่าปิดยอดได้)
             const diff = computeDifference(row)
-            const hasCarryOver = !isDraft(row) && !!(row as Job).carryOverToJobId
-            const cancelled = !isDraft(row) && !!(row as Job).isCancelled
+            const hasCarryOver = !!(row as Job).carryOverToJobId
+            const cancelled = !!(row as Job).isCancelled
             const diffBlocked =
               !hasCarryOver && !cancelled && diff !== null && Math.round(diff) !== 0
             return (
@@ -1089,7 +772,7 @@ export default function EditableJobTable({
                 render: (_: unknown, row: RowData) => {
                   if (isBanner(row)) return null
                   if (row.clearStatus) {
-                    const isUnlocking = !isDraft(row) && clearingId === row.id
+                    const isUnlocking = clearingId === row.id
                     return (
                       <Button
                         type="link"
@@ -1098,7 +781,6 @@ export default function EditableJobTable({
                         disabled={isUnlocking}
                         onClick={async (e) => {
                           e.stopPropagation()
-                          if (isDraft(row)) return
                           setClearingId(row.id)
                           await handleToggleClear(row.id)
                           setClearingId(null)
@@ -1117,7 +799,7 @@ export default function EditableJobTable({
                         e.stopPropagation()
                         modal.confirm({
                           title: 'ยืนยันการลบ',
-                          content: isDraft(row) ? 'ล้างข้อมูล row นี้?' : 'ต้องการลบงานนี้?',
+                          content: 'ต้องการลบงานนี้?',
                           okText: 'ลบ',
                           okType: 'danger',
                           cancelText: 'ยกเลิก',
@@ -1179,11 +861,7 @@ export default function EditableJobTable({
           <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>
             Export Excel
           </Button>
-          <Button data-testid="import-csv-btn" icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
-            Import CSV
-          </Button>
-          {!editMode && (
-            <Button
+          <Button
               data-testid="toggle-modal-edit-btn"
               type="primary"
               icon={<FormOutlined />}
@@ -1196,25 +874,6 @@ export default function EditableJobTable({
             >
               {modalEditMode ? 'เสร็จสิ้น' : 'เปิดการแก้ไขแบบรายการ'}
             </Button>
-          )}
-          {/* {!modalEditMode && (
-            // TODO: เปิดใช้งานเมื่อพร้อม
-            <Button
-              data-testid="toggle-table-edit-btn"
-              type="primary"
-              icon={<EditOutlined />}
-              disabled
-              onClick={() => {
-                if (editMode) {
-                  setDraftRows((prev) => prev.filter((d) => d.jobNumber))
-                  fetchJobs()
-                }
-                setEditMode(!editMode)
-              }}
-            >
-              {editMode ? 'เสร็จสิ้น' : 'เปิดการแก้ไขแบบตาราง'}
-            </Button>
-          )} */}
         </div>
       </div>
 
@@ -1225,18 +884,17 @@ export default function EditableJobTable({
         dataSource={dataSource}
         rowKey={(row) => getRowKey(row as RowData)}
         loading={loading}
-        scroll={{ x: 4000, y: `calc(100vh - ${editMode || modalEditMode ? 374 : 310}px)` }}
+        scroll={{ x: 4000, y: `calc(100vh - ${modalEditMode ? 374 : 310}px)` }}
         size="small"
         pagination={false}
         bordered
         rowClassName={(row) => {
           const r = row as RowData
           if (isBanner(r)) return `banner-row banner-${r._banner}`
-          if (isDraft(r)) return 'draft-row'
           if (r.jobType === 'noJob') return 'no-job-row'
           if (r.jobType === 'advance') return 'advance-row'
           if (r.clearStatus) return 'locked-row'
-          if (!isDraft(r) && (r as Job).isCancelled) return 'cancelled-row'
+          if ((r as Job).isCancelled) return 'cancelled-row'
           if (modalEditMode) return 'clickable-row'
           return ''
         }}
@@ -1244,7 +902,6 @@ export default function EditableJobTable({
           if (!modalEditMode) return {}
           const r = row as RowData
           if (isBanner(r)) return {}
-          if (isDraft(r)) return {}
           return {
             onClick: async () => {
               const row = r as Job
@@ -1269,13 +926,6 @@ export default function EditableJobTable({
       </div>
 
       {/* Add Row Button */}
-      {editMode && (
-        <div style={{ marginTop: 12 }}>
-          <Button data-testid="add-row-btn" icon={<PlusOutlined />} onClick={handleAddRow} type="dashed" block>
-            เพิ่ม row
-          </Button>
-        </div>
-      )}
       {modalEditMode && (
         <div style={{ marginTop: 12 }}>
           <Button
@@ -1293,26 +943,6 @@ export default function EditableJobTable({
           </Button>
         </div>
       )}
-
-      {/* Quick Add Modal */}
-      <QuickAddModal
-        open={quickAddOpen}
-        type={quickAddType}
-        locationType={quickAddLocationType}
-        onClose={() => setQuickAddOpen(false)}
-        onSuccess={(item) => {
-          fetchReferenceData()
-          if (quickAddCallback) quickAddCallback(item)
-        }}
-      />
-
-      {/* Import Modal */}
-      <ImportJobModal
-        open={importOpen}
-        driverId={driverId}
-        onClose={() => setImportOpen(false)}
-        onSuccess={fetchJobs}
-      />
 
       {/* Leave Manager Modal */}
       <LeaveManagerModal
@@ -1348,9 +978,6 @@ export default function EditableJobTable({
       />
 
       <style jsx global>{`
-        .draft-row {
-          background-color: #fafafa !important;
-        }
         .cancelled-row td {
           background-color: #fff1f0 !important;
         }

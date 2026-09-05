@@ -111,9 +111,7 @@ test.describe.serial('Jobs Dashboard — Driver Card', () => {
     const driverCard = page.getByTestId(`driver-card-${driverId}`)
     await expect(driverCard).toBeVisible({ timeout: 10_000 })
 
-    const jobCountEl = driverCard
-      .locator('.ant-statistic').filter({ hasText: 'งาน' })
-      .locator('.ant-statistic-content-value-int')
+    const jobCountEl = page.getByTestId(`driver-card-main-count-${driverId}`)
     await expect(jobCountEl).not.toHaveText('0')
 
     // 9. เปลี่ยน month picker ไปเดือนที่ไม่มีงาน (ม.ค. 2025)

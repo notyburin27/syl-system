@@ -145,7 +145,7 @@ test.describe.serial('QA feedback batch', () => {
   })
 
   // ─── Item 2: คาดการณ์ค่ารับ/คืนตู้ พิมพ์ได้ + คาดการณ์โอน sum realtime ──
-  test('Item 2: คาดการณ์ค่ารับ/คืนตู้ พิมพ์ได้ และคาดการณ์โอน sum ทันทีที่พิมพ์', async ({ page }) => {
+  test('Item 2: คาดการณ์ค่ารับ/คืนตู้ พิมพ์ได้ และคาดการณ์โอน (read-only) sum ทันทีที่พิมพ์', async ({ page }) => {
     const driverId = await createDriver(page)
     await page.goto(`/jobs/${driverId}?month=${CURRENT_MONTH}`)
 
@@ -171,11 +171,10 @@ test.describe.serial('QA feedback batch', () => {
     await ret.fill('200')
     await expect(transfer).toHaveValue('500', { timeout: 5_000 })
 
-    // พิมพ์ทับคาดการณ์โอนเองได้ และไม่ถูก auto-sum เขียนทับ
-    await transfer.fill('999')
-    await expect(transfer).toHaveValue('999')
+    // คาดการณ์โอนเป็นช่องคำนวณ — พิมพ์ทับเองไม่ได้ และ sum ตามค่ารับ/คืนตู้เสมอ
+    await expect(transfer).toBeDisabled()
     await pickup.fill('100')
-    await expect(transfer).toHaveValue('999')
+    await expect(transfer).toHaveValue('300', { timeout: 5_000 })
   })
 
   // ─── Item 4 + 5 + 12: ส่วนต่างสี, น้ำมันสดรวมยอด, ปุ่มเคลียร์ ────────────
@@ -205,9 +204,9 @@ test.describe.serial('QA feedback batch', () => {
     await expect(fuelCash).toHaveCSS('background-color', 'rgb(212, 238, 241)')
     await expect(driverOverall).toHaveValue('250', { timeout: 5_000 })
 
-    // Item 4: ส่วนต่างเป็นบวก → สีฟ้า
+    // Item 4: ส่วนต่างเป็นบวก → พื้นหลังช่องเป็นสีฟ้า (ตัวอักษรคงสีปกติ)
     await expect(difference).toHaveValue('+250', { timeout: 5_000 })
-    await expect(difference).toHaveCSS('color', 'rgb(22, 119, 255)')
+    await expect(difference).toHaveCSS('background-color', 'rgb(230, 244, 255)')
 
     // Item 12: ส่วนต่าง != 0 → ปุ่มเคลียร์กดไม่ได้
     const clearBtn = page.getByTestId('job-clear-status-btn')

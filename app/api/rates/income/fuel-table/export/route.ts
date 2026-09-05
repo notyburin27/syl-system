@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import * as XLSX from "xlsx";
+import { writeRowsToBuffer } from "@/lib/utils/excel";
 import { buildFuelRateSheetRows, FUEL_RATE_TEMPLATE_ROWS } from "@/lib/utils/fuelRateExcel";
 
-function toXlsxResponse(rows: (string | number)[][], filename: string) {
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "fuel-rates");
-  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+async function toXlsxResponse(rows: (string | number)[][], filename: string) {
+  const buf = await writeRowsToBuffer(rows, "fuel-rates");
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -25,7 +22,7 @@ export async function GET(req: Request) {
 
   // ?template=1 → ไฟล์ตัวอย่างเปล่า ไม่ต้องแตะ DB
   if (searchParams.get("template")) {
-    return toXlsxResponse(FUEL_RATE_TEMPLATE_ROWS, "fuel_rates_template.xlsx");
+    return await toXlsxResponse(FUEL_RATE_TEMPLATE_ROWS, "fuel_rates_template.xlsx");
   }
 
   const customerId = searchParams.get("customerId");
@@ -52,5 +49,5 @@ export async function GET(req: Request) {
     })),
   }));
 
-  return toXlsxResponse(buildFuelRateSheetRows(plain), "fuel_rates_current.xlsx");
+  return await toXlsxResponse(buildFuelRateSheetRows(plain), "fuel_rates_current.xlsx");
 }
