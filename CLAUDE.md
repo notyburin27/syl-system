@@ -67,6 +67,22 @@ npm run build         # Production build
 
 ## E2E Testing (Playwright)
 
+### Test database (Docker)
+E2E รันบน Postgres ใน docker ไม่ใช่ DB บนคลาวด์ — `global-setup` ทำ
+`prisma db push --accept-data-loss` + seed ทุกครั้งที่รัน
+
+```bash
+# สร้าง container (ครั้งแรก หรือหลังลบทิ้ง) — restart เองหลัง reboot
+docker run -d --name syl-e2e-db --restart unless-stopped \
+  -e POSTGRES_USER=e2e -e POSTGRES_PASSWORD=e2epass -e POSTGRES_DB=syl_e2e \
+  -p 5442:5432 postgres:16-alpine
+
+npx playwright test --workers=1        # ต้อง workers=1 (spec ใช้ชื่อ driver ซ้ำกัน)
+```
+
+`.env.test` (gitignore) ต้องมี `DATABASE_URL="postgresql://e2e:e2epass@localhost:5442/syl_e2e"`
+— `lib/prisma.ts` ปิด SSL อัตโนมัติเมื่อ host เป็น localhost/127.0.0.1
+
 ### data-testid กับ antd components
 - **Button, Input**: ใส่ `data-testid` โดยตรงได้ → `<Button data-testid="...">`
 - **Modal**: อย่าใส่ `data-testid` บน `<Modal>` เพราะ antd render root div อยู่ตลอดแม้ `open={false}` ทำให้ `toBeVisible()` fail ให้ใช้ `page.getByRole('dialog')` แทน
