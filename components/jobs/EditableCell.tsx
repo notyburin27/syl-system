@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { memo, useState, useEffect, useRef } from 'react'
 import { Select, DatePicker, Input, Checkbox, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 
@@ -22,7 +22,7 @@ interface EditableCellProps {
   valueColor?: string
 }
 
-export default function EditableCell({
+function EditableCell({
   value,
   cellType,
   editable,
@@ -40,6 +40,16 @@ export default function EditableCell({
   const [editValue, setEditValue] = useState(value)
   const [error, setError] = useState<string | null>(null)
 
+  // onSave/onSaveStatus ถูกสร้างใหม่ทุก render ของ parent และ closure ผูกกับ state
+  // ล่าสุด (เช่น draftRows) — เก็บใน ref เพื่อให้ memo ด้านล่างข้ามการเทียบ prop
+  // เหล่านี้ได้โดยไม่เสี่ยงเรียก closure เก่า
+  const onSaveRef = useRef(onSave)
+  const onSaveStatusRef = useRef(onSaveStatus)
+  useEffect(() => {
+    onSaveRef.current = onSave
+    onSaveStatusRef.current = onSaveStatus
+  })
+
   useEffect(() => {
     setEditValue(value)
   }, [value])
@@ -49,22 +59,22 @@ export default function EditableCell({
       setEditing(false)
       return
     }
-    onSaveStatus?.('saving')
+    onSaveStatusRef.current?.('saving')
     setError(null)
     try {
-      const success = await onSave(newValue)
+      const success = await onSaveRef.current(newValue)
       if (success) {
-        onSaveStatus?.('saved')
+        onSaveStatusRef.current?.('saved')
         setEditing(false)
       } else {
-        onSaveStatus?.('error')
+        onSaveStatusRef.current?.('error')
         setEditValue(value)
         setEditing(false)
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'บันทึกล้มเหลว'
       if (msg) setError(msg)
-      onSaveStatus?.('error')
+      onSaveStatusRef.current?.('error')
       setEditValue(value)
       setEditing(false)
     }
@@ -251,3 +261,21 @@ export default function EditableCell({
     </div>
   )
 }
+
+// ตารางงานมี 42 คอลัมน์ × ทุกแถวของเดือน — ถ้าไม่ memo ทุก state change ของตาราง
+// จะ re-render cell ทั้งหมด ทำให้ iPad/แท็บเล็ตรุ่นเก่ากระตุก
+//
+// ข้าม format / dropdownRenderExtra / onSave / onSaveStatus โดยตั้งใจ:
+// ทั้งหมดถูกสร้างใหม่ทุก render ของ parent (identity ไม่เคยเท่า) ถ้าเอามาเทียบ
+// memo จะไม่มีผลเลย — format/dropdownRenderExtra เป็น presentational ล้วนและ
+// ขึ้นกับ cellType/field ที่คงที่ ส่วน onSave/onSaveStatus อ่านผ่าน ref จึงไม่ค้าง
+export default memo(EditableCell, (prev, next) =>
+  prev.value === next.value &&
+  prev.cellType === next.cellType &&
+  prev.editable === next.editable &&
+  prev.locked === next.locked &&
+  prev.options === next.options &&
+  prev.precision === next.precision &&
+  prev.dateFormat === next.dateFormat &&
+  prev.valueColor === next.valueColor
+)

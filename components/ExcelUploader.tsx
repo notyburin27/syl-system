@@ -19,7 +19,6 @@ import {
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import {
-  readExcelFile,
   convertExcelToFormData,
   validateExcelFile,
   getExpectedExcelColumns,
@@ -57,8 +56,13 @@ export default function ExcelUploader({
     setUploading(true);
 
     try {
-      // Read Excel file
-      const excelData = await readExcelFile(file);
+      // อ่านไฟล์ฝั่ง server — ไม่ต้องโหลด xlsx มาที่เครื่องผู้ใช้
+      const uploadForm = new FormData();
+      uploadForm.append("file", file);
+      const res = await fetch("/api/documents/parse-excel", { method: "POST", body: uploadForm });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || "อ่านไฟล์ไม่สำเร็จ");
+      const excelData = payload.rows as any[];
 
       if (excelData.length === 0) {
         message.error("ไม่พบข้อมูลที่มีค่า 'วันที่' ในไฟล์ Excel");

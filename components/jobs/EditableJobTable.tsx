@@ -241,6 +241,19 @@ export default function EditableJobTable({
     [locations]
   )
 
+  // identity คงที่เพื่อให้ React.memo ของ EditableCell ทำงาน (ไม่งั้นสร้าง array ใหม่ทุก render)
+  const jobTypeOptions = useMemo(() => JOB_TYPES.map((t) => ({ value: t.value, label: t.label })), [])
+  const sizeOptions = useMemo(() => SIZE_OPTIONS.map((s) => ({ value: s, label: s })), [])
+  const customerOptions = useMemo(() => customers.map((c) => ({ value: c.id, label: c.name })), [customers])
+  const generalLocationOptions = useMemo(
+    () => generalLocations.map((l) => ({ value: l.id, label: l.name })),
+    [generalLocations]
+  )
+  const factoryLocationOptions = useMemo(
+    () => factoryLocations.map((l) => ({ value: l.id, label: l.name })),
+    [factoryLocations]
+  )
+
   // Combined data: jobs + drafts (+ banner rows สำหรับวันลา/วันหยุด/ไม่มีงาน)
   const dataSource: RowData[] = useMemo(() => {
     const sorted = [...jobs].sort(
@@ -805,7 +818,7 @@ export default function EditableJobTable({
           width: 100,
           onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'jobType', 'select', JOB_TYPES.map((t) => ({ value: t.value, label: t.label }))),
+            renderCell(row, 'jobType', 'select', jobTypeOptions),
         },
         {
           title: 'ลูกค้า',
@@ -814,7 +827,7 @@ export default function EditableJobTable({
           width: 140,
           onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'customerId', 'select', customers.map((c) => ({ value: c.id, label: c.name })), {
+            renderCell(row, 'customerId', 'select', customerOptions, {
               dropdownRenderExtra: addButton('customer', undefined, row, 'customerId'),
             }),
         },
@@ -825,7 +838,7 @@ export default function EditableJobTable({
           width: 70,
           onCell: (row: RowData) => (isBanner(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'size', 'select', SIZE_OPTIONS.map((s) => ({ value: s, label: s })), {
+            renderCell(row, 'size', 'select', sizeOptions, {
               disabled: isAdvanceType(row),
             }),
         },
@@ -840,7 +853,7 @@ export default function EditableJobTable({
           key: 'pickupLocationId',
           width: 140,
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'pickupLocationId', 'select', generalLocations.map((l) => ({ value: l.id, label: l.name })), {
+            renderCell(row, 'pickupLocationId', 'select', generalLocationOptions, {
               disabled: isAdvanceType(row),
               dropdownRenderExtra: addButton('location', 'general', row, 'pickupLocationId'),
             }),
@@ -851,7 +864,7 @@ export default function EditableJobTable({
           key: 'factoryLocationId',
           width: 140,
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'factoryLocationId', 'select', factoryLocations.map((l) => ({ value: l.id, label: l.name })), {
+            renderCell(row, 'factoryLocationId', 'select', factoryLocationOptions, {
               disabled: isAdvanceType(row),
               dropdownRenderExtra: addButton('location', 'factory', row, 'factoryLocationId'),
             }),
@@ -862,7 +875,7 @@ export default function EditableJobTable({
           key: 'returnLocationId',
           width: 140,
           render: (_: unknown, row: RowData) =>
-            renderCell(row, 'returnLocationId', 'select', generalLocations.map((l) => ({ value: l.id, label: l.name })), {
+            renderCell(row, 'returnLocationId', 'select', generalLocationOptions, {
               disabled: isAdvanceType(row),
               dropdownRenderExtra: addButton('location', 'general', row, 'returnLocationId'),
             }),

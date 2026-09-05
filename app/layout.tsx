@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import { Kanit } from 'next/font/google'
 import StyledComponentsRegistry from '@/lib/AntdRegistry'
-import { App, ConfigProvider } from 'antd'
-import thTH from 'antd/locale/th_TH'
+import AntdProvider from '@/lib/AntdProvider'
 import './globals.css'
 
 const kanit = Kanit({
@@ -25,19 +24,9 @@ export default function RootLayout({
     <html lang="th">
       <body className={kanit.className}>
         <StyledComponentsRegistry>
-          <ConfigProvider
-            locale={thTH}
-            theme={{
-              token: {
-                colorPrimary: '#1890ff',
-                fontFamily: kanit.style.fontFamily,
-              },
-            }}
-          >
-            <App>
-              {children}
-            </App>
-          </ConfigProvider>
+          <AntdProvider fontFamily={kanit.style.fontFamily}>
+            {children}
+          </AntdProvider>
         </StyledComponentsRegistry>
       </body>
     </html>

@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 import buddhistEra from "dayjs/plugin/buddhistEra";
 import "dayjs/locale/th";
@@ -171,42 +170,6 @@ export const mapExcelRowToWorkOrder = (
     remarks,
     billingAddress,
   };
-};
-
-export const readWorkOrderExcel = (file: File): Promise<WorkOrderRow[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const jsonRows = XLSX.utils.sheet_to_json(sheet, {
-          defval: "",
-          raw: true,
-        }) as Record<string, any>[];
-
-        const trimmedRows = jsonRows.map((row) => {
-          const trimmed: Record<string, any> = {};
-          for (const key of Object.keys(row)) {
-            trimmed[key.trim()] = row[key];
-          }
-          return trimmed;
-        });
-
-        const mapped = trimmedRows
-          .map(mapExcelRowToWorkOrder)
-          .filter((r) => r.date || r.customerName || r.booking);
-
-        resolve(mapped);
-      } catch (err: any) {
-        reject(new Error(`Error parsing Excel: ${err.message}`));
-      }
-    };
-    reader.onerror = () => reject(new Error("Error reading file"));
-    reader.readAsArrayBuffer(file);
-  });
 };
 
 export const validateWorkOrderExcelFile = (file: File): boolean => {
