@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined } from '@ant-design/icons'
-import ImportCSVModal from './ImportCSVModal'
+import ImportExcelModal from './ImportExcelModal'
 import type { Location } from '@/types/job'
 import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
 import dayjs from 'dayjs'
@@ -112,18 +112,12 @@ export default function RateTransferManager() {
   }
 
   const handleExport = () => {
-    const headers = ['jobType', 'size', 'locationName', 'pickupFee', 'returnFee']
-    const labels = ['ลักษณะงาน', 'SIZE', 'สถานที่', 'ค่ารับตู้', 'ค่าคืนตู้']
-    const rows = filteredRates.map(r => [
-      r.jobType, r.size, r.location.name,
-      Number(r.pickupFee), Number(r.returnFee),
-    ])
-    const csv = [headers.join(','), labels.join(','), ...rows.map(r => r.join(','))].join('\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url; link.download = 'rate_transfer.csv'; link.click()
-    URL.revokeObjectURL(url)
+    // สร้างไฟล์ฝั่ง server — ไม่ต้องโหลด exceljs มาที่เครื่องผู้ใช้
+    const params = new URLSearchParams()
+    if (filterJobType) params.set('jobType', filterJobType)
+    if (filterSize) params.set('size', filterSize)
+    if (filterLocation) params.set('locationId', filterLocation)
+    window.location.href = `/api/rates/transfer/export?${params}`
   }
 
   const locOptions = generalLocations.map(l => ({ value: l.id, label: l.name }))
@@ -153,8 +147,8 @@ export default function RateTransferManager() {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>อัตราค่าคืนตู้รับตู้</h2>
         <Space>
-          <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
-          <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
+          <Button icon={<ExportOutlined />} onClick={handleExport}>Export Excel</Button>
+          <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import Excel</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="rate-transfer-add-btn">เพิ่ม</Button>
         </Space>
       </div>
@@ -210,14 +204,14 @@ export default function RateTransferManager() {
         </Form>
       </Modal>
 
-      <ImportCSVModal
+      <ImportExcelModal
         open={importOpen}
         title="Import อัตราค่าคืนตู้รับตู้"
         apiEndpoint="/api/rates/transfer/import"
         headers={['jobType', 'size', 'locationName', 'pickupFee', 'returnFee']}
         headerLabels={{ jobType: 'ลักษณะงาน', size: 'SIZE', locationName: 'สถานที่', pickupFee: 'ค่ารับตู้', returnFee: 'ค่าคืนตู้' }}
-        exampleRow={['ขาเข้า', '20DC', 'ท่าเรือแหลมฉบัง', '500', '500']}
-        templateFileName="rate_transfer_template.csv"
+        exampleRows={[['ขาเข้า', '20DC', 'ท่าเรือแหลมฉบัง', '500', '500']]}
+        templateFileName="rate_transfer_template.xlsx"
         onClose={() => setImportOpen(false)}
         onSuccess={fetchRates}
       />

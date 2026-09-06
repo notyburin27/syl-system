@@ -152,6 +152,7 @@ export default function StockDashboardPage() {
           dataSource={summary?.details ?? []}
           rowKey="productId"
           loading={loading}
+          size="small"
           pagination={false}
           summary={() => {
             if (!summary || summary.details.length === 0) return null

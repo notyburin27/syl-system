@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Card, Row, Col, DatePicker, Spin, Empty, Input, Tabs, Divider } from 'antd'
-import { TruckOutlined, SearchOutlined } from '@ant-design/icons'
+import { Card, Row, Col, DatePicker, Spin, Empty, Input, Tabs, Divider, Button, App } from 'antd'
+import { TruckOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverJobSummary } from '@/types/job'
 import dayjs from 'dayjs'
@@ -128,6 +128,8 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   )
   const [searchText, setSearchText] = useState('')
   const [activeGroup, setActiveGroup] = useState<string>(initialGroup || OTHER_GROUP_KEY)
+  const [prefilling, setPrefilling] = useState(false)
+  const { message } = App.useApp()
 
   const fetchSummary = useCallback(async (m: dayjs.Dayjs) => {
     setLoading(true)
@@ -188,6 +190,35 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
     )
   }, [summaries, activeGroup, searchText])
 
+  // เติมค่าขนส่ง/ค่าเที่ยวคนขับจากอัตราในระบบ ให้ทุกงานในเดือนที่เลือก (เฉพาะช่องที่ยังว่าง)
+  const handlePrefillRates = async () => {
+    setPrefilling(true)
+    try {
+      const res = await fetch('/api/jobs/prefill-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month: month.format('YYYY-MM') }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        message.error(data.error || 'เกิดข้อผิดพลาดในการดึงข้อมูล')
+        return
+      }
+      if (data.updated === 0) {
+        message.info('ไม่มีงานที่ต้องดึงข้อมูลเพิ่ม')
+      } else {
+        message.success(
+          `ดึงข้อมูลสำเร็จ ${data.updated} งาน (ค่าขนส่ง ${data.incomeFilled}, ค่าเที่ยวคนขับ ${data.driverWageFilled})`
+        )
+        fetchSummary(month)
+      }
+    } catch {
+      message.error('เกิดข้อผิดพลาดในการดึงข้อมูล')
+    } finally {
+      setPrefilling(false)
+    }
+  }
+
   const handleCardClick = (driverId: string) => {
     const params = new URLSearchParams({ month: month.format('YYYY-MM') })
     if (activeGroup !== OTHER_GROUP_KEY) params.set('group', activeGroup)
@@ -199,6 +230,16 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ margin: 0, fontSize: 24 }}>รายการงานขนส่ง</h1>
         <div style={{ display: 'flex', gap: 12 }}>
+          {isAdmin && (
+            <Button
+              data-testid="jobs-prefill-rates-btn"
+              icon={<DownloadOutlined />}
+              loading={prefilling}
+              onClick={handlePrefillRates}
+            >
+              ดึงข้อมูล
+            </Button>
+          )}
           <Input
             data-testid="driver-search-input"
             placeholder="ค้นหาชื่อคนขับ"

@@ -31,6 +31,7 @@ prisma/             # Database schema
 - Form state: `Form.useForm()` from antd
 - Notifications: `App.useApp().message` from antd
 - Confirm การลบ/action สำคัญ: ใช้ `App.useApp().modal` → `modal.confirm({...})` (ไม่ใช้ `Popconfirm`)
+- **ตาราง**: `<Table>` ทุกตัวต้องใส่ `size="small"` เสมอ
 
 ### API Routes
 - Auth check: `const session = await auth(); if (!session?.user) return 401`

@@ -165,6 +165,7 @@ export default function StockExportPage() {
           dataSource={stockOuts}
           rowKey="id"
           loading={loading}
+          size="small"
           pagination={{ pageSize: 10 }}
         />
       </Card>

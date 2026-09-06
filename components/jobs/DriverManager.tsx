@@ -410,6 +410,7 @@ export default function DriverManager() {
         dataSource={drivers}
         rowKey="id"
         loading={loading}
+        size="small"
         expandable={{ expandedRowRender }}
         pagination={{ pageSize: 20 }}
       />

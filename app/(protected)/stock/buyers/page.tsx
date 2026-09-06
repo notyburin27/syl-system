@@ -140,6 +140,7 @@ export default function BuyersPage() {
           dataSource={buyers}
           rowKey="id"
           loading={loading}
+          size="small"
           pagination={{ pageSize: 10 }}
         />
       </Card>

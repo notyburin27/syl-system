@@ -426,6 +426,7 @@ export default function TransportDocumentsPage() {
           dataSource={documents}
           rowKey="id"
           loading={loading}
+          size="small"
           pagination={{ pageSize: 10 }}
         />
       </Card>

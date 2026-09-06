@@ -247,14 +247,11 @@ export default function ProtectedLayoutClient({
             background: "#fff",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             borderBottom: "1px solid #e5e7eb",
             boxShadow: "0 1px 4px rgba(0,21,41,.08)",
           }}
         >
-          <div style={{ fontSize: 18, fontWeight: 500 }}>
-            ระบบจัดการเอกสารขนส่ง
-          </div>
           <Dropdown
             menu={{
               items: [
@@ -296,9 +293,10 @@ export default function ProtectedLayoutClient({
         <Footer
           style={{
             textAlign: "center",
-            padding: "8px 24px",
-            fontSize: 12,
-            lineHeight: "16px",
+            padding: "4px 24px",
+            fontSize: 11,
+            lineHeight: "14px",
+            height: "auto",
             color: "#8c8c8c",
             borderTop: "1px solid #e5e7eb",
           }}
