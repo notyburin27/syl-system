@@ -188,7 +188,7 @@ export default function RateIncomeManager() {
         <h2 style={{ margin: 0 }}>อัตราค่าขนส่ง</h2>
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export Excel</Button>
-          <Button type="primary" icon={<UploadOutlined />} onClick={() => setUploadOpen(true)} data-testid="fuel-upload-open-btn">Upload Excel (ราคาตามน้ำมัน)</Button>
+          <Button icon={<UploadOutlined />} onClick={() => setUploadOpen(true)} data-testid="fuel-upload-open-btn" style={{ color: '#1677ff', borderColor: '#1677ff' }}>Import Excel (ราคาตามน้ำมัน)</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} data-testid="rate-income-add-btn">เพิ่ม</Button>
         </Space>
       </div>

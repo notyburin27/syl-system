@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Table, Button, Modal, Form, Input, Select, App, Space, Tag, Popconfirm } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons'
-import ImportCSVModal from './ImportCSVModal'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
+import ImportExcelModal from './ImportExcelModal'
 import type { Location } from '@/types/job'
 import dayjs from 'dayjs'
 
@@ -93,6 +93,11 @@ export default function LocationManager() {
     }
   }
 
+  const handleExport = () => {
+    // สร้างไฟล์ฝั่ง server — ไม่ต้องโหลด exceljs มาที่เครื่องผู้ใช้
+    window.location.href = '/api/locations/export'
+  }
+
   const columns = [
     {
       title: 'ชื่อสถานที่',
@@ -159,8 +164,11 @@ export default function LocationManager() {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>จัดการสถานที่</h2>
         <Space>
+          <Button icon={<ExportOutlined />} onClick={handleExport}>
+            Export Excel
+          </Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
-            Import CSV
+            Import Excel
           </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
             เพิ่มสถานที่
@@ -173,6 +181,7 @@ export default function LocationManager() {
         dataSource={locations}
         rowKey="id"
         loading={loading}
+        size="small"
         pagination={{ pageSize: 20 }}
       />
 
@@ -208,14 +217,14 @@ export default function LocationManager() {
         </Form>
       </Modal>
 
-      <ImportCSVModal
+      <ImportExcelModal
         open={importOpen}
         title="Import สถานที่"
         apiEndpoint="/api/locations/import"
         headers={['name', 'type']}
         headerLabels={{ name: 'ชื่อสถานที่', type: 'ประเภท (factory/general)' }}
-        exampleRow={['โรงงาน ABC', 'factory']}
-        templateFileName="location_import_template.csv"
+        exampleRows={[['โรงงาน ABC', 'factory']]}
+        templateFileName="location_import_template.xlsx"
         onClose={() => setImportOpen(false)}
         onSuccess={fetchLocations}
       />

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons'
-import ImportCSVModal from './ImportCSVModal'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
+import ImportExcelModal from './ImportExcelModal'
 import type { Customer } from '@/types/job'
 import dayjs from 'dayjs'
 
@@ -92,6 +92,11 @@ export default function CustomerManager() {
     }
   }
 
+  const handleExport = () => {
+    // สร้างไฟล์ฝั่ง server — ไม่ต้องโหลด exceljs มาที่เครื่องผู้ใช้
+    window.location.href = '/api/customers/export'
+  }
+
   const columns = [
     {
       title: 'ชื่อลูกค้า',
@@ -142,8 +147,11 @@ export default function CustomerManager() {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>จัดการลูกค้า</h2>
         <Space>
+          <Button icon={<ExportOutlined />} onClick={handleExport}>
+            Export Excel
+          </Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
-            Import CSV
+            Import Excel
           </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>
             เพิ่มลูกค้า
@@ -156,6 +164,7 @@ export default function CustomerManager() {
         dataSource={customers}
         rowKey="id"
         loading={loading}
+        size="small"
         pagination={{ pageSize: 20 }}
       />
 
@@ -179,14 +188,14 @@ export default function CustomerManager() {
         </Form>
       </Modal>
 
-      <ImportCSVModal
+      <ImportExcelModal
         open={importOpen}
         title="Import ลูกค้า"
         apiEndpoint="/api/customers/import"
         headers={['name']}
         headerLabels={{ name: 'ชื่อลูกค้า' }}
-        exampleRow={['บริษัท ABC จำกัด']}
-        templateFileName="customer_import_template.csv"
+        exampleRows={[['บริษัท ABC จำกัด']]}
+        templateFileName="customer_import_template.xlsx"
         onClose={() => setImportOpen(false)}
         onSuccess={fetchCustomers}
       />

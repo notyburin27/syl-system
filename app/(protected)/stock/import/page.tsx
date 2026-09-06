@@ -156,6 +156,7 @@ export default function StockImportPage() {
           dataSource={stockIns}
           rowKey="id"
           loading={loading}
+          size="small"
           pagination={{ pageSize: 10 }}
         />
       </Card>

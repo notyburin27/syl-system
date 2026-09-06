@@ -236,6 +236,7 @@ export default function UsersManagementPage() {
           dataSource={users}
           rowKey="id"
           loading={loading}
+          size="small"
           pagination={{ pageSize: 10 }}
         />
       </Card>

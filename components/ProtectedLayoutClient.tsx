@@ -247,14 +247,12 @@ export default function ProtectedLayoutClient({
             background: "#fff",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             borderBottom: "1px solid #e5e7eb",
             boxShadow: "0 1px 4px rgba(0,21,41,.08)",
+            flexShrink: 0,
           }}
         >
-          <div style={{ fontSize: 18, fontWeight: 500 }}>
-            ระบบจัดการเอกสารขนส่ง
-          </div>
           <Dropdown
             menu={{
               items: [
@@ -288,23 +286,26 @@ export default function ProtectedLayoutClient({
             </Space>
           </Dropdown>
         </Header>
-        <Content style={{ margin: 0, overflow: "initial", flex: 1, display: "flex", flexDirection: "column" }}>
+        {/* Content เป็นตัว scroll เอง → Header ค้างอยู่ ส่วน Footer อยู่ในนี้จึงเลื่อนตาม content */}
+        <Content style={{ margin: 0, overflow: "auto", flex: 1, display: "flex", flexDirection: "column" }}>
           <div style={{ padding: 16, background: "#fff", flex: 1, display: "flex", flexDirection: "column" }}>
             {children}
           </div>
+          <Footer
+            style={{
+              textAlign: "center",
+              padding: "4px 24px",
+              fontSize: 11,
+              lineHeight: "14px",
+              height: "auto",
+              color: "#8c8c8c",
+              borderTop: "1px solid #e5e7eb",
+              flexShrink: 0,
+            }}
+          >
+            SYL System ©{new Date().getFullYear()}
+          </Footer>
         </Content>
-        <Footer
-          style={{
-            textAlign: "center",
-            padding: "8px 24px",
-            fontSize: 12,
-            lineHeight: "16px",
-            color: "#8c8c8c",
-            borderTop: "1px solid #e5e7eb",
-          }}
-        >
-          SYL System ©{new Date().getFullYear()}
-        </Footer>
       </Layout>
     </Layout>
   );
