@@ -22,12 +22,13 @@ export async function POST(req: Request) {
   try {
     const { jobType, size, factoryLocationId, driverWage } = await req.json();
 
+    // ทอยตู้ตั้งอัตราแบบไม่ระบุโรงงานได้ (ข้อมูลเดิม + CSV import) — ลักษณะงานอื่นต้องมีโรงงาน
     const isTowing = jobType === "towing";
     if (!jobType || !size || (!isTowing && !factoryLocationId) || driverWage == null) {
       return NextResponse.json({ error: "กรุณากรอกข้อมูลให้ครบ" }, { status: 400 });
     }
 
-    const resolvedFactoryId = isTowing ? null : factoryLocationId;
+    const resolvedFactoryId = factoryLocationId ?? null;
     const existing = await prisma.rateDriverWage.findFirst({
       where: { jobType, size, factoryLocationId: resolvedFactoryId === null ? { equals: null } : resolvedFactoryId },
     });

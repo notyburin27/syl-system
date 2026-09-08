@@ -19,6 +19,32 @@ async function selectOption(page: Page, selectId: string, text: string) {
 }
 
 /**
+ * เลือกหลายค่าใน antd Select mode="multiple"
+ *
+ * dropdown ไม่ปิดหลังเลือกแต่ละค่า จึงพิมพ์ค้นหา + คลิกทีละค่าแล้วปิดด้วย Escape ตอนท้าย
+ */
+async function selectMultiple(page: Page, selectId: string, texts: string[]) {
+  const input = page.locator(`#${selectId}`)
+  await input.locator('..').locator('..').click()
+  const dropdown = dropdownFor(page, selectId)
+  for (const text of texts) {
+    await input.fill(text)
+    // ตัวเลือกจริงอยู่ใน rc-virtual-list — `#${selectId}_list` เป็น listbox ซ่อน (0x0) สำหรับ screen reader
+    const option = dropdown.locator('.rc-virtual-list .ant-select-item-option').filter({ hasText: text }).first()
+    await option.scrollIntoViewIfNeeded()
+    await option.click()
+  }
+  await input.fill('')
+  await page.keyboard.press('Escape')
+  await expect(dropdown).toBeHidden()
+}
+
+/** dropdown ของ Select ตัวที่ระบุ — หาจาก listbox id ที่ antd ผูกไว้กับ select นั้น */
+function dropdownFor(page: Page, selectId: string) {
+  return page.locator('.ant-select-dropdown').filter({ has: page.locator(`[id="${selectId}_list"]`) })
+}
+
+/**
  * กดปุ่มเปิด modal แล้วรอ dialog — retry ถ้ายังไม่เปิด
  *
  * dev server hydrate ช้ากว่า SSR paint: ปุ่มโผล่บนจอแล้วแต่ onClick ยังไม่ผูก
@@ -393,44 +419,62 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
 
     const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
-    await page.locator('#rate-driver-wage-job-type').click()
-    await page.locator('.ant-select-item-option-content', { hasText: 'ขาเข้า' }).click()
-
-    await page.locator('#rate-driver-wage-size').click()
-    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
-    await sizeOption.scrollIntoViewIfNeeded()
-    await sizeOption.click()
-
-    await selectOption(page, 'rate-driver-wage-factory', locFactoryName)
+    await selectMultiple(page, 'rate-driver-wage-job-type', ['ขาเข้า'])
+    await selectMultiple(page, 'rate-driver-wage-size', ['20DC'])
+    await selectMultiple(page, 'rate-driver-wage-factory', [locFactoryName])
 
     await page.getByTestId('rate-driver-wage-amount-input').fill('2500')
 
     await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
-    await expect(page.getByText('เพิ่มสำเร็จ')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText('เพิ่มสำเร็จ 1 รายการ')).toBeVisible({ timeout: 5_000 })
     await expect(dialog).not.toBeVisible()
     await expect(page.getByText('2,500')).toBeVisible({ timeout: 5_000 })
   })
 
-  test('Case 2: เพิ่มค่าเที่ยวประเภท "ทอยตู้" — ไม่ต้องเลือกโรงงาน', async ({ page }) => {
+  test('Case 2: เลือกหลายลักษณะงาน x หลาย SIZE → เพิ่มครบทุก combination', async ({ page }) => {
+    const { locFactoryName } = await seedRefData(page, test.info().testId)
+
     await page.goto('/jobs/settings/rates/driver-wage')
     await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
     const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
-    await page.locator('#rate-driver-wage-job-type').click()
-    await page.locator('.ant-select-item-option-content', { hasText: 'ทอยตู้' }).click()
+    // 2 ลักษณะงาน x 2 SIZE x 1 โรงงาน = 4 รายการ
+    await selectMultiple(page, 'rate-driver-wage-job-type', ['ขาเข้า', 'ขาออก'])
+    await selectMultiple(page, 'rate-driver-wage-size', ['20DC', '40DC'])
+    await selectMultiple(page, 'rate-driver-wage-factory', [locFactoryName])
 
-    await expect(dialog.getByLabel('โรงงาน')).not.toBeVisible()
-
-    await page.locator('#rate-driver-wage-size').click()
-    const sizeOption = page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })
-    await sizeOption.scrollIntoViewIfNeeded()
-    await sizeOption.click()
+    await expect(dialog.getByText('จะเพิ่มทั้งหมด 4 รายการ')).toBeVisible()
 
     await page.getByTestId('rate-driver-wage-amount-input').fill('1800')
-
     await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
-    await expect(page.getByText('เพิ่มสำเร็จ')).toBeVisible({ timeout: 5_000 })
-    await expect(page.getByRole('cell', { name: '-' }).first()).toBeVisible({ timeout: 5_000 })
+
+    await expect(page.getByText('เพิ่มสำเร็จ 4 รายการ')).toBeVisible({ timeout: 10_000 })
+    await expect(dialog).not.toBeVisible()
+    await expect(page.getByRole('cell', { name: '1,800' })).toHaveCount(4, { timeout: 5_000 })
+  })
+
+  test('Case 2b: combination ที่มีอยู่แล้วต้องถูกข้าม + สรุปผล', async ({ page }) => {
+    const { locFactoryName, locationFactoryId } = await seedRefData(page, test.info().testId)
+    const seeded = await page.request.post('/api/rates/driver-wage', {
+      data: { jobType: 'inbound', size: '20DC', factoryLocationId: locationFactoryId, driverWage: 999 },
+    })
+    expect(seeded.ok()).toBeTruthy()
+
+    await page.goto('/jobs/settings/rates/driver-wage')
+    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
+
+    // ขาเข้า/20DC ซ้ำกับที่ seed ไว้ — อีก 1 รายการต้องเพิ่มได้
+    await selectMultiple(page, 'rate-driver-wage-job-type', ['ขาเข้า'])
+    await selectMultiple(page, 'rate-driver-wage-size', ['20DC', '40DC'])
+    await selectMultiple(page, 'rate-driver-wage-factory', [locFactoryName])
+
+    await page.getByTestId('rate-driver-wage-amount-input').fill('2222')
+    await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
+
+    await expect(page.getByText('เพิ่มสำเร็จ 1 รายการ, ข้าม 1 รายการที่มีอยู่แล้ว')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('2,222')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText('999')).toBeVisible()
   })
 
   test('Case 3: validation — ส่ง form เปล่าต้องแสดง error', async ({ page }) => {
@@ -441,15 +485,19 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
     await expect(dialog.getByText('กรุณาเลือกลักษณะงาน')).toBeVisible({ timeout: 3_000 })
     await expect(dialog.getByText('กรุณาเลือก SIZE')).toBeVisible()
+    await expect(dialog.getByText('กรุณาเลือกโรงงาน')).toBeVisible()
   })
 
-  test('Case 4: "เบิกล่วงหน้า" ต้องไม่อยู่ใน dropdown ลักษณะงาน', async ({ page }) => {
+  test('Case 4: "เบิกล่วงหน้า" กับ "ไม่มีงาน" ต้องไม่อยู่ใน dropdown ลักษณะงาน', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
     await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
-    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
+    await openModal(page, 'rate-driver-wage-add-btn')
 
-    await page.locator('#rate-driver-wage-job-type').click()
-    await expect(page.locator('.ant-select-item-option-content', { hasText: 'เบิกล่วงหน้า' })).not.toBeVisible()
+    await page.locator('#rate-driver-wage-job-type').locator('..').locator('..').click()
+    const options = dropdownFor(page, 'rate-driver-wage-job-type').locator('.rc-virtual-list .ant-select-item-option')
+    await expect(options.filter({ hasText: 'ขาเข้า' })).toBeVisible()
+    await expect(options.filter({ hasText: 'เบิกล่วงหน้า' })).toHaveCount(0)
+    await expect(options.filter({ hasText: 'ไม่มีงาน' })).toHaveCount(0)
   })
 
   test('Case 5: แก้ไขค่าเที่ยว → ค่าใหม่ปรากฏในตาราง', async ({ page }) => {
@@ -493,16 +541,20 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     await expect(page.getByText('1,111')).not.toBeVisible({ timeout: 5_000 })
   })
 
-  test('Case 7: "พื้นเรียบ" → SIZE dropdown แสดงเฉพาะ "truck"', async ({ page }) => {
+  test('Case 7: SIZE dropdown แสดงทุกตัวเลือกไม่ขึ้นกับลักษณะงานที่เลือก', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
     await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
-    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
+    await openModal(page, 'rate-driver-wage-add-btn')
 
-    await page.locator('#rate-driver-wage-job-type').click()
-    await page.locator('.ant-select-item-option-content', { hasText: 'พื้นเรียบ' }).click()
+    await selectMultiple(page, 'rate-driver-wage-job-type', ['พื้นเรียบ'])
 
-    await page.locator('#rate-driver-wage-size').click()
-    await expect(page.locator('.ant-select-item-option-content', { hasText: 'truck' })).toBeVisible()
-    await expect(page.locator('.ant-select-item-option-content').filter({ hasText: /^20DC$/ })).not.toBeVisible()
+    const sizeInput = page.locator('#rate-driver-wage-size')
+    await sizeInput.locator('..').locator('..').click()
+    const options = dropdownFor(page, 'rate-driver-wage-size').locator('.rc-virtual-list .ant-select-item-option')
+    await expect(options.filter({ hasText: /^20DC$/ })).toBeVisible()
+
+    // truck อยู่ท้าย virtual list ที่ยังไม่ render — ค้นหาแทนการ scroll
+    await sizeInput.fill('truck')
+    await expect(options.filter({ hasText: 'truck' })).toBeVisible()
   })
 })
