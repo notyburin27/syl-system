@@ -182,6 +182,7 @@ export const SIZE_OPTIONS = [
   "20RF",
   "40RF",
   "2x20DC",
+  "2x20RF",
   "45HC",
   "20OT",
   "40OT",
