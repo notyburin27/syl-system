@@ -157,6 +157,11 @@ export const JOB_TYPES = [
   { value: "noJob",    label: "ไม่มีงาน" },
 ] as const;
 
+/** ลักษณะงานที่ตั้งอัตราค่าบริการได้ — "เบิกล่วงหน้า" กับ "ไม่มีงาน" ไม่มีอัตรา */
+export const RATE_JOB_TYPES = JOB_TYPES.filter(
+  (t) => t.value !== "advance" && t.value !== "noJob",
+);
+
 /** เหตุผลของงานประเภท "ไม่มีงาน" */
 export const NO_JOB_REASONS = [
   { value: "repair",    label: "ซ่อมรถ" },

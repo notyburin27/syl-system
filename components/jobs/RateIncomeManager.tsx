@@ -6,7 +6,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, ExportOutlined, CopyOutline
 import FuelRateViewModal from './FuelRateViewModal'
 import FuelRateUploadModal from './FuelRateUploadModal'
 import type { Customer, Location } from '@/types/job'
-import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
+import { RATE_JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
 import { effectiveIncome, displayRangeLabel } from '@/lib/utils/fuelRateExcel'
 import dayjs from 'dayjs'
 
@@ -196,7 +196,7 @@ export default function RateIncomeManager() {
       <Row gutter={8} style={{ marginBottom: 12 }}>
         <Col>
           <Select allowClear placeholder="ลักษณะงาน" style={{ width: 130 }}
-            options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))}
+            options={RATE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))}
             value={filterJobType} onChange={setFilterJobType} />
         </Col>
         <Col>
@@ -236,7 +236,7 @@ export default function RateIncomeManager() {
           {!editingRate && (
             <>
               <Form.Item name="jobType" label="ลักษณะงาน" rules={[{ required: true, message: 'กรุณาเลือกลักษณะงาน' }]}>
-                <Select id="rate-income-job-type" showSearch options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน" />
+                <Select id="rate-income-job-type" showSearch options={RATE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน" />
               </Form.Item>
               <Form.Item name="size" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
                 <Select id="rate-income-size" showSearch options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />

@@ -1,19 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col } from 'antd'
+import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm, Row, Col, Typography } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Location } from '@/types/job'
-import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
-
-const DRIVER_WAGE_JOB_TYPES = JOB_TYPES.filter(t => t.value !== 'advance')
-
-function getSizeOptions(jobType?: string): string[] {
-  if (jobType === 'flatbed') return ['truck']
-  return SIZE_OPTIONS.filter(s => s !== 'truck')
-}
-import dayjs from 'dayjs'
+import { RATE_JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
 
 interface RateDriverWage {
   id: string
@@ -25,7 +17,20 @@ interface RateDriverWage {
   factoryLocation: { id: string; name: string } | null
 }
 
-const TOWING_JOB_TYPE = 'towing'
+/** ข้อความ error จาก API เมื่อ combination นั้นมีอยู่แล้ว */
+const DUPLICATE_ERROR = 'มีข้อมูลนี้อยู่แล้ว'
+
+/** จำนวนรายการที่จะถูกสร้างจาก combination ที่เลือกไว้ */
+function comboCount(v: Partial<DriverWageFormValues>): number {
+  return (v.jobTypes?.length ?? 0) * (v.sizes?.length ?? 0) * (v.factoryLocationIds?.length ?? 0)
+}
+
+interface DriverWageFormValues {
+  jobTypes: string[]
+  sizes: string[]
+  factoryLocationIds: string[]
+  driverWage: number
+}
 
 export default function RateDriverWageManager() {
   const { message } = App.useApp()
@@ -38,7 +43,6 @@ export default function RateDriverWageManager() {
   const [form] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
-  const [selectedJobType, setSelectedJobType] = useState<string | undefined>()
 
   // Filters
   const [filterJobType, setFilterJobType] = useState<string | undefined>()
@@ -62,6 +66,7 @@ export default function RateDriverWageManager() {
   useEffect(() => { fetchRates(); fetchLocations() }, [fetchRates, fetchLocations])
 
   const factoryLocations = useMemo(() => locations.filter(l => l.type === 'factory'), [locations])
+  const factoryNameById = useMemo(() => new Map(factoryLocations.map(l => [l.id, l.name])), [factoryLocations])
 
   const filteredRates = useMemo(() => rates.filter(r => {
     if (filterJobType && r.jobType !== filterJobType) return false
@@ -74,12 +79,10 @@ export default function RateDriverWageManager() {
     if (rate) {
       setEditingRate(rate)
       setCopyingRate(false)
-      setSelectedJobType(rate.jobType)
       form.setFieldsValue({ driverWage: Number(rate.driverWage) })
     } else {
       setEditingRate(null)
       setCopyingRate(false)
-      setSelectedJobType(undefined)
       form.resetFields()
     }
     setModalOpen(true)
@@ -88,32 +91,76 @@ export default function RateDriverWageManager() {
   const handleCopy = (rate: RateDriverWage) => {
     setEditingRate(null)
     setCopyingRate(true)
-    setSelectedJobType(rate.jobType)
     form.resetFields()
     form.setFieldsValue({
-      jobType: rate.jobType,
-      factoryLocationId: rate.factoryLocationId ?? undefined,
+      jobTypes: [rate.jobType],
+      sizes: [rate.size],
+      factoryLocationIds: rate.factoryLocationId ? [rate.factoryLocationId] : [],
       driverWage: Number(rate.driverWage),
     })
     setModalOpen(true)
   }
 
-  const handleSubmit = async (values: Record<string, unknown>) => {
+  const handleEdit = async (driverWage: number) => {
+    const res = await fetch(`/api/rates/driver-wage/${editingRate!.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverWage }),
+    })
+    if (!res.ok) { message.error((await res.json()).error || 'เกิดข้อผิดพลาด'); return }
+    message.success('แก้ไขสำเร็จ')
+    setModalOpen(false)
+    fetchRates()
+  }
+
+  /** เพิ่มทีละ combination ของ ลักษณะงาน x SIZE x โรงงาน — ข้ามรายการที่มีอยู่แล้ว */
+  const handleBulkCreate = async (values: DriverWageFormValues) => {
+    const combos = values.jobTypes.flatMap(jobType =>
+      values.sizes.flatMap(size =>
+        values.factoryLocationIds.map(factoryLocationId => ({ jobType, size, factoryLocationId })),
+      ),
+    )
+
+    let created = 0
+    const skipped: string[] = []
+    const failed: string[] = []
+
+    for (const combo of combos) {
+      const label = `${getJobTypeLabel(combo.jobType)} / ${combo.size} / ${factoryNameById.get(combo.factoryLocationId) ?? '-'}`
+      try {
+        const res = await fetch('/api/rates/driver-wage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...combo, driverWage: values.driverWage }),
+        })
+        if (res.ok) { created++; continue }
+        const { error } = (await res.json()) as { error?: string }
+        if (error === DUPLICATE_ERROR) skipped.push(label)
+        else failed.push(`${label}: ${error || 'เกิดข้อผิดพลาด'}`)
+      } catch {
+        failed.push(`${label}: เกิดข้อผิดพลาด`)
+      }
+    }
+
+    const summary = [`เพิ่มสำเร็จ ${created} รายการ`]
+    if (skipped.length) summary.push(`ข้าม ${skipped.length} รายการที่มีอยู่แล้ว`)
+    if (failed.length) summary.push(`ไม่สำเร็จ ${failed.length} รายการ`)
+    const text = summary.join(', ')
+
+    if (failed.length) message.error(`${text} — ${failed.join('; ')}`, 8)
+    else if (created) message.success(text)
+    else message.warning(text)
+
+    if (created) setModalOpen(false)
+    fetchRates()
+  }
+
+  const handleSubmit = async (values: DriverWageFormValues) => {
     setSubmitLoading(true)
     try {
-      const url = editingRate ? `/api/rates/driver-wage/${editingRate.id}` : '/api/rates/driver-wage'
-      const method = editingRate ? 'PATCH' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      })
-      if (!res.ok) { message.error((await res.json()).error || 'เกิดข้อผิดพลาด'); return }
-      message.success(editingRate ? 'แก้ไขสำเร็จ' : 'เพิ่มสำเร็จ')
-      setModalOpen(false)
-      fetchRates()
-    } catch { message.error('เกิดข้อผิดพลาด') }
-    finally { setSubmitLoading(false) }
+      if (editingRate) await handleEdit(values.driverWage)
+      else await handleBulkCreate(values)
+    } finally { setSubmitLoading(false) }
   }
 
   const handleDelete = async (id: string) => {
@@ -135,6 +182,8 @@ export default function RateDriverWageManager() {
   }
 
   const factoryOptions = factoryLocations.map(l => ({ value: l.id, label: l.name }))
+  const jobTypeOptions = RATE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))
+  const sizeOptions = SIZE_OPTIONS.map(s => ({ value: s, label: s }))
 
   const columns = [
     { title: 'ลักษณะงาน', dataIndex: 'jobType', key: 'jobType', width: 110, render: (v: string) => getJobTypeLabel(v) },
@@ -169,12 +218,12 @@ export default function RateDriverWageManager() {
       <Row gutter={8} style={{ marginBottom: 12 }}>
         <Col>
           <Select allowClear placeholder="ลักษณะงาน" style={{ width: 130 }}
-            options={DRIVER_WAGE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))}
+            options={jobTypeOptions}
             value={filterJobType} onChange={setFilterJobType} />
         </Col>
         <Col>
           <Select allowClear placeholder="SIZE" style={{ width: 100 }}
-            options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))}
+            options={sizeOptions}
             value={filterSize} onChange={setFilterSize} />
         </Col>
         <Col>
@@ -196,18 +245,27 @@ export default function RateDriverWageManager() {
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {!editingRate && (
             <>
-              <Form.Item name="jobType" label="ลักษณะงาน" rules={[{ required: true, message: 'กรุณาเลือกลักษณะงาน' }]}>
-                <Select id="rate-driver-wage-job-type" showSearch options={DRIVER_WAGE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน"
-                  onChange={(v) => { setSelectedJobType(v); form.setFieldsValue({ factoryLocationId: undefined, size: undefined }) }} />
+              <Form.Item name="jobTypes" label="ลักษณะงาน" rules={[{ required: true, message: 'กรุณาเลือกลักษณะงาน' }]}>
+                <Select id="rate-driver-wage-job-type" mode="multiple" allowClear showSearch optionFilterProp="label"
+                  options={jobTypeOptions} placeholder="เลือกลักษณะงาน (เลือกได้หลายรายการ)" />
               </Form.Item>
-              <Form.Item name="size" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
-                <Select id="rate-driver-wage-size" showSearch options={getSizeOptions(selectedJobType).map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
+              <Form.Item name="sizes" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
+                <Select id="rate-driver-wage-size" mode="multiple" allowClear showSearch optionFilterProp="label"
+                  options={sizeOptions} placeholder="เลือก SIZE (เลือกได้หลายรายการ)" />
               </Form.Item>
-              {selectedJobType !== TOWING_JOB_TYPE && (
-                <Form.Item name="factoryLocationId" label="โรงงาน" rules={[{ required: true, message: 'กรุณาเลือกโรงงาน' }]}>
-                  <Select id="rate-driver-wage-factory" showSearch options={factoryOptions} filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())} placeholder="เลือกโรงงาน" popupMatchSelectWidth={false} />
-                </Form.Item>
-              )}
+              <Form.Item name="factoryLocationIds" label="โรงงาน" rules={[{ required: true, message: 'กรุณาเลือกโรงงาน' }]}>
+                <Select id="rate-driver-wage-factory" mode="multiple" allowClear showSearch options={factoryOptions}
+                  filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
+                  placeholder="เลือกโรงงาน (เลือกได้หลายรายการ)" popupMatchSelectWidth={false} />
+              </Form.Item>
+              <Form.Item noStyle shouldUpdate>
+                {() => {
+                  const count = comboCount(form.getFieldsValue())
+                  return count > 1
+                    ? <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>จะเพิ่มทั้งหมด {count} รายการ</Typography.Text>
+                    : null
+                }}
+              </Form.Item>
             </>
           )}
           <Form.Item name="driverWage" label="ค่าเที่ยว" rules={[{ required: true, message: 'กรุณากรอกค่าเที่ยว' }]}>

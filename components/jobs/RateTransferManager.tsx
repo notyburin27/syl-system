@@ -5,7 +5,7 @@ import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined } from '@ant-design/icons'
 import ImportExcelModal from './ImportExcelModal'
 import type { Location } from '@/types/job'
-import { JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
+import { RATE_JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
 import dayjs from 'dayjs'
 
 interface RateTransfer {
@@ -157,7 +157,7 @@ export default function RateTransferManager() {
       <Row gutter={8} style={{ marginBottom: 12 }}>
         <Col>
           <Select id="rate-transfer-filter-job-type" allowClear placeholder="ลักษณะงาน" style={{ width: 130 }}
-            options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))}
+            options={RATE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))}
             value={filterJobType} onChange={setFilterJobType} />
         </Col>
         <Col>
@@ -185,7 +185,7 @@ export default function RateTransferManager() {
           {!editingRate && (
             <>
               <Form.Item name="jobType" label="ลักษณะงาน" rules={[{ required: true, message: 'กรุณาเลือกลักษณะงาน' }]}>
-                <Select id="rate-transfer-job-type" showSearch options={JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน" />
+                <Select id="rate-transfer-job-type" showSearch options={RATE_JOB_TYPES.map(t => ({ value: t.value, label: t.label }))} placeholder="เลือกลักษณะงาน" />
               </Form.Item>
               <Form.Item name="size" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
                 <Select id="rate-transfer-size" showSearch options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))} placeholder="เลือก SIZE" />
