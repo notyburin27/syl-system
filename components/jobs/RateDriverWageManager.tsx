@@ -20,9 +20,17 @@ interface RateDriverWage {
 /** ข้อความ error จาก API เมื่อ combination นั้นมีอยู่แล้ว */
 const DUPLICATE_ERROR = 'มีข้อมูลนี้อยู่แล้ว'
 
+/** ทอยตู้ตั้งอัตราแบบไม่ระบุโรงงาน (ตรงกับเงื่อนไขใน POST /api/rates/driver-wage) */
+const isTowingJobType = (jobType: string) => jobType === 'towing'
+
 /** จำนวนรายการที่จะถูกสร้างจาก combination ที่เลือกไว้ */
 function comboCount(v: Partial<DriverWageFormValues>): number {
-  return (v.jobTypes?.length ?? 0) * (v.sizes?.length ?? 0) * (v.factoryLocationIds?.length ?? 0)
+  const towingCount = (v.jobTypes ?? []).filter(isTowingJobType).length
+  const otherCount = (v.jobTypes ?? []).length - towingCount
+  const sizeCount = v.sizes?.length ?? 0
+  const factoryCount = v.factoryLocationIds?.length ?? 0
+  // ทอยตู้ไม่ผูกกับโรงงาน — นับเป็น 1 รายการต่อ SIZE
+  return sizeCount * (towingCount + otherCount * factoryCount)
 }
 
 interface DriverWageFormValues {
@@ -113,11 +121,17 @@ export default function RateDriverWageManager() {
     fetchRates()
   }
 
-  /** เพิ่มทีละ combination ของ ลักษณะงาน x SIZE x โรงงาน — ข้ามรายการที่มีอยู่แล้ว */
+  /** เพิ่มทีละ combination ของ ลักษณะงาน x SIZE x โรงงาน — ข้ามรายการที่มีอยู่แล้ว
+   *  ทอยตู้ไม่ผูกกับโรงงาน จึงสร้างเป็น factoryLocationId = null รายการเดียวต่อ SIZE */
   const handleBulkCreate = async (values: DriverWageFormValues) => {
     const combos = values.jobTypes.flatMap(jobType =>
       values.sizes.flatMap(size =>
-        values.factoryLocationIds.map(factoryLocationId => ({ jobType, size, factoryLocationId })),
+        isTowingJobType(jobType)
+          ? [{ jobType, size, factoryLocationId: null as string | null }]
+          : (values.factoryLocationIds ?? []).map(
+              (factoryLocationId): { jobType: string; size: string; factoryLocationId: string | null } =>
+                ({ jobType, size, factoryLocationId }),
+            ),
       ),
     )
 
@@ -126,7 +140,7 @@ export default function RateDriverWageManager() {
     const failed: string[] = []
 
     for (const combo of combos) {
-      const label = `${getJobTypeLabel(combo.jobType)} / ${combo.size} / ${factoryNameById.get(combo.factoryLocationId) ?? '-'}`
+      const label = `${getJobTypeLabel(combo.jobType)} / ${combo.size} / ${(combo.factoryLocationId && factoryNameById.get(combo.factoryLocationId)) ?? '-'}`
       try {
         const res = await fetch('/api/rates/driver-wage', {
           method: 'POST',
@@ -253,10 +267,26 @@ export default function RateDriverWageManager() {
                 <Select id="rate-driver-wage-size" mode="multiple" allowClear showSearch optionFilterProp="label"
                   options={sizeOptions} placeholder="เลือก SIZE (เลือกได้หลายรายการ)" />
               </Form.Item>
-              <Form.Item name="factoryLocationIds" label="โรงงาน" rules={[{ required: true, message: 'กรุณาเลือกโรงงาน' }]}>
-                <Select id="rate-driver-wage-factory" mode="multiple" allowClear showSearch options={factoryOptions}
-                  filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
-                  placeholder="เลือกโรงงาน (เลือกได้หลายรายการ)" popupMatchSelectWidth={false} />
+              {/* ทอยตู้ไม่ผูกกับโรงงาน — required เฉพาะเมื่อมีลักษณะงานอื่นที่ไม่ใช่ทอยตู้ */}
+              <Form.Item noStyle shouldUpdate={(prev, cur) => prev.jobTypes !== cur.jobTypes}>
+                {() => {
+                  const jobTypes: string[] = form.getFieldValue('jobTypes') ?? []
+                  const onlyTowing = jobTypes.length > 0 && jobTypes.every(isTowingJobType)
+                  return (
+                    <Form.Item
+                      name="factoryLocationIds"
+                      label="โรงงาน"
+                      rules={onlyTowing ? [] : [{ required: true, message: 'กรุณาเลือกโรงงาน' }]}
+                      extra={onlyTowing ? 'ทอยตู้ไม่ต้องระบุโรงงาน' : undefined}
+                    >
+                      <Select id="rate-driver-wage-factory" mode="multiple" allowClear showSearch options={factoryOptions}
+                        disabled={onlyTowing}
+                        filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
+                        placeholder={onlyTowing ? 'ไม่ต้องเลือกโรงงาน' : 'เลือกโรงงาน (เลือกได้หลายรายการ)'}
+                        popupMatchSelectWidth={false} />
+                    </Form.Item>
+                  )
+                }}
               </Form.Item>
               <Form.Item noStyle shouldUpdate>
                 {() => {

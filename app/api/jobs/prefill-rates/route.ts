@@ -25,13 +25,15 @@ export async function POST(req: Request) {
     const end = new Date(start);
     end.setUTCMonth(end.getUTCMonth() + 1);
 
-    // งานที่ต้องเติม: ยังไม่เคลียร์/ไม่ยกเลิก และมีอย่างน้อยหนึ่งช่องที่ null
+    // งานที่ต้องเติม: ยังไม่ยกเลิก และมีอย่างน้อยหนึ่งช่องที่ null
     // ข้าม advance/noJob เพราะไม่มีอัตราค่าขนส่ง (ตรงกับเงื่อนไขปุ่มใน modal)
+    //
+    // งานที่เคลียร์แล้ว (clearStatus) ก็ดึงข้อมูลได้ — เพราะเติมเฉพาะช่องที่ยัง null
+    // จึงไม่ทับยอดที่ปิดไปแล้ว (ตรงกับเจตนาของ lock ใน PATCH /api/jobs/[id])
     const jobs = await prisma.job.findMany({
       where: {
         jobDate: { gte: start, lt: end },
         isCancelled: false,
-        clearStatus: false,
         jobType: { notIn: ["advance", "noJob"] },
         OR: [{ income: null }, { driverWage: null }],
       },

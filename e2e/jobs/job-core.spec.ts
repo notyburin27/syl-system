@@ -389,6 +389,57 @@ test.describe.serial('Job core — ยกเลิก / ลบ / โอน / ย
     expect(Number((await withRate.json()).driverWage)).toBe(1500)
   })
 
+  test('ดึงข้อมูล (prefill): งานที่เคลียร์แล้วต้องถูกเติมช่องที่ยังว่าง', async ({ page }) => {
+    const driverId = await createDriver(page)
+    const { locationFactoryId: factoryLocationId, customerId } = await seedRefData(page, test.info().testId)
+
+    await page.request.post('/api/rates/income', {
+      data: { jobType: 'inbound', size: '20DC', factoryLocationId, customerId, income: 8000 },
+    })
+    await page.request.post('/api/rates/driver-wage', {
+      data: { jobType: 'inbound', size: '20DC', factoryLocationId, driverWage: 1500 },
+    })
+
+    // งานยังไม่มีค่าขนส่ง/ค่าเที่ยว แล้วเคลียร์ (ส่วนต่าง 0 → เคลียร์ผ่าน)
+    const jobId = await createJob(page, {
+      driverId, jobNumber: 'E2E-PREFILL-CLEARED', size: '20DC', factoryLocationId, customerId,
+    })
+    const cleared = await page.request.patch(`/api/jobs/${jobId}/clear`)
+    expect(cleared.ok()).toBeTruthy()
+    expect((await cleared.json()).clearStatus).toBe(true)
+
+    const res = await page.request.post('/api/jobs/prefill-rates', { data: { month: CURRENT_MONTH } })
+    expect(res.ok()).toBeTruthy()
+
+    const job = await getJob(page, jobId)
+    expect(Number(job.income)).toBe(8000)
+    expect(Number(job.driverWage)).toBe(1500)
+    // ยังล็อคอยู่ — prefill ไม่ปลดสถานะเคลียร์
+    expect(job.clearStatus).toBe(true)
+  })
+
+  test('ดึงข้อมูล (prefill): ค่าที่กรอกไว้แล้วในงานที่เคลียร์ต้องไม่ถูกทับ', async ({ page }) => {
+    const driverId = await createDriver(page)
+    const { locationFactoryId: factoryLocationId, customerId } = await seedRefData(page, test.info().testId)
+
+    await page.request.post('/api/rates/income', {
+      data: { jobType: 'inbound', size: '20DC', factoryLocationId, customerId, income: 8000 },
+    })
+
+    // กรอก income เองเป็น 9999 ก่อนเคลียร์ → prefill ต้องไม่ทับด้วย 8000
+    const jobId = await createJob(page, {
+      driverId, jobNumber: 'E2E-PREFILL-KEEP', size: '20DC', factoryLocationId, customerId, income: 9999,
+    })
+    const cleared = await page.request.patch(`/api/jobs/${jobId}/clear`)
+    expect(cleared.ok()).toBeTruthy()
+
+    const res = await page.request.post('/api/jobs/prefill-rates', { data: { month: CURRENT_MONTH } })
+    expect(res.ok()).toBeTruthy()
+
+    const job = await getJob(page, jobId)
+    expect(Number(job.income)).toBe(9999)
+  })
+
   test('คำนวณคาดการณ์ค่ารับ/คืนตู้: ดึงจาก rate ของแต่ละสถานที่', async ({ page }) => {
     const { locationGeneralId } = await seedRefData(page, test.info().testId)
 

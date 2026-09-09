@@ -431,6 +431,29 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     await expect(page.getByText('2,500')).toBeVisible({ timeout: 5_000 })
   })
 
+  test('Case 1b: ทอยตู้ไม่ต้องเลือกโรงงาน → เพิ่มได้โดยไม่ติด validation', async ({ page }) => {
+    await seedRefData(page, test.info().testId)
+
+    await page.goto('/jobs/settings/rates/driver-wage')
+    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible()
+
+    const dialog = await openModal(page, 'rate-driver-wage-add-btn')
+
+    await selectMultiple(page, 'rate-driver-wage-job-type', ['ทอยตู้'])
+    await selectMultiple(page, 'rate-driver-wage-size', ['40FL'])
+
+    // เลือกทอยตู้อย่างเดียว → ช่องโรงงานต้องถูก disable และไม่บังคับกรอก
+    await expect(dialog.getByText('ทอยตู้ไม่ต้องระบุโรงงาน')).toBeVisible()
+
+    await page.getByTestId('rate-driver-wage-amount-input').fill('1750')
+
+    await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
+    await expect(page.getByText('เพิ่มสำเร็จ 1 รายการ')).toBeVisible({ timeout: 5_000 })
+    await expect(dialog).not.toBeVisible()
+    await expect(page.getByText('กรุณาเลือกโรงงาน')).not.toBeVisible()
+    await expect(page.getByText('1,750')).toBeVisible({ timeout: 5_000 })
+  })
+
   test('Case 2: เลือกหลายลักษณะงาน x หลาย SIZE → เพิ่มครบทุก combination', async ({ page }) => {
     const { locFactoryName } = await seedRefData(page, test.info().testId)
 

@@ -37,6 +37,8 @@ async function main() {
   // Also remove towing rates that have no factory (towing test creates factoryLocationId=null record with 20DC size)
   // Only delete if driverWage matches known test values to avoid accidental deletion
   await prisma.rateDriverWage.deleteMany({ where: { factoryLocationId: null, jobType: 'towing', size: '20DC', driverWage: 1800 } })
+  // Case 1b ใช้ 40FL คู่กับ factoryLocationId=null ซึ่งไม่มี factory ให้ผูก cleanup — ลบตาม size ไปเลย
+  await prisma.rateDriverWage.deleteMany({ where: { factoryLocationId: null, jobType: 'towing', size: '40FL' } })
 
   // Remove test locations / customers created for settings tests
   await prisma.location.deleteMany({ where: { name: { startsWith: 'E2E_TEST_LOC' } } })
