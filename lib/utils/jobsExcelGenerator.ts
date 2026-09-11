@@ -354,6 +354,62 @@ export async function generateJobsExcel(
     }
   })
 
+  // --- แถวสรุปพิเศษท้ายสุด: ยอดรวมโอนเงินให้ พขร + รวมเติมน้ำมันทั้งหมด ---
+  const advanceColIdx = columns.findIndex((c) => c.header === 'เบิกล่วงหน้า')
+  const driverTotalColIdx = columns.findIndex((c) => c.header === 'รวมคนรถปิดงาน')
+  const fuelCashAmountColIdx = columns.findIndex((c) => c.header === 'น้ำมันสด (฿)')
+  const fuelOfficeLitersColIdx = columns.findIndex((c) => c.header === 'น้ำมัน OFF (ลิตร)')
+  const fuelCashLitersColIdx = columns.findIndex((c) => c.header === 'น้ำมันสด (ลิตร)')
+  const fuelCreditLitersColIdx = columns.findIndex((c) => c.header === 'น้ำมันเครดิต (ลิตร)')
+
+  const extraSummaryRow = (rowIdx: number, label: string, note: string, valueCol: number, formula: string) => {
+    const row = ws.getRow(rowIdx)
+    row.height = 29
+
+    const labelCell = row.getCell(1)
+    labelCell.value = label
+    labelCell.font = { name: FONT_NAME, size: FONT_SIZE, bold: true }
+    labelCell.alignment = { horizontal: 'right', vertical: 'middle' }
+    if (valueCol > 1) ws.mergeCells(rowIdx, 1, rowIdx, valueCol - 1)
+
+    const valueCell = row.getCell(valueCol)
+    valueCell.value = { formula }
+    valueCell.numFmt = NUM_FMT
+    valueCell.font = { name: FONT_NAME, size: FONT_SIZE, bold: true }
+    valueCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    const noteCell = row.getCell(valueCol + 1)
+    noteCell.value = note
+    noteCell.font = { name: FONT_NAME, size: FONT_SIZE }
+    noteCell.alignment = { horizontal: 'left', vertical: 'middle' }
+  }
+
+  if (advanceColIdx >= 0 && driverTotalColIdx >= 0 && fuelCashAmountColIdx >= 0) {
+    const advanceCol = ws.getColumn(advanceColIdx + 1).letter
+    const driverTotalCol = ws.getColumn(driverTotalColIdx + 1).letter
+    const fuelCashAmountCol = ws.getColumn(fuelCashAmountColIdx + 1).letter
+    extraSummaryRow(
+      summaryLastRow + 1,
+      'ยอดรวมโอนเงินงานให้ พขร ทั้งหมด',
+      '(เบิกล่วงหน้า+รวมคนรถปิดงาน+น้ำมันเงินสดบาท)',
+      advanceColIdx + 1,
+      `${advanceCol}${summaryLastRow}+${driverTotalCol}${summaryLastRow}+${fuelCashAmountCol}${summaryLastRow}`,
+    )
+  }
+
+  if (fuelOfficeLitersColIdx >= 0 && fuelCashLitersColIdx >= 0 && fuelCreditLitersColIdx >= 0) {
+    const fuelOfficeLitersCol = ws.getColumn(fuelOfficeLitersColIdx + 1).letter
+    const fuelCashLitersCol = ws.getColumn(fuelCashLitersColIdx + 1).letter
+    const fuelCreditLitersCol = ws.getColumn(fuelCreditLitersColIdx + 1).letter
+    extraSummaryRow(
+      summaryLastRow + 2,
+      'รวมเติมน้ำมันทั้งหมด จำนวน',
+      'ลิตร',
+      fuelOfficeLitersColIdx + 1,
+      `SUM(${fuelOfficeLitersCol}${FIRST_DATA_ROW}:${fuelOfficeLitersCol}${lastDataRow})+SUM(${fuelCashLitersCol}${FIRST_DATA_ROW}:${fuelCashLitersCol}${lastDataRow})+SUM(${fuelCreditLitersCol}${FIRST_DATA_ROW}:${fuelCreditLitersCol}${lastDataRow})`,
+    )
+  }
+
   ws.views = [{ state: 'frozen', ySplit: HEADER_ROW }]
 
   const arrayBuffer = await workbook.xlsx.writeBuffer()
