@@ -67,6 +67,7 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/transport-documents")) return "documents";
     if (pathname?.startsWith("/work-orders")) return "work-orders";
     if (pathname?.startsWith("/line-images")) return "line-images";
+    if (pathname?.startsWith("/summary")) return "summary";
     return "documents";
   };
 
@@ -158,9 +159,16 @@ export default function ProtectedLayoutClient({
     label: <Link href="/admin/users">จัดการผู้ใช้</Link>,
   };
 
+  const summaryMenu = {
+    key: "summary",
+    icon: <FileTextOutlined />,
+    label: <Link href="/summary">สรุปงาน</Link>,
+  };
+
   const menuItems = isAdmin
     ? [
         ...commonMenuItems,
+        summaryMenu,
         stockMenu,
         usersMenu,
       ]
