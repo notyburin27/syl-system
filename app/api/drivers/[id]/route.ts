@@ -14,7 +14,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, vehicleNumber, vehicleRegistration, groupName, resignedAt } = body;
+    const { name, vehicleNumber, vehicleRegistration, groupName, resignedAt, baseSalary, startDate } = body;
 
     // แก้เฉพาะวันที่ลาออก (จาก action "ลาออก") — ไม่ต้องส่งข้อมูลคนขับทั้งชุด
     if ("resignedAt" in body && name === undefined) {
@@ -23,6 +23,10 @@ export async function PATCH(
         data: { resignedAt: resignedAt ? new Date(resignedAt) : null },
         include: { bankAccounts: true },
       });
+      if (session.user.role !== "ADMIN") {
+        const { baseSalary: _baseSalary, ...safe } = driver;
+        return NextResponse.json(safe);
+      }
       return NextResponse.json(driver);
     }
 
@@ -33,6 +37,8 @@ export async function PATCH(
       );
     }
 
+    const isAdmin = session.user.role === "ADMIN";
+
     const driver = await prisma.driver.update({
       where: { id },
       data: {
@@ -40,12 +46,22 @@ export async function PATCH(
         vehicleNumber: vehicleNumber?.trim() || null,
         vehicleRegistration: vehicleRegistration?.trim() || null,
         groupName: groupName?.trim() || null,
+        startDate: startDate ? new Date(startDate) : null,
+        // non-admin แก้เงินเดือนไม่ได้ — ไม่ใส่ key นี้เลยเพื่อไม่ให้ทับค่าเดิม
+        ...(isAdmin && "baseSalary" in body && {
+          baseSalary: baseSalary != null ? baseSalary : null,
+        }),
         ...("resignedAt" in body && {
           resignedAt: resignedAt ? new Date(resignedAt) : null,
         }),
       },
       include: { bankAccounts: true },
     });
+
+    if (!isAdmin) {
+      const { baseSalary: _baseSalary, ...safe } = driver;
+      return NextResponse.json(safe);
+    }
     return NextResponse.json(driver);
   } catch (error: unknown) {
     if (

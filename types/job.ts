@@ -21,6 +21,10 @@ export interface Driver {
   vehicleNumber: string | null;
   vehicleRegistration: string | null;
   groupName: string | null;
+  /** ฐานเงินเดือน — API ตัด field นี้ออกสำหรับ role ที่ไม่ใช่ ADMIN */
+  baseSalary?: number | null;
+  /** วันเริ่มงาน (ISO date string) */
+  startDate: string | null;
   isActive: boolean;
   resignedAt: string | null;
   bankAccounts: DriverBankAccount[];

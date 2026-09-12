@@ -180,6 +180,8 @@ model Driver {
   vehicleNumber       String?
   vehicleRegistration String?
   groupName           String?
+  baseSalary          Decimal?            @db.Decimal(10, 2)
+  startDate           DateTime?           @db.Date
   isActive            Boolean             @default(true)
   resignedAt          DateTime?           @db.Date
   createdAt           DateTime            @default(now())
