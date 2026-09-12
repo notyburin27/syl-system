@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { buildMonthSummaries } from "../route";
+import { buildMonthSummaries } from "@/lib/utils/summaryQuery";
 import { monthsInRange } from "@/lib/utils/monthRange";
 
 export async function GET(
