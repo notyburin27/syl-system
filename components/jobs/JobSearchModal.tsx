@@ -144,7 +144,7 @@ export default function JobSearchModal({
   const [limit, setLimit] = useState(0)
   const [loading, setLoading] = useState(false)
   const [unlockingId, setUnlockingId] = useState<string | null>(null)
-  const { message, modal } = App.useApp()
+  const { message } = App.useApp()
   const inputRef = useRef<React.ComponentRef<typeof Input>>(null)
   const requestIdRef = useRef(0)
 
@@ -212,36 +212,28 @@ export default function JobSearchModal({
     window.open(`/jobs/${job.driverId}?${params.toString()}`, '_blank', 'noopener')
   }, [])
 
+  // ปลดล็อกทันทีโดยไม่ถามยืนยัน — ให้ตรงกับปุ่มปลดล็อกในตารางงาน
   const handleUnlock = useCallback(
-    (job: JobSearchResult) => {
-      modal.confirm({
-        title: 'ปลดล็อกงาน',
-        content: `ต้องการปลดล็อกงาน ${job.jobNumber} ใช่หรือไม่? งานจะกลับไปเป็นสถานะ "ยังไม่เคลียร์" และแก้ไขได้อีกครั้ง`,
-        okText: 'ปลดล็อก',
-        okButtonProps: { danger: true },
-        cancelText: 'ยกเลิก',
-        onOk: async () => {
-          setUnlockingId(job.id)
-          try {
-            const res = await fetch(`/api/jobs/${job.id}/clear`, { method: 'PATCH' })
-            const data = await res.json()
-            if (!res.ok) {
-              message.error(data.error || 'เกิดข้อผิดพลาดในการปลดล็อก')
-              return
-            }
-            setResults((prev) =>
-              prev.map((j) => (j.id === job.id ? { ...j, clearStatus: data.clearStatus } : j))
-            )
-            message.success(`ปลดล็อกงาน ${job.jobNumber} แล้ว`)
-          } catch {
-            message.error('เกิดข้อผิดพลาดในการปลดล็อก')
-          } finally {
-            setUnlockingId(null)
-          }
-        },
-      })
+    async (job: JobSearchResult) => {
+      setUnlockingId(job.id)
+      try {
+        const res = await fetch(`/api/jobs/${job.id}/clear`, { method: 'PATCH' })
+        const data = await res.json()
+        if (!res.ok) {
+          message.error(data.error || 'เกิดข้อผิดพลาดในการปลดล็อก')
+          return
+        }
+        setResults((prev) =>
+          prev.map((j) => (j.id === job.id ? { ...j, clearStatus: data.clearStatus } : j))
+        )
+        message.success(`ปลดล็อกงาน ${job.jobNumber} แล้ว`)
+      } catch {
+        message.error('เกิดข้อผิดพลาดในการปลดล็อก')
+      } finally {
+        setUnlockingId(null)
+      }
     },
-    [modal, message]
+    [message]
   )
 
   const showHint = debounced.length < MIN_QUERY_LENGTH
