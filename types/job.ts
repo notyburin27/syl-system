@@ -242,3 +242,10 @@ export interface DriverMonthlySummary {
   driverWage: number;         // ค่าเที่ยว
   baseSalary: number | null;  // เงินเดือน
 }
+
+/**
+ * Sentinel token แทน "กลุ่มอื่นๆ" (คนขับที่ไม่มี groupName) ใน query param `groups`
+ * ของ /api/summary/export — ใช้แทนสตริงว่างเพราะ "" ถูก .filter(Boolean) ทิ้งไปเสมอ
+ * ไฟล์นี้ไม่มี import ใดๆ จึง import ได้ทั้งจาก client component และ server route
+ */
+export const UNGROUPED = "__ungrouped__";

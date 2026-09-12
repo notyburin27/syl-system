@@ -4,6 +4,7 @@ import { buildMonthSummaries } from "@/lib/utils/summaryQuery";
 import { monthsInRange } from "@/lib/utils/monthRange";
 import { generateSummaryExcel, type DriverSheetData } from "@/lib/utils/summaryExcelGenerator";
 import { toThaiMonthYear } from "@/lib/utils/thaiDate";
+import { UNGROUPED } from "@/types/job";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -35,13 +36,21 @@ export async function GET(req: Request) {
       months.map((m) => buildMonthSummaries(m, driverId ? [driverId] : undefined))
     );
 
-    const groups = groupsParam ? groupsParam.split(",").filter(Boolean) : [];
+    // param ไม่มีเลย (null) = ไม่กรอง (ทุกกลุ่ม); param มีแต่ว่าง/ตัดด้วย comma ก็ยังนับว่า "ระบุแล้ว"
+    // ต้องแยกสองเคสนี้ให้ชัด เพราะ "ระบุแต่ต้องการเฉพาะกลุ่มอื่นๆ (sentinel)" ก็ต้องกรอง
+    const groups = groupsParam !== null ? groupsParam.split(",").filter(Boolean) : null;
     const byDriver = new Map<string, DriverSheetData>();
 
     for (const monthSummaries of perMonth) {
       for (const s of monthSummaries) {
-        // กรองกลุ่ม (ว่าง = ทุกกลุ่ม)
-        if (groups.length > 0 && !groups.includes(s.groupName ?? "")) continue;
+        // กรองกลุ่ม: groups === null → ไม่กรอง (ทุกกลุ่ม)
+        // groups !== null → match ถ้า groupName อยู่ใน list หรือ (ไม่มี groupName และ list มี sentinel)
+        if (groups !== null) {
+          const matches = s.groupName
+            ? groups.includes(s.groupName)
+            : groups.includes(UNGROUPED);
+          if (!matches) continue;
+        }
 
         const existing = byDriver.get(s.driverId);
         if (existing) {
@@ -63,8 +72,8 @@ export async function GET(req: Request) {
     const groupLabel =
       driverId && sheets.length === 1
         ? sheets[0].driverName
-        : groups.length > 0
-          ? groups.join(",")
+        : groups && groups.length > 0
+          ? groups.map((g) => (g === UNGROUPED ? "กลุ่มอื่นๆ" : g)).join(",")
           : "ทุกกลุ่ม";
     const filename = `สรุป${groupLabel} ${toThaiMonthYear(months[0])}.xlsx`;
 
