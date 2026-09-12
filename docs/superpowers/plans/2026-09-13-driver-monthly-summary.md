@@ -1140,12 +1140,15 @@ export async function buildMonthSummaries(
     orderBy: [{ groupName: "asc" }, { name: "asc" }],
   });
 
-  // ราคาน้ำมัน: record ล่าสุดที่มีผลภายในเดือนนั้น
-  const fuelLog = await prisma.fuelPriceLog.findFirst({
+  // ราคาน้ำมัน: ค่าเฉลี่ยของทุก record ในเดือนนั้น (ไม่ปัดเศษ)
+  // แก้ 2026-09-13: เดิมใช้ราคาล่าสุดของเดือน ซึ่งผิด — ดูหมายเหตุใน spec
+  const fuelAgg = await prisma.fuelPriceLog.aggregate({
     where: { effectiveDate: { gte, lt } },
-    orderBy: { effectiveDate: "desc" },
+    _avg: { pricePerLiter: true },
   });
-  const fuelPricePerLiter = fuelLog ? Number(fuelLog.pricePerLiter) : null;
+  // เดือนที่ไม่มี log เลย → _avg เป็น null → คงเป็น null ไม่ใช่ 0
+  const fuelPricePerLiter =
+    fuelAgg._avg.pricePerLiter != null ? Number(fuelAgg._avg.pricePerLiter) : null;
 
   const driverIdList = drivers.map((d) => d.id);
 
