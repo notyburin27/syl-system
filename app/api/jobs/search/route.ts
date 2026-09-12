@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const MAX_RESULTS = 30;
-const MIN_QUERY_LENGTH = 2;
+const MIN_QUERY_LENGTH = 4;
 
 export async function GET(req: Request) {
   const session = await auth();

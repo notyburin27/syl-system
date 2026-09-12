@@ -14,7 +14,7 @@ import dayjs from 'dayjs'
 import { getJobTypeLabel } from '@/types/job'
 import type { JobSearchResult, JobSearchResponse } from '@/types/job'
 
-const MIN_QUERY_LENGTH = 2
+const MIN_QUERY_LENGTH = 4
 const DEBOUNCE_MS = 350
 
 /** ไฮไลต์ส่วนของข้อความที่ตรงกับคำค้น (case-insensitive) */
