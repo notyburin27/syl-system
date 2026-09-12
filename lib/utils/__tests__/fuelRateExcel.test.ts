@@ -6,6 +6,8 @@ import {
   toStoredMax,
   fromStoredMax,
   FUEL_RATE_HEADERS,
+  matchFuelRateFilename,
+  buildFuelRateFilename,
 } from '../fuelRateExcel'
 
 const HEADER = [...FUEL_RATE_HEADERS]
@@ -191,4 +193,70 @@ test('effectiveIncome: เลือกช่วงตรงราคา, นอ�
   assert.equal(effectiveIncome(rate, 50), 10000) // นอกช่วง → ฐาน
   assert.equal(effectiveIncome(rate, null), 10000) // ไม่มีบันทึกราคาน้ำมัน
   assert.equal(effectiveIncome({ income: 8000, fuelSurcharges: [] }, 36.5), 8000)
+})
+
+// ---------- matchFuelRateFilename ----------
+
+const CUSTOMERS = [
+  { id: 'c1', name: 'ALL CENTER' },
+  { id: 'c2', name: 'ACCORD PILOT' },
+  { id: 'c3', name: 'เทพผดุงพร' },
+  { id: 'c4', name: 'ABLE' },
+]
+const FACTORIES = [
+  { id: 'f1', name: 'ปัญจวัฒนาพลาสติก สมุทรสาคร' },
+  { id: 'f2', name: 'เมจิกส์มายบางกรวย นนทบุรี' },
+  { id: 'f3', name: 'เทพผดุงพร สาย4' },
+  { id: 'f4', name: 'VG บางบอน' },
+]
+
+test('matchFuelRateFilename: ชื่อไฟล์ตรงรูปแบบ "ลูกค้า - โรงงาน.xlsx"', () => {
+  assert.deepEqual(
+    matchFuelRateFilename('ALL CENTER - ปัญจวัฒนาพลาสติก สมุทรสาคร.xlsx', CUSTOMERS, FACTORIES),
+    { customerId: 'c1', factoryLocationId: 'f1' }
+  )
+})
+
+test('matchFuelRateFilename: ทนต่อช่องว่างเกิน, case ต่าง, และนามสกุล .xls', () => {
+  assert.deepEqual(
+    matchFuelRateFilename('  all center  -  ปัญจวัฒนาพลาสติก   สมุทรสาคร .xls', CUSTOMERS, FACTORIES),
+    { customerId: 'c1', factoryLocationId: 'f1' }
+  )
+})
+
+test('matchFuelRateFilename: ตัด suffix ที่ browser เติมตอนโหลดซ้ำ เช่น (1)', () => {
+  assert.deepEqual(
+    matchFuelRateFilename('ALL CENTER - ปัญจวัฒนาพลาสติก สมุทรสาคร (1).xlsx', CUSTOMERS, FACTORIES),
+    { customerId: 'c1', factoryLocationId: 'f1' }
+  )
+})
+
+test('matchFuelRateFilename: ชื่อลูกค้า/โรงงานมี "-" ในตัวเอง → แยกที่ " - " ที่ทำให้ match ได้', () => {
+  const customers = [...CUSTOMERS, { id: 'c5', name: 'K-APEX' }]
+  const factories = [...FACTORIES, { id: 'f5', name: 'เชอร่า - ลพบุรี' }]
+  assert.deepEqual(
+    matchFuelRateFilename('K-APEX - เชอร่า - ลพบุรี.xlsx', customers, factories),
+    { customerId: 'c5', factoryLocationId: 'f5' }
+  )
+})
+
+test('matchFuelRateFilename: ชื่อลูกค้าซ้ำกับชื่อโรงงาน (เทพผดุงพร) ยัง match ถูกฝั่ง', () => {
+  assert.deepEqual(
+    matchFuelRateFilename('เทพผดุงพร - เทพผดุงพร สาย4.xlsx', CUSTOMERS, FACTORIES),
+    { customerId: 'c3', factoryLocationId: 'f3' }
+  )
+})
+
+test('matchFuelRateFilename: match ไม่ได้ → null (ไม่มี separator, ชื่อไม่มีใน DB, ฝั่งเดียว)', () => {
+  assert.equal(matchFuelRateFilename('fuel_rates_current.xlsx', CUSTOMERS, FACTORIES), null)
+  assert.equal(matchFuelRateFilename('ไม่มีลูกค้านี้ - ไม่มีโรงงานนี้.xlsx', CUSTOMERS, FACTORIES), null)
+  assert.equal(matchFuelRateFilename('ALL CENTER - ไม่มีโรงงานนี้.xlsx', CUSTOMERS, FACTORIES), null)
+  assert.equal(matchFuelRateFilename('', CUSTOMERS, FACTORIES), null)
+})
+
+test('buildFuelRateFilename: ประกอบชื่อไฟล์กลับได้รูปแบบเดิม', () => {
+  assert.equal(
+    buildFuelRateFilename('ALL CENTER', 'ปัญจวัฒนาพลาสติก สมุทรสาคร'),
+    'ALL CENTER - ปัญจวัฒนาพลาสติก สมุทรสาคร.xlsx'
+  )
 })
