@@ -16,7 +16,7 @@ export async function GET(
       where: { id },
       include: {
         customer: true,
-        driver: true,
+        driver: { select: { id: true, name: true, vehicleNumber: true, groupName: true, startDate: true } },
         pickupLocation: true,
         factoryLocation: true,
         returnLocation: true,
@@ -155,7 +155,7 @@ export async function PATCH(
       data,
       include: {
         customer: true,
-        driver: true,
+        driver: { select: { id: true, name: true, vehicleNumber: true, groupName: true, startDate: true } },
         pickupLocation: true,
         factoryLocation: true,
         returnLocation: true,

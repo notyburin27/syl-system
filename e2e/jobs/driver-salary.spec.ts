@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { execSync } from 'child_process'
 import * as dotenv from 'dotenv'
 import path from 'path'
+import dayjs from 'dayjs'
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
 
@@ -138,5 +139,42 @@ test.describe.serial('ฐานเงินเดือน + วันเริ�
     expect(res.ok()).toBeTruthy()
     const body = await res.json()
     expect(body.baseSalary).toBeUndefined()
+  })
+
+  test('Case 6: MANAGER ยิง GET /api/jobs ไม่เห็น baseSalary ของคนขับใน driver object', async ({ page }) => {
+    await login(page, 'testadmin')
+    await page.goto('/jobs/settings/drivers')
+    await page.getByTestId('add-driver-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER_NAME)
+    await page.locator('#driver-base-salary').fill('9000')
+    await page.getByTestId('driver-submit-btn').click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    const adminRes = await page.request.get('/api/drivers')
+    const driverId = (await adminRes.json()).find(
+      (d: { name: string }) => d.name === DRIVER_NAME
+    ).id
+
+    const month = dayjs().format('YYYY-MM')
+    const jobRes = await page.request.post('/api/jobs', {
+      data: {
+        jobDate: dayjs().format('YYYY-MM-DD'),
+        jobType: 'inbound',
+        jobNumber: `E2E-SALARY-${Date.now()}`,
+        driverId,
+      },
+    })
+    expect(jobRes.ok()).toBeTruthy()
+
+    await page.goto('/api/auth/signout')
+    await login(page, 'testmanager')
+
+    const listRes = await page.request.get(`/api/jobs?month=${month}&driverId=${driverId}`)
+    expect(listRes.ok()).toBeTruthy()
+    const jobs = await listRes.json()
+    expect(jobs.length).toBeGreaterThan(0)
+    for (const job of jobs) {
+      expect(job.driver?.baseSalary).toBeUndefined()
+    }
   })
 })

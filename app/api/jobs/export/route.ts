@@ -89,7 +89,7 @@ export async function GET(req: Request) {
       where,
       include: {
         customer: true,
-        driver: true,
+        driver: { select: { id: true, name: true, vehicleNumber: true, groupName: true, startDate: true } },
         pickupLocation: true,
         factoryLocation: true,
         returnLocation: true,

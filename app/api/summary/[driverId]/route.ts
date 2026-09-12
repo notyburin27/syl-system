@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { buildMonthSummaries } from "@/lib/utils/summaryQuery";
-import { monthsInRange } from "@/lib/utils/monthRange";
+import { monthsInRange, monthSpan } from "@/lib/utils/monthRange";
 
 export async function GET(
   req: Request,
@@ -23,6 +23,10 @@ export async function GET(
 
     if (!from || !/^\d{4}-\d{2}$/.test(from) || !to || !/^\d{4}-\d{2}$/.test(to)) {
       return NextResponse.json({ error: "กรุณาระบุช่วงเดือนให้ถูกต้อง (YYYY-MM)" }, { status: 400 });
+    }
+
+    if (monthSpan(from, to) > 24) {
+      return NextResponse.json({ error: "เลือกช่วงเดือนได้ไม่เกิน 24 เดือน" }, { status: 400 });
     }
 
     const months = monthsInRange(from, to);
