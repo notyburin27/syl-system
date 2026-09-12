@@ -2218,10 +2218,12 @@ export default function SummaryDriverList() {
         buildUrl={(from, to) => {
           const params = new URLSearchParams({ from, to })
           if (selectedGroups.length > 0) {
-            // กลุ่มอื่นๆ ส่งเป็นสตริงว่างให้ API เข้าใจว่าคือคนที่ไม่มีกลุ่ม
+            // กลุ่มอื่นๆ ส่งเป็น sentinel token (UNGROUPED) ไม่ใช่สตริงว่าง
+            // แก้ 2026-09-13: เดิมส่งสตริงว่าง ซึ่ง API แยกไม่ออกจาก "ไม่ได้ส่ง param"
+            // ทำให้เลือก "กลุ่มอื่นๆ" อย่างเดียวแล้วได้คนขับทุกกลุ่มกลับมา
             params.set(
               'groups',
-              selectedGroups.map((g) => (g === OTHER_GROUP_LABEL ? '' : g)).join(',')
+              selectedGroups.map((g) => (g === OTHER_GROUP_LABEL ? UNGROUPED : g)).join(',')
             )
           }
           return `/api/summary/export?${params.toString()}`
