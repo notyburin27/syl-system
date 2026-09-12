@@ -424,6 +424,7 @@ export default function DriverManager() {
         confirmLoading={submitLoading}
         okText={editingDriver ? 'บันทึก' : 'เพิ่ม'}
         cancelText="ยกเลิก"
+        okButtonProps={{ 'data-testid': 'driver-submit-btn' }}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
@@ -441,6 +442,7 @@ export default function DriverManager() {
           </Form.Item>
           <Form.Item name="groupName" label="กลุ่ม">
             <AutoComplete
+              id="driver-group-name"
               data-testid="driver-group-input"
               options={groupOptions()}
               placeholder="ระบุชื่อกลุ่ม หรือเว้นว่างเพื่อจัดเป็นกลุ่มอื่นๆ"

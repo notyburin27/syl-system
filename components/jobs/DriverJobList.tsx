@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Card, Row, Col, DatePicker, Spin, Empty, Input, Tabs, Divider, Button, App } from 'antd'
+import { Card, Row, Col, DatePicker, Spin, Empty, Tabs, Divider, Button, App } from 'antd'
 import { TruckOutlined, SearchOutlined, DownloadOutlined, FileSearchOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverJobSummary } from '@/types/job'
 import dayjs from 'dayjs'
 import JobSearchModal from './JobSearchModal'
+import DriverSearchModal from './DriverSearchModal'
 
 const OTHER_GROUP_KEY = '__other__'
 
@@ -127,7 +128,7 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   const [month, setMonth] = useState(
     initialMonth && dayjs(initialMonth + '-01').isValid() ? dayjs(initialMonth + '-01') : dayjs()
   )
-  const [searchText, setSearchText] = useState('')
+  const [driverSearchOpen, setDriverSearchOpen] = useState(false)
   const [activeGroup, setActiveGroup] = useState<string>(initialGroup || OTHER_GROUP_KEY)
   const [prefilling, setPrefilling] = useState(false)
   const [jobSearchOpen, setJobSearchOpen] = useState(false)
@@ -195,14 +196,10 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   }, [groups])
 
   const filteredSummaries = useMemo(() => {
-    const byGroup = summaries.filter((s) =>
+    return summaries.filter((s) =>
       activeGroup === OTHER_GROUP_KEY ? !s.groupName : s.groupName === activeGroup
     )
-    if (!searchText.trim()) return byGroup
-    return byGroup.filter((s) =>
-      s.driverName.toLowerCase().includes(searchText.trim().toLowerCase())
-    )
-  }, [summaries, activeGroup, searchText])
+  }, [summaries, activeGroup])
 
   // เติมค่าขนส่ง/ค่าเที่ยวคนขับจากอัตราในระบบ ให้ทุกงานในเดือนที่เลือก (เฉพาะช่องที่ยังว่าง)
   const handlePrefillRates = async () => {
@@ -239,6 +236,18 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
     router.push(`/jobs/${driverId}?${params.toString()}`)
   }
 
+  // เลือกคนขับจาก modal ค้นหา → สลับไป tab กลุ่มของคนนั้น แล้ว scroll ไปที่การ์ด
+  const handleSearchSelect = (driverId: string, groupName: string | null) => {
+    setDriverSearchOpen(false)
+    setActiveGroup(groupName ?? OTHER_GROUP_KEY)
+    // รอ tab เปลี่ยนเสร็จก่อนค่อย scroll — การ์ดยังไม่อยู่ใน DOM ตอนนี้
+    setTimeout(() => {
+      document
+        .querySelector(`[data-testid="driver-card-${driverId}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
+  }
+
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -261,15 +270,13 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
           >
             ค้นหา JOB
           </Button>
-          <Input
-            data-testid="driver-search-input"
-            placeholder="ค้นหาชื่อคนขับ"
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-            style={{ width: 200 }}
-          />
+          <Button
+            data-testid="driver-search-btn"
+            icon={<SearchOutlined />}
+            onClick={() => setDriverSearchOpen(true)}
+          >
+            ค้นหาคนขับ
+          </Button>
           <div data-testid="month-picker">
             <DatePicker
               picker="month"
@@ -310,6 +317,13 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
         open={jobSearchOpen}
         isAdmin={isAdmin}
         onClose={() => setJobSearchOpen(false)}
+      />
+
+      <DriverSearchModal
+        open={driverSearchOpen}
+        summaries={summaries}
+        onClose={() => setDriverSearchOpen(false)}
+        onSelect={handleSearchSelect}
       />
     </div>
   )

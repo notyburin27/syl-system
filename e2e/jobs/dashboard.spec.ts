@@ -12,6 +12,8 @@ const DRIVER_NAME = 'Test Driver Playwright'
 const VEHICLE_NUMBER = 'BKK-001'
 const VEHICLE_REGISTRATION = 'กข-0001'
 const JOB_NUMBER = 'E2E-TEST-001'
+const DRIVER_NAME_B = 'Test Driver Playwright B'
+const VEHICLE_NUMBER_B = 'BKK-002'
 
 // English abbreviated month names as rendered by antd DatePicker month cells (index 0 = January)
 const MONTH_ABBREV = [
@@ -140,5 +142,64 @@ test.describe.serial('Jobs Dashboard — Driver Card', () => {
 
     // 12. jobCount กลับมา ≥ 1
     await expect(jobCountEl).not.toHaveText('0', { timeout: 5_000 })
+  })
+
+  // ─── Case: ค้นหาคนขับข้ามกลุ่ม (regression ของ bug ที่หาไม่เจอเมื่ออยู่คนละ tab) ───
+  test('Case: ค้นหาคนขับที่อยู่คนละกลุ่มแล้วเจอ + สลับ tab ให้อัตโนมัติ', async ({ page }) => {
+    // สร้างคนขับ 2 คน คนละกลุ่ม
+    await page.goto('/jobs/settings/drivers')
+    await expect(page.getByText('จัดการคนขับรถ')).toBeVisible()
+
+    await page.getByTestId('add-driver-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER_NAME)
+    await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill(VEHICLE_NUMBER)
+    await page.locator('#driver-group-name').fill('กลุ่มทดสอบ A')
+    await page.getByTestId('driver-submit-btn').click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    await page.getByTestId('add-driver-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER_NAME_B)
+    await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill(VEHICLE_NUMBER_B)
+    await page.locator('#driver-group-name').fill('กลุ่มทดสอบ B')
+    await page.getByTestId('driver-submit-btn').click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    // ไปหน้า dashboard แล้วเลือก tab กลุ่ม A
+    await page.goto('/jobs')
+    await page.getByRole('tab', { name: 'กลุ่มทดสอบ A' }).click()
+    await expect(page.getByText(DRIVER_NAME, { exact: false })).toBeVisible()
+
+    // เปิด modal ค้นหาคนขับ แล้วค้นคนที่อยู่กลุ่ม B (คนละ tab)
+    await page.getByTestId('driver-search-btn').click()
+    await page.getByRole('dialog').getByTestId('driver-search-input').fill(DRIVER_NAME_B)
+
+    // ต้องเจอ ทั้งที่อยู่คนละ tab — นี่คือจุดที่ bug เดิมพัง
+    const result = page.getByRole('dialog').getByTestId('driver-search-result').first()
+    await expect(result).toBeVisible()
+    await expect(result).toContainText('กลุ่มทดสอบ B')
+
+    // คลิกแล้วต้องสลับ tab ไปกลุ่ม B ให้เอง
+    await result.click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+    await expect(page.getByRole('tab', { name: 'กลุ่มทดสอบ B', selected: true })).toBeVisible()
+    await expect(page.getByText(DRIVER_NAME_B, { exact: false })).toBeVisible()
+  })
+
+  // ─── Case: ค้นหาด้วยเบอร์รถ ───
+  test('Case: ค้นหาคนขับด้วยเบอร์รถ', async ({ page }) => {
+    await page.goto('/jobs/settings/drivers')
+    await page.getByTestId('add-driver-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER_NAME)
+    await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill(VEHICLE_NUMBER)
+    await page.getByTestId('driver-submit-btn').click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    await page.goto('/jobs')
+    await page.getByTestId('driver-search-btn').click()
+    await page.getByRole('dialog').getByTestId('driver-search-input').fill(VEHICLE_NUMBER)
+
+    const result = page.getByRole('dialog').getByTestId('driver-search-result').first()
+    await expect(result).toBeVisible()
+    await expect(result).toContainText(DRIVER_NAME)
   })
 })
