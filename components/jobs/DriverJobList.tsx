@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, Row, Col, DatePicker, Spin, Empty, Input, Tabs, Divider, Button, App } from 'antd'
-import { TruckOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons'
+import { TruckOutlined, SearchOutlined, DownloadOutlined, FileSearchOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverJobSummary } from '@/types/job'
 import dayjs from 'dayjs'
+import JobSearchModal from './JobSearchModal'
 
 const OTHER_GROUP_KEY = '__other__'
 
@@ -129,7 +130,20 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   const [searchText, setSearchText] = useState('')
   const [activeGroup, setActiveGroup] = useState<string>(initialGroup || OTHER_GROUP_KEY)
   const [prefilling, setPrefilling] = useState(false)
+  const [jobSearchOpen, setJobSearchOpen] = useState(false)
   const { message } = App.useApp()
+
+  // Ctrl/Cmd+K เปิดค้นหา JOB (ข้ามเมื่อโฟกัสอยู่ในช่องกรอกอื่น)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setJobSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const fetchSummary = useCallback(async (m: dayjs.Dayjs) => {
     setLoading(true)
@@ -240,6 +254,13 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
               ดึงข้อมูล
             </Button>
           )}
+          <Button
+            data-testid="job-search-btn"
+            icon={<FileSearchOutlined />}
+            onClick={() => setJobSearchOpen(true)}
+          >
+            ค้นหา JOB
+          </Button>
           <Input
             data-testid="driver-search-input"
             placeholder="ค้นหาชื่อคนขับ"
@@ -284,6 +305,12 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
           ))}
         </Row>
       )}
+
+      <JobSearchModal
+        open={jobSearchOpen}
+        isAdmin={isAdmin}
+        onClose={() => setJobSearchOpen(false)}
+      />
     </div>
   )
 }
