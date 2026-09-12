@@ -229,6 +229,8 @@ export default function FuelRateUploadModal({
           <p className="ant-upload-text">{parsing ? 'กำลังอ่านไฟล์...' : 'คลิกหรือลากไฟล์ Excel มาวางที่นี่'}</p>
           <p className="ant-upload-hint">
             ตั้งชื่อไฟล์เป็น &quot;ลูกค้า - โรงงาน.xlsx&quot; เช่น ALL CENTER - ปัญจวัฒนาพลาสติก สมุทรสาคร.xlsx — ระบบจะเลือกลูกค้าและโรงงานให้เอง
+            <br />
+            ชื่อโรงงานที่มี &quot;/&quot; ใช้ &quot;-&quot; แทนได้ เช่น เอเชีย อินเตอร์เทรด -ปทุมธานี
           </p>
         </Upload.Dragger>
 
@@ -243,7 +245,7 @@ export default function FuelRateUploadModal({
             type="warning"
             showIcon
             message="อ่านลูกค้า/โรงงานจากชื่อไฟล์ไม่ได้"
-            description="ตั้งชื่อไฟล์เป็น &quot;ลูกค้า - โรงงาน.xlsx&quot; หรือเลือกเองด้านล่าง"
+            description="ตั้งชื่อไฟล์เป็น &quot;ลูกค้า - โรงงาน.xlsx&quot; (ชื่อโรงงานที่มี / ใช้ - แทนได้) หรือเลือกเองด้านล่าง"
           />
         )}
 

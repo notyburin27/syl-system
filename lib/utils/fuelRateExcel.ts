@@ -222,7 +222,16 @@ interface NamedRecord {
 }
 
 // ยุบช่องว่างซ้ำ + ตัดหัวท้าย + lowercase เพื่อเทียบแบบทนการพิมพ์
-const normalizeName = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase()
+//
+// ชื่อโรงงานใน DB ใช้ "/" คั่นสาขา (เช่น "เอเชีย อินเตอร์เทรด /ปทุมธานี") แต่ OS
+// ห้าม "/" ในชื่อไฟล์ ผู้ใช้จึงพิมพ์เป็น "-" — มอง - / – — เป็นตัวเดียวกัน
+// และไม่สนช่องว่างรอบตัวคั่น เพื่อให้เทียบกันติด
+const normalizeName = (text: string) =>
+  text
+    .replace(/\s*[-\u2013\u2014/]\s*/g, '/')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
 
 const findByName = (items: NamedRecord[], text: string) => {
   const target = normalizeName(text)
@@ -245,8 +254,9 @@ export function matchFuelRateFilename(
     .replace(/\.(xlsx|xls)$/i, '')
     .replace(/\s*\(\d+\)$/, '') // suffix ที่ browser เติมตอนโหลดไฟล์ชื่อซ้ำ เช่น "(1)"
 
-  // แยกด้วย separator ที่ยอมให้ช่องว่างรอบ "-" ไม่เท่ากัน
-  const parts = base.split(/\s+-\s+/)
+  // แยกลูกค้า/โรงงานที่ " - " เท่านั้น (ต้องมีช่องว่างล้อม) — "-" ที่ติดกับคำ
+  // เป็นส่วนหนึ่งของชื่อ เช่น "K-APEX" หรือสาขา "-ปทุมธานี"
+  const parts = base.split(/\s+[-\u2013\u2014]\s+/)
   if (parts.length < 2) return null
 
   for (let i = 1; i < parts.length; i++) {

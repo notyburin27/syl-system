@@ -260,3 +260,32 @@ test('buildFuelRateFilename: ประกอบชื่อไฟล์กลั
     'ALL CENTER - ปัญจวัฒนาพลาสติก สมุทรสาคร.xlsx'
   )
 })
+
+test('matchFuelRateFilename: "-" ในชื่อไฟล์ match กับ "/" ใน DB ได้ (ชื่อไฟล์ห้ามมี /)', () => {
+  const customers = [{ id: 'c1', name: 'ASIA INTERTRADE' }]
+  const factories = [{ id: 'f1', name: 'เอเชีย อินเตอร์เทรด /ปทุมธานี' }]
+  // เคสจริงจากผู้ใช้: DB ใช้ "/" แต่ผู้ใช้พิมพ์ "-" เพราะ OS ห้าม "/" ในชื่อไฟล์
+  assert.deepEqual(
+    matchFuelRateFilename('ASIA INTERTRADE - เอเชีย อินเตอร์เทรด -ปทุมธานี.xlsx', customers, factories),
+    { customerId: 'c1', factoryLocationId: 'f1' }
+  )
+  // เว้นวรรครอบตัวคั่นไม่เหมือนกันก็ยังได้
+  assert.deepEqual(
+    matchFuelRateFilename('ASIA INTERTRADE - เอเชีย อินเตอร์เทรด - ปทุมธานี.xlsx', customers, factories),
+    { customerId: 'c1', factoryLocationId: 'f1' }
+  )
+  // ขีดยาว (en/em dash) ที่ Word/Excel ชอบแปลงให้
+  assert.deepEqual(
+    matchFuelRateFilename('ASIA INTERTRADE - เอเชีย อินเตอร์เทรด –ปทุมธานี.xlsx', customers, factories),
+    { customerId: 'c1', factoryLocationId: 'f1' }
+  )
+})
+
+test('matchFuelRateFilename: ชื่อโรงงานที่มี / หลายตัว ยังแยกลูกค้าถูก', () => {
+  const customers = [{ id: 'c1', name: 'ASIA INTERTRADE' }]
+  const factories = [{ id: 'f1', name: 'DC ลำลูกกา /ปทุมธานี /คลอง2' }]
+  assert.deepEqual(
+    matchFuelRateFilename('ASIA INTERTRADE - DC ลำลูกกา -ปทุมธานี -คลอง2.xlsx', customers, factories),
+    { customerId: 'c1', factoryLocationId: 'f1' }
+  )
+})
