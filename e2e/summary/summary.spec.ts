@@ -3,11 +3,13 @@ import { execSync } from 'child_process'
 import * as dotenv from 'dotenv'
 import path from 'path'
 import dayjs from 'dayjs'
+import { UNGROUPED } from '@/types/job'
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
 
 const DRIVER_A = 'Summary Driver A'
 const DRIVER_B = 'Summary Driver B'
+const DRIVER_UNGROUPED = 'Summary Driver Ungrouped'
 const GROUP_A = 'กลุ่มสรุป A'
 const GROUP_B = 'กลุ่มสรุป B'
 
@@ -142,5 +144,27 @@ test.describe.serial('สรุปงาน', () => {
     await page.getByTestId('export-confirm-btn').click()
     const download = await downloadPromise
     expect(download.suggestedFilename()).toMatch(/\.xlsx$/)
+  })
+
+  test('Case 10: เลือกเฉพาะกลุ่มอื่นๆ ตอน export ต้องส่ง sentinel ไม่ใช่ค่าว่าง', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+    await createDriver(page, DRIVER_UNGROUPED, 'SUM-03', '')
+
+    await page.goto('/summary')
+
+    await page.locator('#summary-group-filter').click()
+    await page.getByTitle('กลุ่มอื่นๆ', { exact: true }).click()
+    await page.keyboard.press('Escape')
+
+    await page.getByTestId('summary-export-btn').click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    const reqPromise = page.waitForRequest((u) => u.url().includes('/api/summary/export'))
+    await page.getByTestId('export-confirm-btn').click()
+    const req = await reqPromise
+
+    expect(req.url()).toContain(`groups=${UNGROUPED}`)
+    expect(req.url()).not.toMatch(/groups=(&|$)/)
   })
 })

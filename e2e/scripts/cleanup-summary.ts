@@ -9,7 +9,7 @@ const adapter = new PrismaPg({
 })
 const prisma = new PrismaClient({ adapter })
 
-const DRIVER_NAMES = ['Summary Driver A', 'Summary Driver B']
+const DRIVER_NAMES = ['Summary Driver A', 'Summary Driver B', 'Summary Driver Ungrouped']
 
 async function main() {
   const drivers = await prisma.driver.findMany({ where: { name: { in: DRIVER_NAMES } } })
