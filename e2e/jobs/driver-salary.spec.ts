@@ -113,4 +113,30 @@ test.describe.serial('ฐานเงินเดือน + วันเริ�
     )
     expect(Number(verified.baseSalary)).toBe(9000)
   })
+
+  test('Case 5: MANAGER ยิง PATCH เฉพาะ resignedAt (shortcut branch) ไม่เห็น baseSalary', async ({ page }) => {
+    await login(page, 'testadmin')
+    await page.goto('/jobs/settings/drivers')
+    await page.getByTestId('add-driver-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER_NAME)
+    await page.locator('#driver-base-salary').fill('9000')
+    await page.getByTestId('driver-submit-btn').click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    const adminRes = await page.request.get('/api/drivers')
+    const driverId = (await adminRes.json()).find(
+      (d: { name: string }) => d.name === DRIVER_NAME
+    ).id
+
+    await page.goto('/api/auth/signout')
+    await login(page, 'testmanager')
+
+    // ส่งเฉพาะ resignedAt (ไม่มี key "name") — เข้า shortcut branch ของ PATCH
+    const res = await page.request.patch(`/api/drivers/${driverId}`, {
+      data: { resignedAt: '2026-09-13' },
+    })
+    expect(res.ok()).toBeTruthy()
+    const body = await res.json()
+    expect(body.baseSalary).toBeUndefined()
+  })
 })
