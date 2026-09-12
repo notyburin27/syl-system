@@ -221,3 +221,24 @@ export interface JobSearchResponse {
   limit: number;
   jobs: JobSearchResult[];
 }
+
+/** สรุปงานคนขับ 1 คน 1 เดือน — ช่องที่ระบบไม่มีข้อมูลจะเป็น null (เว้นว่างใน Excel ให้กรอกเอง) */
+export interface DriverMonthlySummary {
+  month: string;              // 'YYYY-MM'
+  driverId: string;
+  driverName: string;
+  vehicleNumber: string | null;
+  groupName: string | null;
+  startDate: string | null;
+
+  leaveDays: number;          // ลาหยุด
+  repairDays: number;         // ซ่อมรถ
+  jobTrips: number;           // งาน (เที่ยว)
+  towingTrips: number;        // ทอย (เที่ยว)
+
+  income: number;             // รายได้
+  fuelPricePerLiter: number | null;
+  fuelLiters: number;         // จำนวนน้ำมัน
+  driverWage: number;         // ค่าเที่ยว
+  baseSalary: number | null;  // เงินเดือน
+}
