@@ -207,3 +207,64 @@ export function effectiveIncome(
   )
   return matched ? round2(base + Number(matched.surcharge)) : base
 }
+
+// ---------- ชื่อไฟล์ ----------
+
+// ชื่อไฟล์พกลูกค้า+โรงงานมาเอง → ผู้ใช้ไม่ต้องเลือก dropdown ก่อนแนบไฟล์
+export const FUEL_RATE_FILENAME_SEPARATOR = ' - '
+
+export const buildFuelRateFilename = (customerName: string, factoryName: string) =>
+  `${customerName}${FUEL_RATE_FILENAME_SEPARATOR}${factoryName}.xlsx`
+
+interface NamedRecord {
+  id: string
+  name: string
+}
+
+// ยุบช่องว่างซ้ำ + ตัดหัวท้าย + lowercase เพื่อเทียบแบบทนการพิมพ์
+//
+// ชื่อโรงงานใน DB ใช้ "/" คั่นสาขา (เช่น "เอเชีย อินเตอร์เทรด /ปทุมธานี") แต่ OS
+// ห้าม "/" ในชื่อไฟล์ ผู้ใช้จึงพิมพ์เป็น "-" — มอง - / – — เป็นตัวเดียวกัน
+// และไม่สนช่องว่างรอบตัวคั่น เพื่อให้เทียบกันติด
+const normalizeName = (text: string) =>
+  text
+    .replace(/\s*[-\u2013\u2014/]\s*/g, '/')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+
+const findByName = (items: NamedRecord[], text: string) => {
+  const target = normalizeName(text)
+  if (!target) return undefined
+  return items.find((item) => normalizeName(item.name) === target)
+}
+
+/**
+ * แยก "ลูกค้า - โรงงาน.xlsx" → id ของลูกค้าและโรงงาน, คืน null ถ้าจับคู่ไม่ได้
+ *
+ * ชื่อลูกค้า/โรงงานเองก็มี "-" ได้ (เช่น "K-APEX") จึงลองทุกตำแหน่งของ " - "
+ * แล้วเลือกอันแรกที่ทั้งสองฝั่ง match ของจริงใน DB
+ */
+export function matchFuelRateFilename(
+  filename: string,
+  customers: NamedRecord[],
+  factoryLocations: NamedRecord[]
+): { customerId: string; factoryLocationId: string } | null {
+  const base = String(filename ?? '')
+    .replace(/\.(xlsx|xls)$/i, '')
+    .replace(/\s*\(\d+\)$/, '') // suffix ที่ browser เติมตอนโหลดไฟล์ชื่อซ้ำ เช่น "(1)"
+
+  // แยกลูกค้า/โรงงานที่ " - " เท่านั้น (ต้องมีช่องว่างล้อม) — "-" ที่ติดกับคำ
+  // เป็นส่วนหนึ่งของชื่อ เช่น "K-APEX" หรือสาขา "-ปทุมธานี"
+  const parts = base.split(/\s+[-\u2013\u2014]\s+/)
+  if (parts.length < 2) return null
+
+  for (let i = 1; i < parts.length; i++) {
+    const customer = findByName(customers, parts.slice(0, i).join(FUEL_RATE_FILENAME_SEPARATOR))
+    const factory = findByName(factoryLocations, parts.slice(i).join(FUEL_RATE_FILENAME_SEPARATOR))
+    if (customer && factory) {
+      return { customerId: customer.id, factoryLocationId: factory.id }
+    }
+  }
+  return null
+}

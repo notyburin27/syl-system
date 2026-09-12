@@ -1,10 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Modal, Select, Button, Upload, Table, Alert, App, Space, Typography, Divider } from 'antd'
+import { Modal, Select, Button, Upload, Table, Alert, App, Space, Typography, Divider, Collapse } from 'antd'
 import { InboxOutlined, DownloadOutlined } from '@ant-design/icons'
 import {
   displayRangeLabel,
+  matchFuelRateFilename,
   type ParseFuelRateResult,
 } from '@/lib/utils/fuelRateExcel'
 import { getJobTypeLabel } from '@/types/job'
@@ -44,6 +45,8 @@ export default function FuelRateUploadModal({
   const [parsed, setParsed] = useState<ParseFuelRateResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [parsing, setParsing] = useState(false)
+  // true = ลูกค้า/โรงงานมาจากชื่อไฟล์, false = ชื่อไฟล์อ่านไม่ออก ผู้ใช้ต้องเลือกเอง
+  const [matchedFromFilename, setMatchedFromFilename] = useState<boolean | null>(null)
 
   const selectionReady = !!customerId && !!factoryLocationId
 
@@ -69,6 +72,13 @@ export default function FuelRateUploadModal({
 
   const handleFile = async (f: File) => {
     setParsing(true)
+    // ชื่อไฟล์ที่ export ไปเป็น "ลูกค้า - โรงงาน.xlsx" → เติม dropdown ให้เอง
+    const matched = matchFuelRateFilename(f.name, customers, factoryLocations)
+    if (matched) {
+      setCustomerId(matched.customerId)
+      setFactoryLocationId(matched.factoryLocationId)
+    }
+    setMatchedFromFilename(!!matched)
     try {
       const formData = new FormData()
       formData.append('file', f)
@@ -121,10 +131,11 @@ export default function FuelRateUploadModal({
     setFactoryLocationId(undefined)
     setFile(null)
     setParsed(null)
+    setMatchedFromFilename(null)
     onClose()
   }
 
-  // ข้อมูลปัจจุบันแตกเป็นแถวละช่วง — แสดงทันทีหลังเลือกลูกค้า+โรงงาน (ซ่อนเมื่อแนบไฟล์)
+  // ข้อมูลเดิมแตกเป็นแถวละช่วง — แสดงคู่กับ preview ให้เทียบก่อนบันทึก (ของเดิมจะถูกแทนที่ทั้งชุด)
   const currentRows = useMemo(
     () =>
       existingRates.flatMap((r) => {
@@ -206,106 +217,129 @@ export default function FuelRateUploadModal({
       okButtonProps={{ disabled: !selectionReady || !parsed || !parsed.ok || parsing, 'data-testid': 'fuel-upload-save-btn' } as { disabled: boolean; 'data-testid': string }}
     >
       <Space direction="vertical" style={{ width: '100%' }} size="middle">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Space wrap>
-          <Select
-            id="fuel-upload-customer"
-            showSearch
-            placeholder="เลือกลูกค้า"
-            style={{ width: 220 }}
-            options={customers.map((c) => ({ value: c.id, label: c.name }))}
-            filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
-            value={customerId}
-            onChange={(v) => { setCustomerId(v); setFile(null); setParsed(null) }}
-            popupMatchSelectWidth={false}
-          />
-          <Select
-            id="fuel-upload-factory"
-            showSearch
-            placeholder="เลือกโรงงาน"
-            style={{ width: 220 }}
-            options={factoryLocations.map((l) => ({ value: l.id, label: l.name }))}
-            filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
-            value={factoryLocationId}
-            onChange={(v) => { setFactoryLocationId(v); setFile(null); setParsed(null) }}
-            popupMatchSelectWidth={false}
-          />
-          </Space>
-          {selectionReady &&
-            (existingRates.length > 0 ? (
-              <Button icon={<DownloadOutlined />} onClick={handleDownloadCurrent} data-testid="fuel-upload-download-current-btn">
-                ดาวน์โหลดข้อมูลปัจจุบัน (แก้แล้วอัปโหลดกลับ)
-              </Button>
-            ) : (
-              <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate} data-testid="fuel-upload-download-template-btn">
-                ดาวน์โหลด Template
-              </Button>
-            ))}
-        </div>
+        <Upload.Dragger
+          accept=".xlsx,.xls"
+          maxCount={1}
+          showUploadList={!!file}
+          disabled={parsing}
+          beforeUpload={handleFile}
+          onRemove={() => { setFile(null); setParsed(null); setMatchedFromFilename(null) }}
+        >
+          <p className="ant-upload-drag-icon"><InboxOutlined /></p>
+          <p className="ant-upload-text">{parsing ? 'กำลังอ่านไฟล์...' : 'คลิกหรือลากไฟล์ Excel มาวางที่นี่'}</p>
+          <p className="ant-upload-hint">
+            ตั้งชื่อไฟล์เป็น &quot;ลูกค้า - โรงงาน.xlsx&quot; เช่น ALL CENTER - ปัญจวัฒนาพลาสติก สมุทรสาคร.xlsx — ระบบจะเลือกลูกค้าและโรงงานให้เอง
+            <br />
+            ชื่อโรงงานที่มี &quot;/&quot; ใช้ &quot;-&quot; แทนได้ เช่น เอเชีย อินเตอร์เทรด -ปทุมธานี
+          </p>
+        </Upload.Dragger>
 
-        {selectionReady && (
-          <>
-            {!file && (
-              <>
-                <Divider style={{ margin: '4px 0' }}>ข้อมูลปัจจุบัน</Divider>
-                {currentRows.length > 0 ? (
+        {!file && (
+          <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate} data-testid="fuel-upload-download-template-btn">
+            ดาวน์โหลด Template
+          </Button>
+        )}
+
+        {matchedFromFilename === false && (
+          <Alert
+            type="warning"
+            showIcon
+            message="อ่านลูกค้า/โรงงานจากชื่อไฟล์ไม่ได้"
+            description="ตั้งชื่อไฟล์เป็น &quot;ลูกค้า - โรงงาน.xlsx&quot; (ชื่อโรงงานที่มี / ใช้ - แทนได้) หรือเลือกเองด้านล่าง"
+          />
+        )}
+
+        {file && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Space wrap>
+              <Select
+                id="fuel-upload-customer"
+                showSearch
+                placeholder="เลือกลูกค้า"
+                style={{ width: 220 }}
+                options={customers.map((c) => ({ value: c.id, label: c.name }))}
+                filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
+                value={customerId}
+                onChange={(v) => { setCustomerId(v); setMatchedFromFilename(null) }}
+                popupMatchSelectWidth={false}
+              />
+              <Select
+                id="fuel-upload-factory"
+                showSearch
+                placeholder="เลือกโรงงาน"
+                style={{ width: 220 }}
+                options={factoryLocations.map((l) => ({ value: l.id, label: l.name }))}
+                filterOption={(i, o) => (o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
+                value={factoryLocationId}
+                onChange={(v) => { setFactoryLocationId(v); setMatchedFromFilename(null) }}
+                popupMatchSelectWidth={false}
+              />
+            </Space>
+            {selectionReady && existingRates.length > 0 && (
+              <Button icon={<DownloadOutlined />} onClick={handleDownloadCurrent} data-testid="fuel-upload-download-current-btn">
+                ดาวน์โหลดข้อมูลปัจจุบัน
+              </Button>
+            )}
+          </div>
+        )}
+
+        {parsed && !parsed.ok && (
+          <Alert
+            type="error"
+            message="ไฟล์มีข้อผิดพลาด — ยังไม่บันทึก"
+            description={
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {parsed.errors.map((e, i) => (
+                  <li key={i}>แถว {e.row}: {e.message}</li>
+                ))}
+              </ul>
+            }
+          />
+        )}
+
+        {parsed && parsed.ok && selectionReady && currentRows.length > 0 && (
+          <Collapse
+            size="small"
+            items={[
+              {
+                key: 'current',
+                label: `ข้อมูลเดิมของลูกค้า+โรงงานนี้ (${currentRows.length} ช่วงราคา) — จะถูกแทนที่ทั้งหมด`,
+                children: (
                   <Table
                     columns={currentColumns}
                     dataSource={currentRows}
                     rowKey="key"
                     size="small"
                     pagination={false}
-                    scroll={{ y: 320 }}
+                    scroll={{ y: 240 }}
                   />
-                ) : (
-                  <Typography.Text type="secondary">
-                    ยังไม่มีช่วงราคาน้ำมันของลูกค้า+โรงงานนี้ — ดาวน์โหลด Template เพื่อเริ่มกรอกได้เลย
-                  </Typography.Text>
-                )}
-              </>
-            )}
+                ),
+              },
+            ]}
+          />
+        )}
 
-            <Upload.Dragger accept=".xlsx,.xls" maxCount={1} showUploadList={!!file} disabled={parsing} beforeUpload={handleFile} onRemove={() => { setFile(null); setParsed(null) }}>
-              <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-              <p className="ant-upload-text">{parsing ? 'กำลังอ่านไฟล์...' : 'คลิกหรือลากไฟล์ Excel มาวางที่นี่'}</p>
-              <p className="ant-upload-hint">รูปแบบ: ลักษณะงาน | SIZE | ช่วงราคาน้ำมัน | ค่าขนส่ง (ราคาเต็มต่อช่วง)</p>
-            </Upload.Dragger>
-
-            {parsed && !parsed.ok && (
+        {parsed && parsed.ok && (
+          <>
+            <Divider style={{ margin: '4px 0' }}>Preview</Divider>
+            {selectionReady && (
               <Alert
-                type="error"
-                message="ไฟล์มีข้อผิดพลาด — ยังไม่บันทึก"
-                description={
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {parsed.errors.map((e, i) => (
-                      <li key={i}>แถว {e.row}: {e.message}</li>
-                    ))}
-                  </ul>
-                }
+                type="warning"
+                showIcon
+                message={`การบันทึกจะแทนที่ช่วงราคาน้ำมันเดิมทั้งหมดของลูกค้า+โรงงานนี้ (เดิมมี ${existingRates.length} rate ที่มีช่วงราคา)`}
               />
             )}
-
-            {parsed && parsed.ok && (
-              <>
-                <Divider style={{ margin: '4px 0' }}>Preview</Divider>
-                <Alert
-                  type="warning"
-                  showIcon
-                  message={`การบันทึกจะแทนที่ช่วงราคาน้ำมันเดิมทั้งหมดของลูกค้า+โรงงานนี้ (เดิมมี ${existingRates.length} rate ที่มีช่วงราคา)`}
-                />
-                <Table
-                  columns={previewColumns}
-                  dataSource={previewRows}
-                  rowKey="key"
-                  size="small"
-                  pagination={false}
-                  scroll={{ y: 320 }}
-                />
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  * ราคาฐานของแต่ละแถว = ค่าขนส่งของช่วงราคาน้ำมันต่ำสุดในไฟล์
-                </Typography.Text>
-              </>
-            )}
+            <Table
+              columns={previewColumns}
+              dataSource={previewRows}
+              rowKey="key"
+              size="small"
+              pagination={false}
+              scroll={{ y: 320 }}
+            />
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              * ราคาฐานของแต่ละแถว = ค่าขนส่งของช่วงราคาน้ำมันต่ำสุดในไฟล์
+            </Typography.Text>
           </>
         )}
       </Space>
