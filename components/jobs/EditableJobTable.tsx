@@ -75,6 +75,28 @@ export default function EditableJobTable({
   const [clearingId, setClearingId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
+  // งานที่ถูกส่งมาจากโมดัลค้นหา (?highlight=jobId) — scroll ไปหาแล้วเรืองแสงชั่วคราว
+  const highlightId = searchParams.get('highlight')
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!highlightId || loading) return
+    if (!jobs.some((j) => j.id === highlightId)) return
+
+    setHighlightedId(highlightId)
+    // รอ antd render แถวเสร็จก่อนค่อย scroll
+    const scrollTimer = setTimeout(() => {
+      document
+        .querySelector(`[data-row-key="${highlightId}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 150)
+    const fadeTimer = setTimeout(() => setHighlightedId(null), 3000)
+    return () => {
+      clearTimeout(scrollTimer)
+      clearTimeout(fadeTimer)
+    }
+  }, [highlightId, loading, jobs])
+
   const handleExport = async () => {
     setExporting(true)
     try {
@@ -916,6 +938,7 @@ export default function EditableJobTable({
         bordered
         rowClassName={(row) => {
           const r = row as RowData
+          if (!isBanner(r) && r.id === highlightedId) return 'highlight-row'
           if (isBanner(r)) return `banner-row banner-${r._banner}`
           if (r.jobType === 'noJob') return 'no-job-row'
           if (r.jobType === 'advance') return 'advance-row'
@@ -1004,6 +1027,16 @@ export default function EditableJobTable({
       />
 
       <style jsx global>{`
+        @keyframes highlight-fade {
+          0%, 55% { background-color: #ffe58f; }
+          100% { background-color: #fffbe6; }
+        }
+        .highlight-row td,
+        .highlight-row td.ant-table-cell-fix-left,
+        .highlight-row td.ant-table-cell-fix-right {
+          background-color: #ffe58f !important;
+          animation: highlight-fade 3s ease-out forwards;
+        }
         .cancelled-row td {
           background-color: #fff1f0 !important;
         }

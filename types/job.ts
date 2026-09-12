@@ -197,3 +197,23 @@ export type SizeOption = (typeof SIZE_OPTIONS)[number];
 export function getJobTypeLabel(value: string): string {
   return JOB_TYPES.find((t) => t.value === value)?.label ?? value;
 }
+
+/** ผลลัพธ์หนึ่งรายการจาก GET /api/jobs/search */
+export interface JobSearchResult {
+  id: string;
+  jobNumber: string;
+  jobDate: string;
+  jobType: string;
+  size: string | null;
+  clearStatus: boolean;
+  isCancelled: boolean;
+  driverId: string | null;
+  driver: { name: string; vehicleNumber: string | null; groupName: string | null } | null;
+  customer: { name: string } | null;
+}
+
+export interface JobSearchResponse {
+  total: number;
+  limit: number;
+  jobs: JobSearchResult[];
+}
