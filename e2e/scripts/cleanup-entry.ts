@@ -10,20 +10,17 @@ const adapter = new PrismaPg({
 })
 const prisma = new PrismaClient({ adapter })
 
-const DRIVER_NAMES = ['Test Driver Playwright', 'Test Driver Playwright B']
+const DRIVER_NAMES = ['Entry Test Driver', 'Entry Test Driver B']
 
 async function main() {
   const drivers = await prisma.driver.findMany({ where: { name: { in: DRIVER_NAMES } } })
-  if (drivers.length === 0) {
-    console.log(`🧹 [Playwright] ไม่พบคนขับทดสอบ ไม่ต้องล้างข้อมูล`)
-    return
-  }
   for (const driver of drivers) {
+    await prisma.driverMonthlyEntry.deleteMany({ where: { driverId: driver.id } })
     await prisma.job.deleteMany({ where: { driverId: driver.id } })
     await prisma.driverLeave.deleteMany({ where: { driverId: driver.id } })
     await prisma.driver.delete({ where: { id: driver.id } })
   }
-  console.log(`🧹 [Playwright] ลบคนขับทดสอบ ${drivers.length} คน พร้อมงานทั้งหมด`)
+  console.log(`🧹 [Playwright] ลบคนขับทดสอบ entry ${drivers.length} คน`)
 }
 
 main()

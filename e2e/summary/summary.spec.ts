@@ -1,0 +1,195 @@
+import { test, expect } from '@playwright/test'
+import { execSync } from 'child_process'
+import * as dotenv from 'dotenv'
+import path from 'path'
+import dayjs from 'dayjs'
+import { UNGROUPED } from '@/types/job'
+
+dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
+
+const DRIVER_A = 'Summary Driver A'
+const DRIVER_B = 'Summary Driver B'
+const DRIVER_UNGROUPED = 'Summary Driver Ungrouped'
+const GROUP_A = 'กลุ่มสรุป A'
+const GROUP_B = 'กลุ่มสรุป B'
+
+async function login(page: import('@playwright/test').Page, username: string) {
+  await page.goto('/login')
+  await page.getByPlaceholder('ชื่อผู้ใช้').fill(username)
+  await page.getByPlaceholder('รหัสผ่าน').fill('admin123')
+  await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).click()
+  await expect(page).toHaveURL(/\/jobs|\/line-images/, { timeout: 10_000 })
+}
+
+async function createDriver(
+  page: import('@playwright/test').Page,
+  name: string,
+  vehicleNumber: string,
+  group: string
+) {
+  await page.goto('/jobs/settings/drivers')
+  await page.getByTestId('add-driver-btn').click()
+  await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(name)
+  await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill(vehicleNumber)
+  await page.locator('#driver-group-name').fill(group)
+  await page.getByTestId('driver-submit-btn').click()
+  await expect(page.getByRole('dialog')).not.toBeVisible()
+}
+
+test.describe.serial('สรุปงาน', () => {
+  test.afterEach(async () => {
+    execSync('npx tsx e2e/scripts/cleanup-summary.ts', {
+      stdio: 'inherit',
+      env: { ...process.env },
+      cwd: path.resolve(__dirname, '../..'),
+    })
+  })
+
+  test('Case 1: เมนูสรุปงานเห็นเฉพาะ ADMIN', async ({ page }) => {
+    await login(page, 'testadmin')
+    await expect(page.getByRole('menuitem', { name: 'สรุปงาน' })).toBeVisible()
+
+    await page.goto('/api/auth/signout')
+    await login(page, 'testmanager')
+    await expect(page.getByRole('menuitem', { name: 'สรุปงาน' })).not.toBeVisible()
+  })
+
+  test('Case 2: MANAGER เข้า /summary ตรงๆ ถูก redirect', async ({ page }) => {
+    await login(page, 'testmanager')
+    await page.goto('/summary')
+    await expect(page).not.toHaveURL(/\/summary/)
+  })
+
+  test('Case 3: MANAGER ยิง API สรุปงานได้ 403', async ({ page }) => {
+    await login(page, 'testmanager')
+    const res = await page.request.get(`/api/summary?month=${dayjs().format('YYYY-MM')}`)
+    expect(res.status()).toBe(403)
+  })
+
+  test('Case 4: หน้า list เป็นตารางเดียวรวมทุกกลุ่ม', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+    await createDriver(page, DRIVER_B, 'SUM-02', GROUP_B)
+
+    await page.goto('/summary')
+
+    // ตารางเดียว ไม่มีหัวข้อคั่นตามกลุ่ม — คนละกลุ่มอยู่ในตารางเดียวกัน
+    await expect(page.getByRole('columnheader', { name: 'ชื่อคนขับ' })).toBeVisible()
+    await expect(page.getByRole('columnheader', { name: 'กลุ่ม' })).toBeVisible()
+    await expect(page.getByText(DRIVER_A)).toBeVisible()
+    await expect(page.getByText(DRIVER_B)).toBeVisible()
+
+    // ไม่มีคอลัมน์ตัวเลข และไม่มีตัวเลือกเดือน
+    await expect(page.getByRole('columnheader', { name: 'รายได้' })).not.toBeVisible()
+    await expect(page.locator('#summary-month-picker')).toHaveCount(0)
+  })
+
+  test('Case 5: filter กลุ่มแล้วเหลือเฉพาะกลุ่มที่เลือก', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+    await createDriver(page, DRIVER_B, 'SUM-02', GROUP_B)
+
+    await page.goto('/summary')
+    await expect(page.getByText(DRIVER_B)).toBeVisible()
+
+    await page.locator('#summary-group-filter').click()
+    await page.getByTitle(GROUP_A, { exact: true }).click()
+    await page.keyboard.press('Escape')
+
+    await expect(page.getByText(DRIVER_A)).toBeVisible()
+    await expect(page.getByText(DRIVER_B)).not.toBeVisible()
+  })
+
+  test('Case 6: ค้นหาด้วยชื่อ และด้วยเบอร์รถ', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+    await createDriver(page, DRIVER_B, 'SUM-02', GROUP_B)
+
+    await page.goto('/summary')
+
+    // ค้นด้วยชื่อ
+    await page.getByTestId('summary-search-input').fill(DRIVER_A)
+    await expect(page.getByText(DRIVER_A)).toBeVisible()
+    await expect(page.getByText(DRIVER_B)).not.toBeVisible()
+
+    // ค้นด้วยเบอร์รถ
+    await page.getByTestId('summary-search-input').fill('SUM-02')
+    await expect(page.getByText(DRIVER_B)).toBeVisible()
+    await expect(page.getByText(DRIVER_A)).not.toBeVisible()
+  })
+
+  test('Case 7: แถวในตารางแสดงชื่อกลุ่ม', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+
+    await page.goto('/summary')
+    const row = page.getByRole('row').filter({ hasText: DRIVER_A })
+    await expect(row).toContainText(GROUP_A)
+  })
+
+  test('Case 8: คลิกแถวไปหน้ารายคน แสดงการ์ดรายเดือนทั้งปี', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+
+    await page.goto('/summary')
+    await page.getByRole('row').filter({ hasText: DRIVER_A }).click()
+    await expect(page).toHaveURL(/\/summary\/[a-z0-9]+/)
+
+    // หน้ารายคนเลือก "ปี" ไม่ใช่เดือน
+    await expect(page.locator('#summary-detail-year-picker')).toBeVisible()
+
+    // แสดงเฉพาะเดือนที่จบแล้ว — เดือนปัจจุบันและอนาคตต้องไม่ขึ้น
+    // (0-indexed getMonth() = จำนวนเดือนที่จบแล้วในปีนี้พอดี)
+    const monthsElapsed = new Date().getMonth()
+    await expect(page.getByTestId('summary-month-card')).toHaveCount(monthsElapsed)
+
+    if (monthsElapsed > 0) {
+      // เรียงแนวนอน scroll ได้ และเดือนปัจจุบันต้องไม่โผล่
+      await expect(page.getByTestId('summary-month-scroller')).toBeVisible()
+      await expect(page.getByText('รายได้').first()).toBeVisible()
+
+      const thaiMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                          'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+      const currentMonthName = thaiMonths[new Date().getMonth()]
+      await expect(
+        page.getByTestId('summary-month-card').filter({ hasText: currentMonthName })
+      ).toHaveCount(0)
+    }
+  })
+
+  test('Case 9: download Excel จากหน้า list ได้ไฟล์', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+
+    await page.goto('/summary')
+    await page.getByTestId('summary-export-btn').click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByTestId('export-confirm-btn').click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toMatch(/\.xlsx$/)
+  })
+
+  test('Case 10: เลือกเฉพาะกลุ่มอื่นๆ ตอน export ต้องส่ง sentinel ไม่ใช่ค่าว่าง', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+    await createDriver(page, DRIVER_UNGROUPED, 'SUM-03', '')
+
+    await page.goto('/summary')
+
+    await page.locator('#summary-group-filter').click()
+    await page.getByTitle('กลุ่มอื่นๆ', { exact: true }).click()
+    await page.keyboard.press('Escape')
+
+    await page.getByTestId('summary-export-btn').click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    const reqPromise = page.waitForRequest((u) => u.url().includes('/api/summary/export'))
+    await page.getByTestId('export-confirm-btn').click()
+    const req = await reqPromise
+
+    expect(req.url()).toContain(`groups=${UNGROUPED}`)
+    expect(req.url()).not.toMatch(/groups=(&|$)/)
+  })
+})

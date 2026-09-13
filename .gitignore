@@ -72,3 +72,6 @@ index.html
 vite.config.js
 .gitnexus
 .claude
+
+# database dumps จาก clone-prod-to-stag.sh (มีข้อมูลจริงของลูกค้า ห้าม commit)
+.db-backups/

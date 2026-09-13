@@ -18,7 +18,12 @@ async function main() {
     update: { password },
     create: { username: 'testadmin', password, role: 'ADMIN', name: 'Test Admin' },
   })
-  console.log('✅ [Playwright] seed test user สำเร็จ: testadmin / admin123')
+  await prisma.authUser.upsert({
+    where: { username: 'testmanager' },
+    update: { password, role: 'MANAGER' },
+    create: { username: 'testmanager', password, role: 'MANAGER', name: 'Test Manager' },
+  })
+  console.log('✅ [Playwright] seed test users สำเร็จ: testadmin, testmanager / admin123')
 }
 
 main().catch((e) => { console.error(e); process.exit(1) }).finally(() => prisma.$disconnect())

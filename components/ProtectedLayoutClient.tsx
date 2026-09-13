@@ -67,13 +67,15 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/transport-documents")) return "documents";
     if (pathname?.startsWith("/work-orders")) return "work-orders";
     if (pathname?.startsWith("/line-images")) return "line-images";
+    if (pathname?.startsWith("/summary")) return "summary";
     return "documents";
   };
 
   const getOpenKeys = () => {
     const keys: string[] = [];
     if (pathname?.startsWith("/stock")) keys.push("stock");
-    if (pathname?.startsWith("/jobs")) keys.push("jobs");
+    // สรุปงานอยู่ใต้เมนูงานขนส่ง จึงต้องกาง "jobs" ด้วยเวลาอยู่หน้า /summary
+    if (pathname?.startsWith("/jobs") || pathname?.startsWith("/summary")) keys.push("jobs");
     if (pathname?.startsWith("/jobs/settings")) keys.push("jobs-settings");
     return keys;
   };
@@ -87,6 +89,13 @@ export default function ProtectedLayoutClient({
         key: "jobs-list",
         label: <Link href="/jobs">รายการงาน</Link>,
       },
+      // สรุปงาน — ADMIN เท่านั้น (มีข้อมูลเงินเดือน)
+      ...(isAdmin ? [
+        {
+          key: "summary",
+          label: <Link href="/summary">สรุปงาน</Link>,
+        },
+      ] : []),
       {
         key: "jobs-settings",
         label: "ตั้งค่าข้อมูล",

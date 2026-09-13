@@ -21,6 +21,10 @@ export interface Driver {
   vehicleNumber: string | null;
   vehicleRegistration: string | null;
   groupName: string | null;
+  /** ฐานเงินเดือน — API ตัด field นี้ออกสำหรับ role ที่ไม่ใช่ ADMIN */
+  baseSalary?: number | null;
+  /** วันเริ่มงาน (ISO date string) */
+  startDate: string | null;
   isActive: boolean;
   resignedAt: string | null;
   bankAccounts: DriverBankAccount[];
@@ -165,6 +169,7 @@ export const RATE_JOB_TYPES = JOB_TYPES.filter(
 /** เหตุผลของงานประเภท "ไม่มีงาน" */
 export const NO_JOB_REASONS = [
   { value: "repair",    label: "ซ่อมรถ" },
+  { value: "overnight", label: "ค้างคืน" },
   { value: "lowVolume", label: "งานน้อย" },
   { value: "cancelled", label: "งานยกเลิก" },
   { value: "other",     label: "อื่นๆ" },
@@ -217,3 +222,41 @@ export interface JobSearchResponse {
   limit: number;
   jobs: JobSearchResult[];
 }
+
+/** สรุปงานคนขับ 1 คน 1 เดือน — ช่องที่ระบบไม่มีข้อมูลจะเป็น null (เว้นว่างใน Excel ให้กรอกเอง) */
+export interface DriverMonthlySummary {
+  month: string;              // 'YYYY-MM'
+  driverId: string;
+  driverName: string;
+  vehicleNumber: string | null;
+  groupName: string | null;
+  startDate: string | null;
+
+  leaveDays: number;          // ลาหยุด
+  repairDays: number;         // ซ่อมรถ
+  overnightDays: number;      // ค้างคืน
+  jobTrips: number;           // งาน (เที่ยว)
+  towingTrips: number;        // ทอย (เที่ยว)
+
+  /** แบก (เที่ยว) — กรอกมือ null = ยังไม่กรอก */
+  carryTrips: number | null;
+  /** หัก น้ำมัน/หยุด (บาท) — กรอกมือ */
+  fuelDeduction: number | null;
+  /** ค่าใช้จ่ายต่างๆ (บาท) — กรอกมือ */
+  otherExpenses: number | null;
+  /** สรุปให้เงินเดือนคนรถ (บาท) — กรอกมือ */
+  driverPayout: number | null;
+
+  income: number;             // รายได้
+  fuelPricePerLiter: number | null;
+  fuelLiters: number;         // จำนวนน้ำมัน
+  driverWage: number;         // ค่าเที่ยว
+  baseSalary: number | null;  // เงินเดือน
+}
+
+/**
+ * Sentinel token แทน "กลุ่มอื่นๆ" (คนขับที่ไม่มี groupName) ใน query param `groups`
+ * ของ /api/summary/export — ใช้แทนสตริงว่างเพราะ "" ถูก .filter(Boolean) ทิ้งไปเสมอ
+ * ไฟล์นี้ไม่มี import ใดๆ จึง import ได้ทั้งจาก client component และ server route
+ */
+export const UNGROUPED = "__ungrouped__";

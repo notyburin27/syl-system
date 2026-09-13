@@ -124,6 +124,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return Response.redirect(new URL(defaultPage, nextUrl))
       }
 
+      // สรุปงาน — ADMIN เท่านั้น (ข้อมูลเงินเดือน)
+      if (pathname.startsWith("/summary") && role !== "ADMIN") {
+        return Response.redirect(new URL(defaultPage, nextUrl))
+      }
+
       // Manager cannot access /admin and /stock
       const isManager = role === "MANAGER"
       if (isManager && (pathname.startsWith("/admin") || pathname.startsWith("/stock"))) {

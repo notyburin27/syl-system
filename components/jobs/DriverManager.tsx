@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Table, Button, Modal, Form, Input, App, Space, Tag, Popconfirm, AutoComplete, DatePicker } from 'antd'
+import { Table, Button, Modal, Form, Input, InputNumber, App, Space, Tag, Popconfirm, AutoComplete, DatePicker } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Driver, DriverBankAccount } from '@/types/job'
 import dayjs from 'dayjs'
+import buddhistEra from 'dayjs/plugin/buddhistEra'
+dayjs.extend(buddhistEra)
 
-export default function DriverManager() {
+export default function DriverManager({ isAdmin }: { isAdmin: boolean }) {
   const { message } = App.useApp()
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(false)
@@ -63,6 +65,8 @@ export default function DriverManager() {
         vehicleNumber: driver.vehicleNumber,
         vehicleRegistration: driver.vehicleRegistration,
         groupName: driver.groupName,
+        baseSalary: driver.baseSalary != null ? Number(driver.baseSalary) : undefined,
+        startDate: driver.startDate ? dayjs(driver.startDate) : undefined,
       })
     } else {
       setEditingDriver(null)
@@ -71,16 +75,28 @@ export default function DriverManager() {
     setModalOpen(true)
   }
 
-  const handleSubmit = async (values: { name: string; vehicleNumber?: string; vehicleRegistration?: string; groupName?: string }) => {
+  const handleSubmit = async (values: {
+    name: string
+    vehicleNumber?: string
+    vehicleRegistration?: string
+    groupName?: string
+    baseSalary?: number
+    startDate?: dayjs.Dayjs
+  }) => {
     setSubmitLoading(true)
     try {
       const url = editingDriver ? `/api/drivers/${editingDriver.id}` : '/api/drivers'
       const method = editingDriver ? 'PATCH' : 'POST'
 
+      const payload = {
+        ...values,
+        startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+      }
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
@@ -316,6 +332,25 @@ export default function DriverManager() {
       render: (_: unknown, record: Driver) => record.bankAccounts?.length || 0,
     },
     {
+      title: 'วันเริ่มงาน',
+      dataIndex: 'startDate',
+      key: 'startDate',
+      render: (v: string | null) =>
+        v ? dayjs(v).add(543, 'year').format('DD/MM/YYYY') : '-',
+    },
+    ...(isAdmin
+      ? [
+          {
+            title: 'ฐานเงินเดือน',
+            dataIndex: 'baseSalary',
+            key: 'baseSalary',
+            align: 'right' as const,
+            render: (v: number | null) =>
+              v != null ? Number(v).toLocaleString('th-TH', { minimumFractionDigits: 0 }) : '-',
+          },
+        ]
+      : []),
+    {
       title: 'สถานะ',
       key: 'isActive',
       width: 140,
@@ -424,6 +459,7 @@ export default function DriverManager() {
         confirmLoading={submitLoading}
         okText={editingDriver ? 'บันทึก' : 'เพิ่ม'}
         cancelText="ยกเลิก"
+        okButtonProps={{ 'data-testid': 'driver-submit-btn' }}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
@@ -441,6 +477,7 @@ export default function DriverManager() {
           </Form.Item>
           <Form.Item name="groupName" label="กลุ่ม">
             <AutoComplete
+              id="driver-group-name"
               data-testid="driver-group-input"
               options={groupOptions()}
               placeholder="ระบุชื่อกลุ่ม หรือเว้นว่างเพื่อจัดเป็นกลุ่มอื่นๆ"
@@ -450,6 +487,27 @@ export default function DriverManager() {
               }
             />
           </Form.Item>
+          <Form.Item name="startDate" label="วันเริ่มงาน">
+            <DatePicker
+              id="driver-start-date"
+              format="DD/MM/BBBB"
+              style={{ width: '100%' }}
+              placeholder="เลือกวันเริ่มงาน"
+            />
+          </Form.Item>
+          {isAdmin && (
+            <Form.Item name="baseSalary" label="ฐานเงินเดือน">
+              <InputNumber
+                id="driver-base-salary"
+                style={{ width: '100%' }}
+                min={0}
+                step={1000}
+                formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(v) => Number(`${v}`.replace(/,/g, '')) as 0}
+                placeholder="ฐานเงินเดือน (บาท)"
+              />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
 

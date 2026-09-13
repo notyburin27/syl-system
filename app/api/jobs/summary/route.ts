@@ -38,6 +38,7 @@ export async function GET(req: Request) {
 
     const drivers = await prisma.driver.findMany({
       where: driverWhere,
+      select: { id: true, name: true, vehicleNumber: true, groupName: true },
       orderBy: { name: "asc" },
     });
 
