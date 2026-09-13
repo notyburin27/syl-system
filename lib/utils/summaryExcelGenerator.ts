@@ -74,7 +74,11 @@ function buildMonthBlock(
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: opts.fill } };
     }
     if (opts.fmt) cell.numFmt = opts.fmt;
-    if (opts.align) cell.alignment = { horizontal: opts.align, vertical: "middle" };
+    // จัดกลางแนวตั้งทุก cell — ไม่ใช่เฉพาะที่ระบุ align มา
+    // ไม่งั้นช่องตัวเลขจะจมลงล่างขณะที่ช่องหน่วยอยู่กลาง (แถวสูง 24)
+    cell.alignment = opts.align
+      ? { horizontal: opts.align, vertical: "middle" }
+      : { vertical: "middle" };
     return cell;
   };
 
@@ -138,7 +142,7 @@ function buildMonthBlock(
 
   set(17, L, "จำนวนน้ำมัน", { align: "right" });
   set(17, V, s.fuelLiters, { fmt: MONEY_FMT });
-  set(17, U, "ลิตร์", { align: "left" });
+  set(17, U, "ลิตร", { align: "left" });
 
   set(18, L, "รวมใช้น้ำมัน", { align: "right" });
   set(18, V, { formula: `${vCol}16*${vCol}17` }, { fmt: MONEY_FMT });
@@ -171,10 +175,10 @@ function buildMonthBlock(
   set(28, U, "บาท", { fill: FILL_GREEN, align: "left" });
 
   // ค่าใช้จ่ายต่างๆ — เว้นว่างให้กรอกใน Excel
-  set(30, L, "ค่าใช่จ่ายต่างๆ", { color: RED, align: "right" });
+  set(30, L, "ค่าใช้จ่ายต่างๆ", { color: RED, align: "right" });
   set(30, U, "บาท", { color: RED, align: "left" });
 
-  set(32, L, "ยอดคงเหลืองของบริษัท", { fill: FILL_YELLOW, align: "right" });
+  set(32, L, "ยอดคงเหลือของบริษัท", { fill: FILL_YELLOW, align: "right" });
   set(
     32,
     V,

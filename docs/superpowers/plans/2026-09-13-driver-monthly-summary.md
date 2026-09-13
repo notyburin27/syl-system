@@ -1485,7 +1485,7 @@ function buildMonthBlock(
 
   set(17, L, "จำนวนน้ำมัน", { align: "right" });
   set(17, V, s.fuelLiters, { fmt: MONEY_FMT });
-  set(17, U, "ลิตร์", { align: "left" });
+  set(17, U, "ลิตร", { align: "left" });
 
   set(18, L, "รวมใช้น้ำมัน", { align: "right" });
   set(18, V, { formula: `${vCol}16*${vCol}17` }, { fmt: MONEY_FMT });
@@ -1518,10 +1518,10 @@ function buildMonthBlock(
   set(28, U, "บาท", { fill: FILL_GREEN, align: "left" });
 
   // ค่าใช้จ่ายต่างๆ — เว้นว่างให้กรอกใน Excel
-  set(30, L, "ค่าใช่จ่ายต่างๆ", { color: RED, align: "right" });
+  set(30, L, "ค่าใช้จ่ายต่างๆ", { color: RED, align: "right" });
   set(30, U, "บาท", { color: RED, align: "left" });
 
-  set(32, L, "ยอดคงเหลืองของบริษัท", { fill: FILL_YELLOW, align: "right" });
+  set(32, L, "ยอดคงเหลือของบริษัท", { fill: FILL_YELLOW, align: "right" });
   set(
     32,
     V,
@@ -2382,7 +2382,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
         <Divider style={{ margin: '12px 0' }} />
 
         <SummaryRow label="ราคาน้ำมันต่อลิตร" value={fmt(summary.fuelPricePerLiter)} unit="บาท" />
-        <SummaryRow label="จำนวนน้ำมัน" value={fmt(summary.fuelLiters)} unit="ลิตร์" />
+        <SummaryRow label="จำนวนน้ำมัน" value={fmt(summary.fuelLiters)} unit="ลิตร" />
         <SummaryRow label="รวมใช้น้ำมัน" value={fmt(fuelTotal)} unit="บาท" />
         <SummaryRow label="45% - ราคาน้ำมัน" value={fmt(diff45)} unit="บาท" background="#fce4d6" />
 
@@ -2392,8 +2392,8 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
         <SummaryRow label="เงินเดือน" value={fmt(summary.baseSalary)} unit="บาท" />
         <SummaryRow label="หัก น้ำมัน/หยุด" value={null} unit="บาท" color="#cf1322" />
         <SummaryRow label="สรุปให้เงินเดือนคนรถ" value={null} unit="บาท" background="#d9f7be" />
-        <SummaryRow label="ค่าใช่จ่ายต่างๆ" value={null} unit="บาท" color="#cf1322" />
-        <SummaryRow label="ยอดคงเหลืองของบริษัท" value={null} unit="บาท" background="#ffffb8" />
+        <SummaryRow label="ค่าใช้จ่ายต่างๆ" value={null} unit="บาท" color="#cf1322" />
+        <SummaryRow label="ยอดคงเหลือของบริษัท" value={null} unit="บาท" background="#ffffb8" />
 
         <div style={{ marginTop: 12, fontSize: 12, color: '#888' }}>
           ช่องที่เว้นว่างยังไม่มีข้อมูลในระบบ — กรอกได้ในไฟล์ Excel ที่ดาวน์โหลด
@@ -2515,7 +2515,7 @@ EOF
   - แต่ละ sheet = 1 คนขับ ชื่อ sheet ถูกต้อง
   - บล็อกเดือนที่ 2 อยู่ตำแหน่งคอลัมน์เดียวกับต้นฉบับ
   - สูตรทุกตัวคำนวณได้ ไม่มี `#REF!` / `#NAME?` / `#VALUE!`
-  - กรอกค่าลงช่อง "สรุปให้เงินเดือนคนรถ" แล้ว "ยอดคงเหลืองของบริษัท" อัปเดตตาม
+  - กรอกค่าลงช่อง "สรุปให้เงินเดือนคนรถ" แล้ว "ยอดคงเหลือของบริษัท" อัปเดตตาม
   - กรอกค่าลงช่อง "หัก น้ำมัน/หยุด" แล้วแถว "รวม" อัปเดตตาม
 
 ### Step 3: ตรวจด้วย detect_changes

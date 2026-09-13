@@ -98,7 +98,7 @@ function MonthCard({ s }: { s: DriverMonthlySummary }) {
       <RowGap />
 
       <SummaryRow label="ราคาน้ำมันต่อลิตร" value={fmt(s.fuelPricePerLiter)} unit="บาท" />
-      <SummaryRow label="จำนวนน้ำมัน" value={fmt(s.fuelLiters)} unit="ลิตร์" />
+      <SummaryRow label="จำนวนน้ำมัน" value={fmt(s.fuelLiters)} unit="ลิตร" />
       <SummaryRow label="รวมใช้น้ำมัน" value={fmt(fuelTotal)} unit="บาท" />
       <SummaryRow label="45% - ราคาน้ำมัน" value={fmt(diff45)} unit="บาท" background="#fce4d6" />
 
@@ -108,8 +108,8 @@ function MonthCard({ s }: { s: DriverMonthlySummary }) {
       <SummaryRow label="เงินเดือน" value={fmt(s.baseSalary)} unit="บาท" />
       <SummaryRow label="หัก น้ำมัน/หยุด" value={null} unit="บาท" color="#cf1322" />
       <SummaryRow label="สรุปให้เงินเดือนคนรถ" value={null} unit="บาท" background="#d9f7be" />
-      <SummaryRow label="ค่าใช่จ่ายต่างๆ" value={null} unit="บาท" color="#cf1322" />
-      <SummaryRow label="ยอดคงเหลืองของบริษัท" value={null} unit="บาท" background="#ffffb8" />
+      <SummaryRow label="ค่าใช้จ่ายต่างๆ" value={null} unit="บาท" color="#cf1322" />
+      <SummaryRow label="ยอดคงเหลือของบริษัท" value={null} unit="บาท" background="#ffffb8" />
     </Card>
   )
 }
