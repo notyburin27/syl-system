@@ -165,4 +165,25 @@ test.describe.serial('ช่องกรอกมือรายเดือน'
     expect(page.url()).not.toContain(firstUrl.split('/summary/')[1].split('?')[0])
     await expect(page.getByText(DRIVER_B, { exact: false }).first()).toBeVisible({ timeout: 20000 })
   })
+
+  test('Case 6: การ์ดต้องไม่ขยับขนาดตอนสลับโหมดอ่าน/แก้ไข', async ({ page }) => {
+    test.skip(dayjs().month() === 0, 'เดือน ม.ค. ยังไม่มีเดือนที่จบแล้วในปีนี้')
+    await login(page, 'testadmin')
+    await createDriverAndOpen(page)
+
+    const card = page.getByTestId('summary-month-card').first()
+    const size = async () => {
+      const b = await card.boundingBox()
+      return { w: Math.round(b!.width), h: Math.round(b!.height) }
+    }
+
+    const before = await size()
+    await card.getByTestId('card-edit').click()
+    await expect(card.getByTestId('card-save')).toBeVisible()
+    const after = await size()
+
+    // input สูงกว่าข้อความธรรมดา ถ้าไม่ล็อกความสูงแถว การ์ดจะกระตุกตอนกดดินสอ
+    expect(after.h, 'ความสูงการ์ดต้องไม่เปลี่ยน').toBe(before.h)
+    expect(after.w, 'ความกว้างการ์ดต้องไม่เปลี่ยน').toBe(before.w)
+  })
 })

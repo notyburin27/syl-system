@@ -2,6 +2,9 @@
 
 import { InputNumber } from 'antd'
 
+/** ความสูงแถวคงที่ — ต้องตรงกับ SummaryRow ใน SummaryDetail */
+export const ROW_HEIGHT = 32
+
 /** ชื่อ field ที่แก้ได้ — ต้องตรงกับ whitelist ฝั่ง API */
 export type EditableField =
   | 'carryTrips'
@@ -52,8 +55,10 @@ export default function EditableSummaryRow({
       style={{
         display: 'flex',
         alignItems: 'center',
-        padding: '4px 8px',
-        minHeight: 30,
+        padding: '0 8px',
+        // ล็อกความสูงคงที่ ไม่ให้การ์ดขยับตอนสลับโหมดอ่าน/แก้ไข
+        // (input ของ antd สูงกว่าข้อความธรรมดา 2px ต่อแถว)
+        height: ROW_HEIGHT,
         background,
         gap: 8,
       }}
@@ -92,8 +97,9 @@ export default function EditableSummaryRow({
             width: 112,
             minWidth: 112,
             flexShrink: 0,
-            // ช่องที่ยังไม่กรอกมีข้อความว่าง ถ้าไม่ตั้ง minHeight span จะยุบเป็น 0px
-            minHeight: 22,
+            // ช่องที่ยังไม่กรอกมีข้อความว่าง — ต้องสูงเต็มแถว ไม่งั้นยุบเป็น 0px
+            // แล้ว Playwright มองว่า hidden (และคลิกไม่โดน)
+            height: '100%',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'flex-end',

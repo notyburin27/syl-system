@@ -8,7 +8,7 @@ import type { DriverMonthlySummary } from '@/types/job'
 import { toThaiMonthYear } from '@/lib/utils/thaiDate'
 import dayjs from 'dayjs'
 import ExportRangeModal from './ExportRangeModal'
-import EditableSummaryRow, { type EditableField } from './EditableSummaryRow'
+import EditableSummaryRow, { type EditableField, ROW_HEIGHT } from './EditableSummaryRow'
 import SummaryDriverSwitchModal from './SummaryDriverSwitchModal'
 
 function fmt(value: number | null) {
@@ -31,7 +31,7 @@ function SummaryRow({
   background?: string
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', minHeight: 30, background, gap: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px', height: ROW_HEIGHT, background, gap: 8 }}>
       {/* label ต้องไม่ตัดบรรทัด ไม่งั้นการ์ดสูงไม่เท่ากันและอ่านยาก */}
       <span
         style={{
