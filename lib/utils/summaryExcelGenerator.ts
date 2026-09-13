@@ -114,8 +114,9 @@ function buildMonthBlock(
   set(8, V, s.towingTrips || null, { color: GREEN, align: "center" });
   set(8, U, "เที่ยว", { color: GREEN, align: "left" });
 
-  // แบก — ระบบไม่มีข้อมูล เว้นว่างให้กรอกใน Excel
+  // แบก — ค่าที่กรอกไว้ในหน้าสรุปงาน
   set(9, L, "แบก", { color: GREEN, align: "right" });
+  set(9, V, s.carryTrips, { color: GREEN, align: "center" });
   set(9, U, "เที่ยว", { color: GREEN, align: "left" });
 
   // ค้างคืน — นับจาก job ประเภท "ไม่มีงาน" เหตุผล overnight (เหมือนซ่อมรถ)
@@ -162,21 +163,23 @@ function buildMonthBlock(
   set(23, V, s.baseSalary, { fmt: MONEY_FMT });
   set(23, U, "บาท", { align: "left" });
 
-  // หัก น้ำมัน/หยุด — เว้นว่างให้กรอกใน Excel
+  // หัก น้ำมัน/หยุด — ค่าที่กรอกไว้ในหน้าสรุปงาน
   set(24, L, "หัก น้ำมัน/หยุด", { color: RED, align: "right" });
+  set(24, V, s.fuelDeduction, { color: RED, fmt: MONEY_FMT });
   set(24, U, "บาท", { color: RED, align: "left" });
 
   set(26, L, "รวม", { align: "right" });
   set(26, V, { formula: `${vCol}22+${vCol}23+${vCol}24` }, { fmt: MONEY_FMT });
   set(26, U, "บาท", { align: "left" });
 
-  // สรุปให้เงินเดือนคนรถ — เว้นว่างให้กรอกเอง (ต้นฉบับเป็นค่าคงที่ ไม่ใช่สูตร)
+  // สรุปให้เงินเดือนคนรถ — ค่าที่กรอกไว้ (ต้นฉบับเป็นค่าคงที่ ไม่ใช่สูตร)
   set(28, L, "สรุปให้เงินเดือนคนรถ", { fill: FILL_GREEN, align: "right" });
-  set(28, V, null, { fill: FILL_GREEN, fmt: MONEY_FMT });
+  set(28, V, s.driverPayout, { fill: FILL_GREEN, fmt: MONEY_FMT });
   set(28, U, "บาท", { fill: FILL_GREEN, align: "left" });
 
-  // ค่าใช้จ่ายต่างๆ — เว้นว่างให้กรอกใน Excel
+  // ค่าใช้จ่ายต่างๆ — ค่าที่กรอกไว้ในหน้าสรุปงาน
   set(30, L, "ค่าใช้จ่ายต่างๆ", { color: RED, align: "right" });
+  set(30, V, s.otherExpenses, { color: RED, fmt: MONEY_FMT });
   set(30, U, "บาท", { color: RED, align: "left" });
 
   set(32, L, "ยอดคงเหลือของบริษัท", { fill: FILL_YELLOW, align: "right" });

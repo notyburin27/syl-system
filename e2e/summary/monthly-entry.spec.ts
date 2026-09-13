@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
 
 const DRIVER = 'Entry Test Driver'
 const VEHICLE = 'ENT-01'
+const DRIVER_B = 'Entry Test Driver B'
 
 /** เดือนล่าสุดที่จบแล้ว — การ์ดใบแรกบนหน้าจอ */
 const LAST_CLOSED = dayjs().subtract(1, 'month')
@@ -127,5 +128,34 @@ test.describe.serial('ช่องกรอกมือรายเดือน'
       data: { month: LAST_CLOSED.format('YYYY-MM'), field: 'carryTrips', value: -3 },
     })
     expect(negative.status()).toBe(400)
+  })
+
+  test('Case 5: ปุ่มเปลี่ยนคนขับ → ค้นหา → สลับไปคนใหม่ คงปีที่เลือกไว้', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriverAndOpen(page)
+    const firstUrl = page.url()
+
+    // สร้างคนขับอีกคนเพื่อสลับไป
+    await page.goto('/jobs/settings/drivers')
+    await page.getByTestId('add-driver-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER_B)
+    await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill('ENT-02')
+    await page.getByTestId('driver-submit-btn').click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    await page.goto(firstUrl)
+    await page.waitForSelector('[data-testid="summary-month-card"]', { timeout: 20000 })
+
+    await page.getByTestId('switch-driver-btn').click()
+    // รอรายชื่อโหลดเสร็จก่อนค้น ไม่งั้นกรอกใส่ list ที่ยังว่าง
+    await page.waitForSelector('[data-testid="switch-driver-result"]', { timeout: 20000 })
+    await page.getByTestId('switch-driver-search').fill('ENT-02')
+    await expect(page.getByTestId('switch-driver-result')).toHaveCount(1)
+    await page.getByTestId('switch-driver-result').first().click()
+
+    // URL เปลี่ยนเป็นคนใหม่ และยังพก year ไปด้วย
+    await expect(page).toHaveURL(/\/summary\/[a-z0-9]+\?year=\d{4}/)
+    expect(page.url()).not.toContain(firstUrl.split('/summary/')[1].split('?')[0])
+    await expect(page.getByText(DRIVER_B, { exact: false }).first()).toBeVisible({ timeout: 20000 })
   })
 })

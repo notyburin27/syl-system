@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, DatePicker, Spin, Empty, Button, App } from 'antd'
-import { DownloadOutlined, ArrowLeftOutlined } from '@ant-design/icons'
+import { DownloadOutlined, ArrowLeftOutlined, SwapOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverMonthlySummary } from '@/types/job'
 import { toThaiMonthYear } from '@/lib/utils/thaiDate'
 import dayjs from 'dayjs'
 import ExportRangeModal from './ExportRangeModal'
 import EditableSummaryRow, { type EditableField } from './EditableSummaryRow'
+import SummaryDriverSwitchModal from './SummaryDriverSwitchModal'
 
 function fmt(value: number | null) {
   if (value == null) return ''
@@ -197,6 +198,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
     initialYear && dayjs(initialYear + '-01-01').isValid() ? dayjs(initialYear + '-01-01') : dayjs()
   )
   const [exportOpen, setExportOpen] = useState(false)
+  const [switchOpen, setSwitchOpen] = useState(false)
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const { message } = App.useApp()
@@ -302,6 +304,13 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
           {driverLine && (
             <span style={{ fontSize: 18, fontWeight: 700 }}>{driverLine}</span>
           )}
+          <Button
+            data-testid="switch-driver-btn"
+            icon={<SwapOutlined />}
+            onClick={() => setSwitchOpen(true)}
+          >
+            เปลี่ยนคนขับ
+          </Button>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <Button
@@ -355,6 +364,16 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
           ))}
         </div>
       )}
+
+      <SummaryDriverSwitchModal
+        open={switchOpen}
+        currentDriverId={driverId}
+        onClose={() => setSwitchOpen(false)}
+        onSelect={(id) => {
+          setSwitchOpen(false)
+          router.push(`/summary/${id}?year=${year.format('YYYY')}`)
+        }}
+      />
 
       <ExportRangeModal
         open={exportOpen}
