@@ -9,7 +9,9 @@ export interface DriverSheetData {
   months: DriverMonthlySummary[];
 }
 
-const FONT = { name: "Courier New", size: 16, bold: true } as const;
+// ใช้ Angsana New ให้ตรงกับ jobsExcelGenerator ซึ่งเป็น export หลักของโปรเจกต์
+// (ไฟล์ต้นฉบับที่ธุรกิจใช้ตั้งเป็น Courier New ซึ่งไม่มี glyph ไทย เลย fallback เพี้ยน)
+const FONT = { name: "Angsana New", size: 16, bold: true } as const;
 const RED = "FFFF0000";
 const GREEN = "FF00B050";
 const FILL_ORANGE = "FFFFC000";
