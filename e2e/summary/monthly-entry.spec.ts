@@ -186,4 +186,31 @@ test.describe.serial('ช่องกรอกมือรายเดือน'
     expect(after.h, 'ความสูงการ์ดต้องไม่เปลี่ยน').toBe(before.h)
     expect(after.w, 'ความกว้างการ์ดต้องไม่เปลี่ยน').toBe(before.w)
   })
+
+  test('Case 7: หัก น้ำมัน/หยุด กรอกบวกแต่เก็บ/แสดงเป็นลบ', async ({ page }) => {
+    test.skip(dayjs().month() === 0, 'เดือน ม.ค. ยังไม่มีเดือนที่จบแล้วในปีนี้')
+    await login(page, 'testadmin')
+    await createDriverAndOpen(page)
+
+    const card = page.getByTestId('summary-month-card').first()
+    const m = LAST_CLOSED.format('YYYY-MM')
+
+    await card.getByTestId('card-edit').click()
+    await page.locator(`#entry-input-${m}-fuelDeduction`).fill('500')
+    await card.getByTestId('card-save').click()
+
+    // กรอกบวก → แสดงลบ
+    await expect(card.getByTestId('entry-value-fuelDeduction')).toHaveText('-500.00', { timeout: 15000 })
+
+    // เปิดแก้อีกรอบต้องเห็นเป็นบวก ผู้ใช้จะได้ไม่ต้องพิมพ์เครื่องหมายลบเอง
+    await card.getByTestId('card-edit').click()
+    await expect(page.locator(`#entry-input-${m}-fuelDeduction`)).toHaveValue('500.00')
+    await card.getByTestId('card-cancel').click()
+
+    // กรอกลบมาก็ยังเก็บเป็นลบ ไม่กลับเป็นบวก
+    await card.getByTestId('card-edit').click()
+    await page.locator(`#entry-input-${m}-fuelDeduction`).fill('-300')
+    await card.getByTestId('card-save').click()
+    await expect(card.getByTestId('entry-value-fuelDeduction')).toHaveText('-300.00', { timeout: 15000 })
+  })
 })

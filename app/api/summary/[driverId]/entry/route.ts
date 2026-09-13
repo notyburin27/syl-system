@@ -18,6 +18,13 @@ type EditableField = (typeof EDITABLE_FIELDS)[number];
 /** carryTrips เป็นจำนวนเที่ยว — ต้องเป็นจำนวนเต็มไม่ติดลบ */
 const INTEGER_FIELDS: EditableField[] = ["carryTrips"];
 
+/**
+ * ช่องที่เป็น "รายการหัก" — ผู้ใช้กรอกเป็นจำนวนบวก (เช่น 500) แต่เก็บเป็นลบ (-500)
+ * เพราะสูตรใน Excel แถว "รวม" บวกค่านี้ตรงๆ (ค่าเที่ยว + เงินเดือน + หัก)
+ * ถ้าเก็บเป็นบวกจะกลายเป็นบวกเพิ่มแทนที่จะหักออก
+ */
+const DEDUCTION_FIELDS: EditableField[] = ["fuelDeduction"];
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ driverId: string }> }
@@ -85,6 +92,14 @@ export async function PATCH(
           { error: "จำนวนเที่ยวต้องเป็นจำนวนเต็มไม่ติดลบ" },
           { status: 400 }
         );
+      }
+    }
+
+    // แปลงรายการหักให้เป็นค่าลบเสมอ ไม่ว่าผู้ใช้จะกรอกบวกหรือลบมา
+    for (const k of keys) {
+      const v = patch[k];
+      if (v !== null && DEDUCTION_FIELDS.includes(k as EditableField)) {
+        patch[k] = -Math.abs(v);
       }
     }
 

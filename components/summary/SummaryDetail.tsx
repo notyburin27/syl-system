@@ -92,7 +92,8 @@ function MonthCard({
     // ตั้งต้นจากค่าปัจจุบันทุกช่อง ผู้ใช้จะได้แก้ต่อจากของเดิม
     setDraft({
       carryTrips: s.carryTrips,
-      fuelDeduction: s.fuelDeduction,
+      // หักเก็บเป็นลบ แต่ให้ผู้ใช้กรอก/เห็นเป็นบวกตอนแก้
+      fuelDeduction: s.fuelDeduction != null ? Math.abs(s.fuelDeduction) : null,
       otherExpenses: s.otherExpenses,
       driverPayout: s.driverPayout,
     })
@@ -136,7 +137,8 @@ function MonthCard({
       styles={{ body: { padding: '12px 14px' } }}
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 700 }}>
+          {/* ชิดซ้าย — ถ้าจัดกลางแบบ flex:1 ชื่อเดือนจะขยับเมื่อปุ่มเปลี่ยนจาก 1 เป็น 2 อัน */}
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 700 }}>
             {toThaiMonthYear(s.month)}
           </span>
           {/* ปุ่มแก้ทั้งการ์ด — กดครั้งเดียวเปิด input ทั้ง 4 ช่อง */}
