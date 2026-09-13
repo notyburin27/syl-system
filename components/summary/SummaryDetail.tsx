@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Card, DatePicker, Spin, Empty, Button } from 'antd'
+import { Card, DatePicker, Spin, Empty, Button, App } from 'antd'
 import { DownloadOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverMonthlySummary } from '@/types/job'
 import { toThaiMonthYear } from '@/lib/utils/thaiDate'
 import dayjs from 'dayjs'
 import ExportRangeModal from './ExportRangeModal'
+import EditableSummaryRow, { type EditableField } from './EditableSummaryRow'
 
 function fmt(value: number | null) {
   if (value == null) return ''
@@ -29,7 +30,7 @@ function SummaryRow({
   background?: string
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '1px 8px', background, gap: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', minHeight: 30, background, gap: 8 }}>
       {/* label ต้องไม่ตัดบรรทัด ไม่งั้นการ์ดสูงไม่เท่ากันและอ่านยาก */}
       <span
         style={{
@@ -55,6 +56,8 @@ function SummaryRow({
         {value ?? ''}
       </span>
       <span style={{ width: 38, color, fontSize: 13, whiteSpace: 'nowrap' }}>{unit}</span>
+      {/* เว้นที่เท่าปุ่มในแถวที่แก้ได้ ไม่ให้คอลัมน์เหลื่อมกัน */}
+      <span style={{ width: 34 }} />
     </div>
   )
 }
@@ -65,12 +68,47 @@ function RowGap() {
 }
 
 /** การ์ดสรุปของหนึ่งเดือน */
-function MonthCard({ s }: { s: DriverMonthlySummary }) {
+function MonthCard({
+  s,
+  editingKey,
+  savingKey,
+  onStartEdit,
+  onCancel,
+  onSave,
+}: {
+  s: DriverMonthlySummary
+  /** '<month>:<field>' ของช่องที่กำลังแก้ — null = ไม่มีช่องไหนแก้อยู่ */
+  editingKey: string | null
+  savingKey: string | null
+  onStartEdit: (month: string, field: EditableField) => void
+  onCancel: () => void
+  onSave: (month: string, field: EditableField, value: number | null) => void
+}) {
   const fuelTotal =
     s.fuelPricePerLiter != null ? s.fuelPricePerLiter * s.fuelLiters : null
   const pct45 = s.income * 0.45
   const pct55 = s.income * 0.55
   const diff45 = fuelTotal != null ? pct45 - fuelTotal : null
+
+  // ยอดคงเหลือ = รายได้ − รวมใช้น้ำมัน − สรุปเงินเดือน − ค่าใช้จ่าย
+  // ถ้าตัวตั้งใดยังไม่มีค่า ให้เว้นว่าง ดีกว่าโชว์ตัวเลขครึ่งๆ กลางๆ ในรายงานเงินเดือน
+  const companyBalance =
+    fuelTotal != null && s.driverPayout != null && s.otherExpenses != null
+      ? s.income - fuelTotal - s.driverPayout - s.otherExpenses
+      : null
+
+  const rowProps = (field: EditableField) => ({
+    field,
+    month: s.month,
+    editing: editingKey === `${s.month}:${field}`,
+    saving: savingKey === `${s.month}:${field}`,
+    onStartEdit: (f: EditableField) => onStartEdit(s.month, f),
+    onCancel,
+    onSave: (f: EditableField, v: number | null) => onSave(s.month, f, v),
+  })
+
+  /** แบกเป็นจำนวนเที่ยว แสดงเป็นจำนวนเต็มไม่มีทศนิยม */
+  const fmtInt = (v: number | null) => (v == null ? '' : String(v))
 
   return (
     <Card
@@ -86,7 +124,15 @@ function MonthCard({ s }: { s: DriverMonthlySummary }) {
       <SummaryRow label="ซ่อมรถ" value={s.repairDays || null} unit="วัน" />
       <SummaryRow label="งาน" value={s.jobTrips || null} unit="เที่ยว" color="#389e0d" />
       <SummaryRow label="ทอย" value={s.towingTrips || null} unit="เที่ยว" color="#389e0d" />
-      <SummaryRow label="แบก" value={null} unit="เที่ยว" color="#389e0d" />
+      <EditableSummaryRow
+        label="แบก"
+        value={s.carryTrips}
+        unit="เที่ยว"
+        color="#389e0d"
+        integer
+        format={fmtInt}
+        {...rowProps('carryTrips')}
+      />
       <SummaryRow label="ค้างคืน" value={s.overnightDays || null} unit="วัน" />
 
       <RowGap />
@@ -106,10 +152,36 @@ function MonthCard({ s }: { s: DriverMonthlySummary }) {
 
       <SummaryRow label="ค่าเที่ยว" value={fmt(s.driverWage)} unit="บาท" />
       <SummaryRow label="เงินเดือน" value={fmt(s.baseSalary)} unit="บาท" />
-      <SummaryRow label="หัก น้ำมัน/หยุด" value={null} unit="บาท" color="#cf1322" />
-      <SummaryRow label="สรุปให้เงินเดือนคนรถ" value={null} unit="บาท" background="#d9f7be" />
-      <SummaryRow label="ค่าใช้จ่ายต่างๆ" value={null} unit="บาท" color="#cf1322" />
-      <SummaryRow label="ยอดคงเหลือของบริษัท" value={null} unit="บาท" background="#ffffb8" />
+      <EditableSummaryRow
+        label="หัก น้ำมัน/หยุด"
+        value={s.fuelDeduction}
+        unit="บาท"
+        color="#cf1322"
+        format={fmt}
+        {...rowProps('fuelDeduction')}
+      />
+      <EditableSummaryRow
+        label="สรุปให้เงินเดือนคนรถ"
+        value={s.driverPayout}
+        unit="บาท"
+        background="#d9f7be"
+        format={fmt}
+        {...rowProps('driverPayout')}
+      />
+      <EditableSummaryRow
+        label="ค่าใช้จ่ายต่างๆ"
+        value={s.otherExpenses}
+        unit="บาท"
+        color="#cf1322"
+        format={fmt}
+        {...rowProps('otherExpenses')}
+      />
+      <SummaryRow
+        label="ยอดคงเหลือของบริษัท"
+        value={fmt(companyBalance)}
+        unit="บาท"
+        background="#ffffb8"
+      />
     </Card>
   )
 }
@@ -125,6 +197,55 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
     initialYear && dayjs(initialYear + '-01-01').isValid() ? dayjs(initialYear + '-01-01') : dayjs()
   )
   const [exportOpen, setExportOpen] = useState(false)
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [savingKey, setSavingKey] = useState<string | null>(null)
+  const { message } = App.useApp()
+
+  // แก้ได้ทีละช่อง — เปิดช่องใหม่ขณะช่องเดิมค้างอยู่ ให้ทิ้งของเดิมไป
+  const handleStartEdit = useCallback((month: string, field: EditableField) => {
+    setEditingKey(`${month}:${field}`)
+  }, [])
+
+  const handleSave = useCallback(
+    async (month: string, field: EditableField, value: number | null) => {
+      const key = `${month}:${field}`
+      setSavingKey(key)
+      try {
+        const res = await fetch(`/api/summary/${driverId}/entry`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ month, field, value }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          message.error(err.error || 'บันทึกไม่สำเร็จ')
+          return
+        }
+        const saved = await res.json()
+        // อัปเดตเฉพาะเดือนที่แก้ ไม่ต้องโหลดใหม่ทั้งปี
+        setMonths((prev) =>
+          prev.map((m) =>
+            m.month === month
+              ? {
+                  ...m,
+                  carryTrips: saved.carryTrips,
+                  fuelDeduction: saved.fuelDeduction,
+                  otherExpenses: saved.otherExpenses,
+                  driverPayout: saved.driverPayout,
+                }
+              : m
+          )
+        )
+        setEditingKey(null)
+        message.success('บันทึกแล้ว')
+      } catch {
+        message.error('บันทึกไม่สำเร็จ')
+      } finally {
+        setSavingKey(null)
+      }
+    },
+    [driverId, message]
+  )
 
   const fetchYear = useCallback(
     async (y: dayjs.Dayjs) => {
@@ -222,7 +343,14 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
         >
           {visibleMonths.map((s) => (
             <div key={s.month} style={{ flex: '0 0 auto', width: 400 }}>
-              <MonthCard s={s} />
+              <MonthCard
+                s={s}
+                editingKey={editingKey}
+                savingKey={savingKey}
+                onStartEdit={handleStartEdit}
+                onCancel={() => setEditingKey(null)}
+                onSave={handleSave}
+              />
             </div>
           ))}
         </div>

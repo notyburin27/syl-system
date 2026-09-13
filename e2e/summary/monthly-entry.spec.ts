@@ -1,0 +1,131 @@
+import { test, expect } from '@playwright/test'
+import { execSync } from 'child_process'
+import * as dotenv from 'dotenv'
+import path from 'path'
+import dayjs from 'dayjs'
+
+dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
+
+const DRIVER = 'Entry Test Driver'
+const VEHICLE = 'ENT-01'
+
+/** เดือนล่าสุดที่จบแล้ว — การ์ดใบแรกบนหน้าจอ */
+const LAST_CLOSED = dayjs().subtract(1, 'month')
+
+async function login(page: import('@playwright/test').Page, username: string) {
+  await page.goto('/login')
+  await page.getByPlaceholder('ชื่อผู้ใช้').fill(username)
+  await page.getByPlaceholder('รหัสผ่าน').fill('admin123')
+  await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).click()
+  await page.waitForURL(/\/jobs|\/line-images/, { timeout: 20000 })
+}
+
+async function createDriverAndOpen(page: import('@playwright/test').Page) {
+  await page.goto('/jobs/settings/drivers')
+  await page.getByTestId('add-driver-btn').click()
+  await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER)
+  await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill(VEHICLE)
+  await page.getByTestId('driver-submit-btn').click()
+  await expect(page.getByRole('dialog')).not.toBeVisible()
+
+  await page.goto('/summary')
+  await page.getByRole('row').filter({ hasText: DRIVER }).click()
+  await expect(page).toHaveURL(/\/summary\/[a-z0-9]+/)
+  await page.waitForSelector('[data-testid="summary-month-card"]', { timeout: 20000 })
+}
+
+test.describe.serial('ช่องกรอกมือรายเดือน', () => {
+  test.afterEach(async () => {
+    execSync('npx tsx e2e/scripts/cleanup-entry.ts', {
+      stdio: 'inherit',
+      env: { ...process.env },
+      cwd: path.resolve(__dirname, '../..'),
+    })
+  })
+
+  test('Case 1: กดดินสอ กรอกค่า บันทึก แล้วค่าคงอยู่หลัง reload', async ({ page }) => {
+    test.skip(dayjs().month() === 0, 'เดือน ม.ค. ยังไม่มีเดือนที่จบแล้วในปีนี้')
+    await login(page, 'testadmin')
+    await createDriverAndOpen(page)
+
+    const card = page.getByTestId('summary-month-card').first()
+    await card.getByTestId('entry-edit-carryTrips').click()
+    await page.locator(`#entry-input-${LAST_CLOSED.format('YYYY-MM')}-carryTrips`).fill('6')
+    await card.getByTestId('entry-save-carryTrips').click()
+
+    await expect(card.getByTestId('entry-value-carryTrips')).toHaveText('6', { timeout: 15000 })
+
+    // ค่าต้องมาจาก DB จริง ไม่ใช่แค่ state ในหน้า
+    await page.reload()
+    await page.waitForSelector('[data-testid="summary-month-card"]', { timeout: 20000 })
+    await expect(
+      page.getByTestId('summary-month-card').first().getByTestId('entry-value-carryTrips')
+    ).toHaveText('6')
+  })
+
+  test('Case 2: กด Esc ระหว่างแก้ ค่าเดิมกลับมา ไม่ถูกบันทึก', async ({ page }) => {
+    test.skip(dayjs().month() === 0, 'เดือน ม.ค. ยังไม่มีเดือนที่จบแล้วในปีนี้')
+    await login(page, 'testadmin')
+    await createDriverAndOpen(page)
+
+    const card = page.getByTestId('summary-month-card').first()
+    await card.getByTestId('entry-edit-otherExpenses').click()
+    const input = page.locator(`#entry-input-${LAST_CLOSED.format('YYYY-MM')}-otherExpenses`)
+    await input.fill('9999')
+    await input.press('Escape')
+
+    // กลับเป็นโหมดอ่าน และยังว่างอยู่
+    await expect(card.getByTestId('entry-value-otherExpenses')).toBeVisible()
+    await expect(card.getByTestId('entry-value-otherExpenses')).toHaveText('')
+
+    await page.reload()
+    await page.waitForSelector('[data-testid="summary-month-card"]', { timeout: 20000 })
+    await expect(
+      page.getByTestId('summary-month-card').first().getByTestId('entry-value-otherExpenses')
+    ).toHaveText('')
+  })
+
+  test('Case 3: MANAGER ยิง PATCH entry ไม่ได้ (403)', async ({ page }) => {
+    await login(page, 'testadmin')
+    await page.goto('/jobs/settings/drivers')
+    await page.getByTestId('add-driver-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER)
+    await page.getByTestId('driver-submit-btn').click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    const list = await (await page.request.get('/api/drivers')).json()
+    const id = list.find((d: { name: string }) => d.name === DRIVER).id
+
+    await page.goto('/api/auth/signout')
+    await login(page, 'testmanager')
+
+    const res = await page.request.patch(`/api/summary/${id}/entry`, {
+      data: { month: LAST_CLOSED.format('YYYY-MM'), field: 'carryTrips', value: 5 },
+    })
+    expect(res.status()).toBe(403)
+  })
+
+  test('Case 4: field นอก whitelist ถูกปฏิเสธ (400)', async ({ page }) => {
+    await login(page, 'testadmin')
+    await page.goto('/jobs/settings/drivers')
+    await page.getByTestId('add-driver-btn').click()
+    await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER)
+    await page.getByTestId('driver-submit-btn').click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    const list = await (await page.request.get('/api/drivers')).json()
+    const id = list.find((d: { name: string }) => d.name === DRIVER).id
+
+    // พยายามเขียน field ที่ไม่ได้อนุญาต
+    const bad = await page.request.patch(`/api/summary/${id}/entry`, {
+      data: { month: LAST_CLOSED.format('YYYY-MM'), field: 'updatedById', value: 1 },
+    })
+    expect(bad.status()).toBe(400)
+
+    // แบกต้องเป็นจำนวนเต็มไม่ติดลบ
+    const negative = await page.request.patch(`/api/summary/${id}/entry`, {
+      data: { month: LAST_CLOSED.format('YYYY-MM'), field: 'carryTrips', value: -3 },
+    })
+    expect(negative.status()).toBe(400)
+  })
+})
