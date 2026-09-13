@@ -30,11 +30,31 @@ function SummaryRow({
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', padding: '1px 8px', background, gap: 8 }}>
-      <span style={{ flex: 1, textAlign: 'right', color, fontWeight: 600 }}>{label}</span>
-      <span style={{ width: 120, textAlign: 'right', color, fontWeight: 600 }}>
+      {/* label ต้องไม่ตัดบรรทัด ไม่งั้นการ์ดสูงไม่เท่ากันและอ่านยาก */}
+      <span
+        style={{
+          flex: 1,
+          textAlign: 'right',
+          color,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </span>
+      {/* กว้างพอสำหรับจำนวนเงินหลักล้าน เช่น 1,000,000.00 (วัดจริง 88px) */}
+      <span
+        style={{
+          width: 112,
+          textAlign: 'right',
+          color,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+        }}
+      >
         {value ?? ''}
       </span>
-      <span style={{ width: 44, color, fontSize: 13 }}>{unit}</span>
+      <span style={{ width: 38, color, fontSize: 13, whiteSpace: 'nowrap' }}>{unit}</span>
     </div>
   )
 }
@@ -191,7 +211,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
           }}
         >
           {visibleMonths.map((s) => (
-            <div key={s.month} style={{ flex: '0 0 auto', width: 320 }}>
+            <div key={s.month} style={{ flex: '0 0 auto', width: 400 }}>
               <MonthCard s={s} />
             </div>
           ))}
