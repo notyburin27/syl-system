@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, DatePicker, Spin, Empty, Button, App } from 'antd'
-import { DownloadOutlined, ArrowLeftOutlined, SwapOutlined } from '@ant-design/icons'
+import { DownloadOutlined, ArrowLeftOutlined, SwapOutlined, EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverMonthlySummary } from '@/types/job'
 import { toThaiMonthYear } from '@/lib/utils/thaiDate'
@@ -71,20 +71,37 @@ function RowGap() {
 /** การ์ดสรุปของหนึ่งเดือน */
 function MonthCard({
   s,
-  editingKey,
-  savingKey,
-  onStartEdit,
-  onCancel,
+  saving,
   onSave,
 }: {
   s: DriverMonthlySummary
-  /** '<month>:<field>' ของช่องที่กำลังแก้ — null = ไม่มีช่องไหนแก้อยู่ */
-  editingKey: string | null
-  savingKey: string | null
-  onStartEdit: (month: string, field: EditableField) => void
-  onCancel: () => void
-  onSave: (month: string, field: EditableField, value: number | null) => void
+  saving: boolean
+  onSave: (month: string, values: Record<EditableField, number | null>) => Promise<boolean>
 }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<Record<EditableField, number | null>>({
+    carryTrips: null,
+    fuelDeduction: null,
+    otherExpenses: null,
+    driverPayout: null,
+  })
+
+  const startEdit = () => {
+    // ตั้งต้นจากค่าปัจจุบันทุกช่อง ผู้ใช้จะได้แก้ต่อจากของเดิม
+    setDraft({
+      carryTrips: s.carryTrips,
+      fuelDeduction: s.fuelDeduction,
+      otherExpenses: s.otherExpenses,
+      driverPayout: s.driverPayout,
+    })
+    setEditing(true)
+  }
+
+  const commit = async () => {
+    const ok = await onSave(s.month, draft)
+    if (ok) setEditing(false)
+  }
+
   const fuelTotal =
     s.fuelPricePerLiter != null ? s.fuelPricePerLiter * s.fuelLiters : null
   const pct45 = s.income * 0.45
@@ -98,26 +115,55 @@ function MonthCard({
       ? s.income - fuelTotal - s.driverPayout - s.otherExpenses
       : null
 
+  /** แบกเป็นจำนวนเที่ยว แสดงเป็นจำนวนเต็มไม่มีทศนิยม */
+  const fmtInt = (v: number | null) => (v == null ? '' : String(v))
+
   const rowProps = (field: EditableField) => ({
     field,
     month: s.month,
-    editing: editingKey === `${s.month}:${field}`,
-    saving: savingKey === `${s.month}:${field}`,
-    onStartEdit: (f: EditableField) => onStartEdit(s.month, f),
-    onCancel,
-    onSave: (f: EditableField, v: number | null) => onSave(s.month, f, v),
+    editing,
+    disabled: saving,
+    draft: draft[field],
+    onDraftChange: (f: EditableField, v: number | null) =>
+      setDraft((d) => ({ ...d, [f]: v })),
   })
-
-  /** แบกเป็นจำนวนเที่ยว แสดงเป็นจำนวนเต็มไม่มีทศนิยม */
-  const fmtInt = (v: number | null) => (v == null ? '' : String(v))
 
   return (
     <Card
       data-testid="summary-month-card"
       styles={{ body: { padding: '12px 14px' } }}
       title={
-        <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700 }}>
-          {toThaiMonthYear(s.month)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 700 }}>
+            {toThaiMonthYear(s.month)}
+          </span>
+          {/* ปุ่มแก้ทั้งการ์ด — กดครั้งเดียวเปิด input ทั้ง 4 ช่อง */}
+          {editing ? (
+            <span style={{ display: 'flex', gap: 8 }}>
+              {saving ? (
+                <Spin size="small" />
+              ) : (
+                <>
+                  <CheckOutlined
+                    onClick={commit}
+                    data-testid="card-save"
+                    style={{ color: '#389e0d', cursor: 'pointer' }}
+                  />
+                  <CloseOutlined
+                    onClick={() => setEditing(false)}
+                    data-testid="card-cancel"
+                    style={{ color: '#999', cursor: 'pointer' }}
+                  />
+                </>
+              )}
+            </span>
+          ) : (
+            <EditOutlined
+              onClick={startEdit}
+              data-testid="card-edit"
+              style={{ color: '#bbb', cursor: 'pointer', fontSize: 13 }}
+            />
+          )}
         </div>
       }
     >
@@ -199,29 +245,22 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
   )
   const [exportOpen, setExportOpen] = useState(false)
   const [switchOpen, setSwitchOpen] = useState(false)
-  const [editingKey, setEditingKey] = useState<string | null>(null)
-  const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [savingMonth, setSavingMonth] = useState<string | null>(null)
   const { message } = App.useApp()
 
-  // แก้ได้ทีละช่อง — เปิดช่องใหม่ขณะช่องเดิมค้างอยู่ ให้ทิ้งของเดิมไป
-  const handleStartEdit = useCallback((month: string, field: EditableField) => {
-    setEditingKey(`${month}:${field}`)
-  }, [])
-
-  const handleSave = useCallback(
-    async (month: string, field: EditableField, value: number | null) => {
-      const key = `${month}:${field}`
-      setSavingKey(key)
+  const handleSaveCard = useCallback(
+    async (month: string, values: Record<EditableField, number | null>) => {
+      setSavingMonth(month)
       try {
         const res = await fetch(`/api/summary/${driverId}/entry`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ month, field, value }),
+          body: JSON.stringify({ month, values }),
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
           message.error(err.error || 'บันทึกไม่สำเร็จ')
-          return
+          return false
         }
         const saved = await res.json()
         // อัปเดตเฉพาะเดือนที่แก้ ไม่ต้องโหลดใหม่ทั้งปี
@@ -238,12 +277,13 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
               : m
           )
         )
-        setEditingKey(null)
         message.success('บันทึกแล้ว')
+        return true
       } catch {
         message.error('บันทึกไม่สำเร็จ')
+        return false
       } finally {
-        setSavingKey(null)
+        setSavingMonth(null)
       }
     },
     [driverId, message]
@@ -352,14 +392,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
         >
           {visibleMonths.map((s) => (
             <div key={s.month} style={{ flex: '0 0 auto', width: 400 }}>
-              <MonthCard
-                s={s}
-                editingKey={editingKey}
-                savingKey={savingKey}
-                onStartEdit={handleStartEdit}
-                onCancel={() => setEditingKey(null)}
-                onSave={handleSave}
-              />
+              <MonthCard s={s} saving={savingMonth === s.month} onSave={handleSaveCard} />
             </div>
           ))}
         </div>

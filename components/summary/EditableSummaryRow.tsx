@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { InputNumber, Spin } from 'antd'
-import { EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import { InputNumber } from 'antd'
 
 /** ชื่อ field ที่แก้ได้ — ต้องตรงกับ whitelist ฝั่ง API */
 export type EditableField =
@@ -11,9 +9,16 @@ export type EditableField =
   | 'otherExpenses'
   | 'driverPayout'
 
+/**
+ * แถวที่แก้ได้ในการ์ดสรุป
+ *
+ * ตัวแถวเองไม่มีปุ่มควบคุม — การ์ดเป็นคนคุมว่าทั้งใบอยู่โหมดแก้หรือโหมดอ่าน
+ * (กดดินสอที่หัวการ์ดครั้งเดียว ทั้ง 4 ช่องกลายเป็น input พร้อมกัน)
+ */
 export default function EditableSummaryRow({
   label,
   value,
+  draft,
   unit,
   field,
   month,
@@ -21,14 +26,14 @@ export default function EditableSummaryRow({
   background,
   integer,
   editing,
-  saving,
-  onStartEdit,
-  onCancel,
-  onSave,
+  disabled,
+  onDraftChange,
   format,
 }: {
   label: string
   value: number | null
+  /** ค่าที่กำลังพิมพ์อยู่ (ใช้เฉพาะตอน editing) */
+  draft: number | null
   unit: string
   field: EditableField
   /** ใช้ทำ id ให้ไม่ซ้ำ เพราะหลายการ์ดมี field ชื่อเดียวกัน */
@@ -37,28 +42,11 @@ export default function EditableSummaryRow({
   background?: string
   /** จำนวนเที่ยว — กรอกทศนิยมไม่ได้ */
   integer?: boolean
-  /** แถวนี้กำลังแก้อยู่ไหม (ควบคุมจากการ์ด เพื่อให้แก้ได้ทีละช่อง) */
   editing: boolean
-  saving: boolean
-  onStartEdit: (field: EditableField) => void
-  onCancel: () => void
-  onSave: (field: EditableField, value: number | null) => void
-  /** ฟังก์ชันจัดรูปแบบตอนไม่ได้แก้ */
+  disabled?: boolean
+  onDraftChange: (field: EditableField, value: number | null) => void
   format: (v: number | null) => string
 }) {
-  const [draft, setDraft] = useState<number | null>(value)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // ตั้งค่าตั้งต้นทุกครั้งที่เข้าโหมดแก้ แล้วโฟกัส+เลือกข้อความทั้งหมด
-  useEffect(() => {
-    if (editing) {
-      setDraft(value)
-      setTimeout(() => inputRef.current?.select(), 0)
-    }
-  }, [editing, value])
-
-  const commit = () => onSave(field, draft)
-
   return (
     <div
       style={{
@@ -77,21 +65,15 @@ export default function EditableSummaryRow({
       </span>
 
       {editing ? (
-        <span style={{ width: 112, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ width: 112, display: 'flex', alignItems: 'center' }}>
           <InputNumber
-            ref={inputRef}
             size="small"
-            autoFocus
-            disabled={saving}
+            disabled={disabled}
             value={draft}
-            onChange={(v) => setDraft(v as number | null)}
-            onPressEnter={commit}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') onCancel()
-            }}
+            onChange={(v) => onDraftChange(field, v as number | null)}
             precision={integer ? 0 : 2}
             style={{ width: '100%' }}
-            /* antd ใส่ id ลงบน <input> โดยตรง — test จับด้วย id ได้ (แบบเดียวกับที่อื่นในโปรเจกต์) */
+            /* antd ใส่ id ลงบน <input> โดยตรง — test จับด้วย id ได้ */
             id={`entry-input-${month}-${field}`}
           />
         </span>
@@ -100,7 +82,6 @@ export default function EditableSummaryRow({
           style={{
             width: 112,
             // ช่องที่ยังไม่กรอกมีข้อความว่าง ถ้าไม่ตั้ง minHeight span จะยุบเป็น 0px
-            // ทำให้แถวเสียรูปและ Playwright มองว่า hidden
             minHeight: 22,
             display: 'inline-flex',
             alignItems: 'center',
@@ -116,32 +97,6 @@ export default function EditableSummaryRow({
       )}
 
       <span style={{ width: 38, color, fontSize: 13, whiteSpace: 'nowrap' }}>{unit}</span>
-
-      {/* ปุ่มควบคุม — กว้างคงที่ทุกโหมด ไม่ให้แถวขยับตอนสลับ */}
-      <span style={{ width: 34, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-        {saving ? (
-          <Spin size="small" />
-        ) : editing ? (
-          <>
-            <CheckOutlined
-              onClick={commit}
-              data-testid={`entry-save-${field}`}
-              style={{ color: '#389e0d', cursor: 'pointer' }}
-            />
-            <CloseOutlined
-              onClick={onCancel}
-              data-testid={`entry-cancel-${field}`}
-              style={{ color: '#999', cursor: 'pointer' }}
-            />
-          </>
-        ) : (
-          <EditOutlined
-            onClick={() => onStartEdit(field)}
-            data-testid={`entry-edit-${field}`}
-            style={{ color: '#bbb', cursor: 'pointer', fontSize: 12 }}
-          />
-        )}
-      </span>
     </div>
   )
 }

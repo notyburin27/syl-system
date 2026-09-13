@@ -33,10 +33,12 @@ export async function PATCH(
   try {
     const { driverId } = await params;
     const body = await req.json();
-    const { month, field, value } = body as {
+    const { month, field, value, values } = body as {
       month?: string;
       field?: string;
       value?: number | null;
+      /** แก้หลายช่องพร้อมกัน — ใช้แทน field/value เดี่ยว */
+      values?: Record<string, number | null>;
     };
 
     if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
@@ -46,29 +48,44 @@ export async function PATCH(
       );
     }
 
-    if (!field || !EDITABLE_FIELDS.includes(field as EditableField)) {
-      return NextResponse.json(
-        { error: "ไม่สามารถแก้ไขช่องนี้ได้" },
-        { status: 400 }
-      );
+    // รวมสองรูปแบบ: {field,value} ช่องเดียว หรือ {values:{...}} หลายช่อง
+    const patch: Record<string, number | null> =
+      values && typeof values === "object" && !Array.isArray(values)
+        ? values
+        : field
+          ? { [field]: value ?? null }
+          : {};
+
+    const keys = Object.keys(patch);
+    if (keys.length === 0) {
+      return NextResponse.json({ error: "ไม่มีข้อมูลให้บันทึก" }, { status: 400 });
     }
 
-    // null = ล้างค่า (กลับไปเป็นช่องว่าง) ถือว่าถูกต้อง
-    if (value !== null && typeof value !== "number") {
-      return NextResponse.json({ error: "ค่าที่กรอกต้องเป็นตัวเลข" }, { status: 400 });
-    }
-    if (value !== null && !Number.isFinite(value)) {
-      return NextResponse.json({ error: "ค่าที่กรอกไม่ถูกต้อง" }, { status: 400 });
-    }
-    if (
-      value !== null &&
-      INTEGER_FIELDS.includes(field as EditableField) &&
-      (!Number.isInteger(value) || value < 0)
-    ) {
-      return NextResponse.json(
-        { error: "จำนวนเที่ยวต้องเป็นจำนวนเต็มไม่ติดลบ" },
-        { status: 400 }
-      );
+    for (const k of keys) {
+      if (!EDITABLE_FIELDS.includes(k as EditableField)) {
+        return NextResponse.json(
+          { error: "ไม่สามารถแก้ไขช่องนี้ได้" },
+          { status: 400 }
+        );
+      }
+      const v = patch[k];
+      // null = ล้างค่า (กลับไปเป็นช่องว่าง) ถือว่าถูกต้อง
+      if (v !== null && typeof v !== "number") {
+        return NextResponse.json({ error: "ค่าที่กรอกต้องเป็นตัวเลข" }, { status: 400 });
+      }
+      if (v !== null && !Number.isFinite(v)) {
+        return NextResponse.json({ error: "ค่าที่กรอกไม่ถูกต้อง" }, { status: 400 });
+      }
+      if (
+        v !== null &&
+        INTEGER_FIELDS.includes(k as EditableField) &&
+        (!Number.isInteger(v) || v < 0)
+      ) {
+        return NextResponse.json(
+          { error: "จำนวนเที่ยวต้องเป็นจำนวนเต็มไม่ติดลบ" },
+          { status: 400 }
+        );
+      }
     }
 
     const driver = await prisma.driver.findUnique({ where: { id: driverId } });
@@ -81,11 +98,11 @@ export async function PATCH(
       create: {
         driverId,
         month,
-        [field]: value,
+        ...patch,
         updatedById: session.user.id,
       },
       update: {
-        [field]: value,
+        ...patch,
         updatedById: session.user.id,
       },
       select: {

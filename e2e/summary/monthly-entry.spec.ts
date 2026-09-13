@@ -50,30 +50,34 @@ test.describe.serial('ช่องกรอกมือรายเดือน'
     await createDriverAndOpen(page)
 
     const card = page.getByTestId('summary-month-card').first()
-    await card.getByTestId('entry-edit-carryTrips').click()
-    await page.locator(`#entry-input-${LAST_CLOSED.format('YYYY-MM')}-carryTrips`).fill('6')
-    await card.getByTestId('entry-save-carryTrips').click()
+    const m = LAST_CLOSED.format('YYYY-MM')
+
+    // ดินสอตัวเดียวที่หัวการ์ด เปิด input ทั้ง 4 ช่องพร้อมกัน
+    await card.getByTestId('card-edit').click()
+    await page.locator(`#entry-input-${m}-carryTrips`).fill('6')
+    await page.locator(`#entry-input-${m}-otherExpenses`).fill('3230')
+    await card.getByTestId('card-save').click()
 
     await expect(card.getByTestId('entry-value-carryTrips')).toHaveText('6', { timeout: 15000 })
+    await expect(card.getByTestId('entry-value-otherExpenses')).toHaveText('3,230.00')
 
     // ค่าต้องมาจาก DB จริง ไม่ใช่แค่ state ในหน้า
     await page.reload()
     await page.waitForSelector('[data-testid="summary-month-card"]', { timeout: 20000 })
-    await expect(
-      page.getByTestId('summary-month-card').first().getByTestId('entry-value-carryTrips')
-    ).toHaveText('6')
+    const reloaded = page.getByTestId('summary-month-card').first()
+    await expect(reloaded.getByTestId('entry-value-carryTrips')).toHaveText('6')
+    await expect(reloaded.getByTestId('entry-value-otherExpenses')).toHaveText('3,230.00')
   })
 
-  test('Case 2: กด Esc ระหว่างแก้ ค่าเดิมกลับมา ไม่ถูกบันทึก', async ({ page }) => {
+  test('Case 2: กดยกเลิก ค่าเดิมกลับมา ไม่ถูกบันทึก', async ({ page }) => {
     test.skip(dayjs().month() === 0, 'เดือน ม.ค. ยังไม่มีเดือนที่จบแล้วในปีนี้')
     await login(page, 'testadmin')
     await createDriverAndOpen(page)
 
     const card = page.getByTestId('summary-month-card').first()
-    await card.getByTestId('entry-edit-otherExpenses').click()
-    const input = page.locator(`#entry-input-${LAST_CLOSED.format('YYYY-MM')}-otherExpenses`)
-    await input.fill('9999')
-    await input.press('Escape')
+    await card.getByTestId('card-edit').click()
+    await page.locator(`#entry-input-${LAST_CLOSED.format('YYYY-MM')}-otherExpenses`).fill('9999')
+    await card.getByTestId('card-cancel').click()
 
     // กลับเป็นโหมดอ่าน และยังว่างอยู่
     await expect(card.getByTestId('entry-value-otherExpenses')).toBeVisible()
@@ -137,7 +141,10 @@ test.describe.serial('ช่องกรอกมือรายเดือน'
 
     // สร้างคนขับอีกคนเพื่อสลับไป
     await page.goto('/jobs/settings/drivers')
+    // รอหน้าโหลดเสร็จก่อนกด ไม่งั้นคลิกตอนตารางยังไม่พร้อม modal ไม่เปิด
+    await expect(page.getByText('จัดการคนขับรถ')).toBeVisible({ timeout: 20000 })
     await page.getByTestId('add-driver-btn').click()
+    await expect(page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ')).toBeVisible({ timeout: 20000 })
     await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER_B)
     await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill('ENT-02')
     await page.getByTestId('driver-submit-btn').click()
