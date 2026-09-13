@@ -42,6 +42,11 @@ read_db_url() {
   local url
   url="$(grep -E '^DATABASE_URL=' "$file" | head -1 | cut -d= -f2- | tr -d '"'"'"'')"
   [[ -n "$url" ]] || die "ไม่พบ DATABASE_URL ใน $file"
+
+  # Prisma รู้จัก sslmode=no-verify แต่ libpq (ที่ pg_dump/psql ใช้) ไม่รู้จัก
+  # → แปลงเป็น require ไม่งั้นได้ error: invalid sslmode value: "no-verify"
+  url="${url//sslmode=no-verify/sslmode=require}"
+
   printf '%s' "$url"
 }
 
@@ -116,7 +121,7 @@ echo
 bold "[1/4] สำรองข้อมูล staging ปัจจุบัน"
 run_pg "$STAG_URL" sh -c \
   'pg_dump --dbname="$PGCONN" --format=custom --no-owner --no-privileges --file=/backup/'"stag-$TS.dump" \
-  || die "สำรอง staging ไม่สำเร็จ — หยุดก่อนแตะข้อมูล"
+  || die "สำรอง staging ไม่สำเร็จ (ดูข้อความ pg_dump ด้านบน) — หยุดก่อนแตะข้อมูล"
 grn "      ✔ เก็บไว้ที่ $BACKUP_DIR/stag-$TS.dump"
 
 echo
