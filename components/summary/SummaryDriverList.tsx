@@ -63,6 +63,14 @@ export default function SummaryDriverList() {
     })
   }, [drivers, selectedGroups, searchText])
 
+  // ช่วง default ตอน export = ต้นปีนี้ ถึงเดือนล่าสุดที่จบแล้ว (ไม่รวมเดือนปัจจุบัน)
+  const exportDefaultRange = useMemo((): [dayjs.Dayjs, dayjs.Dayjs] => {
+    const start = dayjs().startOf('year')
+    const lastClosed = dayjs().subtract(1, 'month')
+    // ถ้าอยู่ ม.ค. ยังไม่มีเดือนที่จบในปีนี้ → ใช้ ม.ค. ทั้งคู่กันช่วงกลับด้าน
+    return [start, lastClosed.isBefore(start) ? start : lastClosed]
+  }, [])
+
   const columns = [
     {
       title: 'ชื่อคนขับ',
@@ -152,7 +160,7 @@ export default function SummaryDriverList() {
 
       <ExportRangeModal
         open={exportOpen}
-        defaultMonth={dayjs()}
+        defaultRange={exportDefaultRange}
         onClose={() => setExportOpen(false)}
         buildUrl={(from, to) => {
           const params = new URLSearchParams({ from, to })

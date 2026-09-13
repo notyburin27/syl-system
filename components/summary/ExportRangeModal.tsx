@@ -8,23 +8,28 @@ const { RangePicker } = DatePicker
 
 export default function ExportRangeModal({
   open,
-  defaultMonth,
+  defaultRange,
   onClose,
   buildUrl,
 }: {
   open: boolean
-  defaultMonth: dayjs.Dayjs
+  /** ช่วงเดือนตั้งต้น [from, to] */
+  defaultRange: [dayjs.Dayjs, dayjs.Dayjs]
   onClose: () => void
   /** สร้าง URL ของ export API จากช่วงเดือนที่เลือก */
   buildUrl: (from: string, to: string) => string
 }) {
   const { message } = App.useApp()
-  const [range, setRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([defaultMonth, defaultMonth])
+  const [range, setRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>(defaultRange)
   const [loading, setLoading] = useState(false)
 
+  // เทียบด้วยสตริงเดือน ไม่ใช่ object — dayjs สร้างใหม่ทุก render จะ reset ไม่รู้จบ
+  const fromKey = defaultRange[0].format('YYYY-MM')
+  const toKey = defaultRange[1].format('YYYY-MM')
+
   useEffect(() => {
-    if (open) setRange([defaultMonth, defaultMonth])
-  }, [open, defaultMonth])
+    if (open) setRange([dayjs(fromKey + '-01'), dayjs(toKey + '-01')])
+  }, [open, fromKey, toKey])
 
   const handleExport = async () => {
     setLoading(true)

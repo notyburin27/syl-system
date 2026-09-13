@@ -161,6 +161,16 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
     return months.filter((s) => s.month < currentMonth)
   }, [months])
 
+  // ช่วง default ตอน export = ม.ค. ถึงเดือนล่าสุดที่จบแล้ว ให้ตรงกับการ์ดที่เห็นบนหน้าจอ
+  // ปีเก่าที่จบไปแล้วเอาถึง ธ.ค. ได้เต็มปี
+  const exportDefaultRange = useMemo((): [dayjs.Dayjs, dayjs.Dayjs] => {
+    const start = year.startOf('year')
+    const lastClosed = dayjs().subtract(1, 'month')
+    const end = year.isSame(dayjs(), 'year') ? lastClosed : year.endOf('year')
+    // ถ้าอยู่ ม.ค. ยังไม่มีเดือนที่จบในปีนี้ → ใช้ ม.ค. ทั้งคู่กันช่วงกลับด้าน
+    return [start, end.isBefore(start) ? start : end]
+  }, [year])
+
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -220,7 +230,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
 
       <ExportRangeModal
         open={exportOpen}
-        defaultMonth={year.month(dayjs().month())}
+        defaultRange={exportDefaultRange}
         onClose={() => setExportOpen(false)}
         buildUrl={(from, to) => `/api/summary/export?from=${from}&to=${to}&driverId=${driverId}`}
       />
