@@ -66,16 +66,22 @@ test.describe.serial('สรุปงาน', () => {
     expect(res.status()).toBe(403)
   })
 
-  test('Case 4: หน้า list แสดงทุกกลุ่ม แบ่งหัวข้อตามกลุ่ม', async ({ page }) => {
+  test('Case 4: หน้า list เป็นตารางเดียวรวมทุกกลุ่ม', async ({ page }) => {
     await login(page, 'testadmin')
     await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
     await createDriver(page, DRIVER_B, 'SUM-02', GROUP_B)
 
     await page.goto('/summary')
-    await expect(page.getByTestId('summary-group-heading').filter({ hasText: GROUP_A })).toBeVisible()
-    await expect(page.getByTestId('summary-group-heading').filter({ hasText: GROUP_B })).toBeVisible()
+
+    // ตารางเดียว ไม่มีหัวข้อคั่นตามกลุ่ม — คนละกลุ่มอยู่ในตารางเดียวกัน
+    await expect(page.getByRole('columnheader', { name: 'ชื่อคนขับ' })).toBeVisible()
+    await expect(page.getByRole('columnheader', { name: 'กลุ่ม' })).toBeVisible()
     await expect(page.getByText(DRIVER_A)).toBeVisible()
     await expect(page.getByText(DRIVER_B)).toBeVisible()
+
+    // ไม่มีคอลัมน์ตัวเลข และไม่มีตัวเลือกเดือน
+    await expect(page.getByRole('columnheader', { name: 'รายได้' })).not.toBeVisible()
+    await expect(page.locator('#summary-month-picker')).toHaveCount(0)
   })
 
   test('Case 5: filter กลุ่มแล้วเหลือเฉพาะกลุ่มที่เลือก', async ({ page }) => {
@@ -112,24 +118,43 @@ test.describe.serial('สรุปงาน', () => {
     await expect(page.getByText(DRIVER_A)).not.toBeVisible()
   })
 
-  test('Case 7: การ์ดแสดงชื่อกลุ่ม', async ({ page }) => {
+  test('Case 7: แถวในตารางแสดงชื่อกลุ่ม', async ({ page }) => {
     await login(page, 'testadmin')
     await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
 
     await page.goto('/summary')
-    const card = page.getByTestId('summary-card').filter({ hasText: DRIVER_A })
-    await expect(card).toContainText(GROUP_A)
+    const row = page.getByRole('row').filter({ hasText: DRIVER_A })
+    await expect(row).toContainText(GROUP_A)
   })
 
-  test('Case 8: คลิกการ์ดไปหน้ารายคน', async ({ page }) => {
+  test('Case 8: คลิกแถวไปหน้ารายคน แสดงการ์ดรายเดือนทั้งปี', async ({ page }) => {
     await login(page, 'testadmin')
     await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
 
     await page.goto('/summary')
-    await page.getByTestId('summary-card').filter({ hasText: DRIVER_A }).click()
+    await page.getByRole('row').filter({ hasText: DRIVER_A }).click()
     await expect(page).toHaveURL(/\/summary\/[a-z0-9]+/)
-    await expect(page.getByText(DRIVER_A)).toBeVisible()
-    await expect(page.getByText('รายได้')).toBeVisible()
+
+    // หน้ารายคนเลือก "ปี" ไม่ใช่เดือน
+    await expect(page.locator('#summary-detail-year-picker')).toBeVisible()
+
+    // แสดงเฉพาะเดือนที่จบแล้ว — เดือนปัจจุบันและอนาคตต้องไม่ขึ้น
+    // (0-indexed getMonth() = จำนวนเดือนที่จบแล้วในปีนี้พอดี)
+    const monthsElapsed = new Date().getMonth()
+    await expect(page.getByTestId('summary-month-card')).toHaveCount(monthsElapsed)
+
+    if (monthsElapsed > 0) {
+      // เรียงแนวนอน scroll ได้ และเดือนปัจจุบันต้องไม่โผล่
+      await expect(page.getByTestId('summary-month-scroller')).toBeVisible()
+      await expect(page.getByText('รายได้').first()).toBeVisible()
+
+      const thaiMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                          'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+      const currentMonthName = thaiMonths[new Date().getMonth()]
+      await expect(
+        page.getByTestId('summary-month-card').filter({ hasText: currentMonthName })
+      ).toHaveCount(0)
+    }
   })
 
   test('Case 9: download Excel จากหน้า list ได้ไฟล์', async ({ page }) => {

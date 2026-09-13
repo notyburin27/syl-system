@@ -74,7 +74,8 @@ export default function ProtectedLayoutClient({
   const getOpenKeys = () => {
     const keys: string[] = [];
     if (pathname?.startsWith("/stock")) keys.push("stock");
-    if (pathname?.startsWith("/jobs")) keys.push("jobs");
+    // สรุปงานอยู่ใต้เมนูงานขนส่ง จึงต้องกาง "jobs" ด้วยเวลาอยู่หน้า /summary
+    if (pathname?.startsWith("/jobs") || pathname?.startsWith("/summary")) keys.push("jobs");
     if (pathname?.startsWith("/jobs/settings")) keys.push("jobs-settings");
     return keys;
   };
@@ -88,6 +89,13 @@ export default function ProtectedLayoutClient({
         key: "jobs-list",
         label: <Link href="/jobs">รายการงาน</Link>,
       },
+      // สรุปงาน — ADMIN เท่านั้น (มีข้อมูลเงินเดือน)
+      ...(isAdmin ? [
+        {
+          key: "summary",
+          label: <Link href="/summary">สรุปงาน</Link>,
+        },
+      ] : []),
       {
         key: "jobs-settings",
         label: "ตั้งค่าข้อมูล",
@@ -159,16 +167,9 @@ export default function ProtectedLayoutClient({
     label: <Link href="/admin/users">จัดการผู้ใช้</Link>,
   };
 
-  const summaryMenu = {
-    key: "summary",
-    icon: <FileTextOutlined />,
-    label: <Link href="/summary">สรุปงาน</Link>,
-  };
-
   const menuItems = isAdmin
     ? [
         ...commonMenuItems,
-        summaryMenu,
         stockMenu,
         usersMenu,
       ]
