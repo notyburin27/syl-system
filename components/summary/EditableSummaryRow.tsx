@@ -65,7 +65,16 @@ export default function EditableSummaryRow({
       </span>
 
       {editing ? (
-        <span style={{ width: 112, display: 'flex', alignItems: 'center' }}>
+        // ต้องกว้าง 112 เท่าช่องค่าปกติ ไม่งั้น label/หน่วยถูกดันจนคอลัมน์ไม่ตรงกับแถวอื่น
+        <span
+          style={{
+            width: 112,
+            minWidth: 112,
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
           <InputNumber
             size="small"
             disabled={disabled}
@@ -81,6 +90,8 @@ export default function EditableSummaryRow({
         <span
           style={{
             width: 112,
+            minWidth: 112,
+            flexShrink: 0,
             // ช่องที่ยังไม่กรอกมีข้อความว่าง ถ้าไม่ตั้ง minHeight span จะยุบเป็น 0px
             minHeight: 22,
             display: 'inline-flex',
@@ -96,7 +107,9 @@ export default function EditableSummaryRow({
         </span>
       )}
 
-      <span style={{ width: 38, color, fontSize: 13, whiteSpace: 'nowrap' }}>{unit}</span>
+      <span style={{ width: 38, minWidth: 38, flexShrink: 0, color, fontSize: 13, whiteSpace: 'nowrap' }}>
+        {unit}
+      </span>
     </div>
   )
 }

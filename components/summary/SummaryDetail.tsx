@@ -48,6 +48,8 @@ function SummaryRow({
       <span
         style={{
           width: 112,
+          minWidth: 112,
+          flexShrink: 0,
           textAlign: 'right',
           color,
           fontWeight: 600,
@@ -56,9 +58,9 @@ function SummaryRow({
       >
         {value ?? ''}
       </span>
-      <span style={{ width: 38, color, fontSize: 13, whiteSpace: 'nowrap' }}>{unit}</span>
-      {/* เว้นที่เท่าปุ่มในแถวที่แก้ได้ ไม่ให้คอลัมน์เหลื่อมกัน */}
-      <span style={{ width: 34 }} />
+      <span style={{ width: 38, minWidth: 38, flexShrink: 0, color, fontSize: 13, whiteSpace: 'nowrap' }}>
+        {unit}
+      </span>
     </div>
   )
 }
@@ -139,29 +141,30 @@ function MonthCard({
           </span>
           {/* ปุ่มแก้ทั้งการ์ด — กดครั้งเดียวเปิด input ทั้ง 4 ช่อง */}
           {editing ? (
-            <span style={{ display: 'flex', gap: 8 }}>
-              {saving ? (
-                <Spin size="small" />
-              ) : (
-                <>
-                  <CheckOutlined
-                    onClick={commit}
-                    data-testid="card-save"
-                    style={{ color: '#389e0d', cursor: 'pointer' }}
-                  />
-                  <CloseOutlined
-                    onClick={() => setEditing(false)}
-                    data-testid="card-cancel"
-                    style={{ color: '#999', cursor: 'pointer' }}
-                  />
-                </>
-              )}
+            <span style={{ display: 'flex', gap: 4 }}>
+              <Button
+                size="small"
+                type="primary"
+                icon={<CheckOutlined />}
+                loading={saving}
+                onClick={commit}
+                data-testid="card-save"
+              />
+              <Button
+                size="small"
+                icon={<CloseOutlined />}
+                disabled={saving}
+                onClick={() => setEditing(false)}
+                data-testid="card-cancel"
+              />
             </span>
           ) : (
-            <EditOutlined
+            <Button
+              size="small"
+              type="text"
+              icon={<EditOutlined />}
               onClick={startEdit}
               data-testid="card-edit"
-              style={{ color: '#bbb', cursor: 'pointer', fontSize: 13 }}
             />
           )}
         </div>
@@ -384,7 +387,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
           data-testid="summary-month-scroller"
           style={{
             display: 'flex',
-            gap: 12,
+            gap: 24,
             overflowX: 'auto',
             paddingBottom: 12,
             alignItems: 'flex-start',
