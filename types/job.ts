@@ -169,6 +169,7 @@ export const RATE_JOB_TYPES = JOB_TYPES.filter(
 /** เหตุผลของงานประเภท "ไม่มีงาน" */
 export const NO_JOB_REASONS = [
   { value: "repair",    label: "ซ่อมรถ" },
+  { value: "overnight", label: "ค้างคืน" },
   { value: "lowVolume", label: "งานน้อย" },
   { value: "cancelled", label: "งานยกเลิก" },
   { value: "other",     label: "อื่นๆ" },
@@ -233,6 +234,7 @@ export interface DriverMonthlySummary {
 
   leaveDays: number;          // ลาหยุด
   repairDays: number;         // ซ่อมรถ
+  overnightDays: number;      // ค้างคืน
   jobTrips: number;           // งาน (เที่ยว)
   towingTrips: number;        // ทอย (เที่ยว)
 

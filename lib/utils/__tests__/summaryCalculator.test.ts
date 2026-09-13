@@ -82,6 +82,36 @@ test('calculateDriverSummary: นับ flatbed และ mill รวมเป�
   assert.equal(result.jobTrips, 2)
 })
 
+test('calculateDriverSummary: ค้างคืนนับแยกจากซ่อมรถ ไม่ปนกัน', () => {
+  const base = {
+    month: '2026-07',
+    driver: {
+      id: 'd1',
+      name: 'ประวิทย์ กันภัย',
+      vehicleNumber: 'SYL 50',
+      groupName: 'กลุ่ม 1',
+      startDate: '2025-08-25',
+      baseSalary: 9000,
+    },
+    leaveCount: 0,
+    fuelPricePerLiter: 36,
+  }
+
+  const result = calculateDriverSummary({
+    ...base,
+    jobs: [
+      { jobType: 'noJob', noJobReason: 'repair', isCancelled: false, income: 0, driverWage: 0, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+      { jobType: 'noJob', noJobReason: 'overnight', isCancelled: false, income: 0, driverWage: 0, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+      { jobType: 'noJob', noJobReason: 'overnight', isCancelled: false, income: 0, driverWage: 0, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+      // ยกเลิกแล้วต้องไม่นับ
+      { jobType: 'noJob', noJobReason: 'overnight', isCancelled: true, income: 0, driverWage: 0, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+    ],
+  })
+  assert.equal(result.repairDays, 1)
+  assert.equal(result.overnightDays, 2)
+  assert.equal(result.jobTrips, 0)
+})
+
 test('calculateDriverSummary: noJob ที่ไม่ใช่ซ่อมรถ ไม่นับเป็นซ่อมรถ', () => {
   const base = {
     month: '2026-07',

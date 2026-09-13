@@ -87,7 +87,7 @@ function MonthCard({ s }: { s: DriverMonthlySummary }) {
       <SummaryRow label="งาน" value={s.jobTrips || null} unit="เที่ยว" color="#389e0d" />
       <SummaryRow label="ทอย" value={s.towingTrips || null} unit="เที่ยว" color="#389e0d" />
       <SummaryRow label="แบก" value={null} unit="เที่ยว" color="#389e0d" />
-      <SummaryRow label="ค้างคืน" value={null} unit="วัน" />
+      <SummaryRow label="ค้างคืน" value={s.overnightDays || null} unit="วัน" />
 
       <RowGap />
 

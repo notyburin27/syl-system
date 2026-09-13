@@ -118,8 +118,9 @@ function buildMonthBlock(
   set(9, L, "แบก", { color: GREEN, align: "right" });
   set(9, U, "เที่ยว", { color: GREEN, align: "left" });
 
-  // ค้างคืน — ระบบไม่มีข้อมูล เว้นว่างให้กรอกใน Excel
+  // ค้างคืน — นับจาก job ประเภท "ไม่มีงาน" เหตุผล overnight (เหมือนซ่อมรถ)
   set(10, L, "ค้างคืน", { align: "right" });
+  set(10, V, s.overnightDays || null, { align: "center" });
   set(10, U, "วัน", { align: "left" });
 
   // รายได้ + สัดส่วน

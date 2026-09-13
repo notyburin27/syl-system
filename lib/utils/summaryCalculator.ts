@@ -46,8 +46,9 @@ export function calculateDriverSummary(input: SummaryInput): DriverMonthlySummar
     startDate: driver.startDate,
 
     leaveDays: leaveCount,
-    // ซ่อมรถเก็บในรูปงานประเภท "ไม่มีงาน" ที่มีเหตุผลเป็น repair
+    // ซ่อมรถ/ค้างคืน เก็บในรูปงานประเภท "ไม่มีงาน" ที่มีเหตุผลกำกับ
     repairDays: active.filter((j) => j.jobType === "noJob" && j.noJobReason === "repair").length,
+    overnightDays: active.filter((j) => j.jobType === "noJob" && j.noJobReason === "overnight").length,
     jobTrips: active.filter((j) => MAIN_JOB_TYPES.includes(j.jobType)).length,
     towingTrips: active.filter((j) => j.jobType === "towing").length,
 
