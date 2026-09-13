@@ -238,6 +238,15 @@ export interface DriverMonthlySummary {
   jobTrips: number;           // งาน (เที่ยว)
   towingTrips: number;        // ทอย (เที่ยว)
 
+  /** แบก (เที่ยว) — กรอกมือ null = ยังไม่กรอก */
+  carryTrips: number | null;
+  /** หัก น้ำมัน/หยุด (บาท) — กรอกมือ */
+  fuelDeduction: number | null;
+  /** ค่าใช้จ่ายต่างๆ (บาท) — กรอกมือ */
+  otherExpenses: number | null;
+  /** สรุปให้เงินเดือนคนรถ (บาท) — กรอกมือ */
+  driverPayout: number | null;
+
   income: number;             // รายได้
   fuelPricePerLiter: number | null;
   fuelLiters: number;         // จำนวนน้ำมัน

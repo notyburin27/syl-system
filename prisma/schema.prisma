@@ -30,6 +30,7 @@ model AuthUser {
   jobs            Job[]
   driverLeaves    DriverLeave[]
   companyHolidays CompanyHoliday[]
+  monthlyEntries  DriverMonthlyEntry[]
 
   @@index([username])
   @@map("auth_users")
@@ -187,13 +188,42 @@ model Driver {
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
-  bankAccounts DriverBankAccount[]
-  jobs         Job[]
-  leaves       DriverLeave[]
+  bankAccounts   DriverBankAccount[]
+  jobs           Job[]
+  leaves         DriverLeave[]
+  monthlyEntries DriverMonthlyEntry[]
 
   @@index([name])
   @@index([groupName])
   @@map("drivers")
+}
+
+/// ค่าที่กรอกมือในหน้าสรุปงาน แยกตามคนขับ+เดือน (ระบบไม่มีข้อมูลเหล่านี้จากที่อื่น)
+model DriverMonthlyEntry {
+  id       String @id @default(cuid())
+  driverId String
+  driver   Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  /// รูปแบบ 'YYYY-MM' — ใช้เป็นคีย์เดือนเหมือนที่อื่นในระบบสรุปงาน
+  month    String
+
+  /// แบก (เที่ยว)
+  carryTrips    Int?
+  /// หัก น้ำมัน/หยุด (บาท) — ปกติเป็นค่าลบ
+  fuelDeduction Decimal? @db.Decimal(10, 2)
+  /// ค่าใช้จ่ายต่างๆ (บาท)
+  otherExpenses Decimal? @db.Decimal(10, 2)
+  /// สรุปให้เงินเดือนคนรถ (บาท)
+  driverPayout  Decimal? @db.Decimal(10, 2)
+
+  updatedById String
+  updatedBy   AuthUser @relation(fields: [updatedById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([driverId, month])
+  @@index([driverId])
+  @@index([month])
+  @@map("driver_monthly_entries")
 }
 
 model DriverBankAccount {

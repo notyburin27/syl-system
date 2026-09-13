@@ -27,10 +27,20 @@ export interface SummaryInput {
   jobs: SummaryJobInput[];
   leaveCount: number;
   fuelPricePerLiter: number | null;
+  /** ค่าที่กรอกมือของเดือนนั้น — null/undefined = ยังไม่เคยกรอก */
+  entry?: SummaryEntryInput | null;
+}
+
+/** ค่าที่กรอกมือในหน้าสรุปงาน (มาจากตาราง DriverMonthlyEntry) */
+export interface SummaryEntryInput {
+  carryTrips: number | null;
+  fuelDeduction: number | null;
+  otherExpenses: number | null;
+  driverPayout: number | null;
 }
 
 export function calculateDriverSummary(input: SummaryInput): DriverMonthlySummary {
-  const { month, driver, jobs, leaveCount, fuelPricePerLiter } = input;
+  const { month, driver, jobs, leaveCount, fuelPricePerLiter, entry } = input;
 
   // งานที่ยกเลิกไม่นับในทุกช่อง
   const active = jobs.filter((j) => !j.isCancelled);
@@ -51,6 +61,12 @@ export function calculateDriverSummary(input: SummaryInput): DriverMonthlySummar
     overnightDays: active.filter((j) => j.jobType === "noJob" && j.noJobReason === "overnight").length,
     jobTrips: active.filter((j) => MAIN_JOB_TYPES.includes(j.jobType)).length,
     towingTrips: active.filter((j) => j.jobType === "towing").length,
+
+    // ค่ากรอกมือ — คงความต่างระหว่าง null (ยังไม่กรอก) กับ 0 (กรอกว่าเป็นศูนย์)
+    carryTrips: entry?.carryTrips ?? null,
+    fuelDeduction: entry?.fuelDeduction ?? null,
+    otherExpenses: entry?.otherExpenses ?? null,
+    driverPayout: entry?.driverPayout ?? null,
 
     income: active.reduce((sum, j) => sum + num(j.income), 0),
     fuelPricePerLiter,

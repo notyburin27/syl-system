@@ -40,7 +40,7 @@ export async function buildMonthSummaries(
 
   const driverIdList = drivers.map((d) => d.id);
 
-  const [jobs, leaves] = await Promise.all([
+  const [jobs, leaves, entries] = await Promise.all([
     prisma.job.findMany({
       where: { driverId: { in: driverIdList }, jobDate: { gte, lt } },
       select: {
@@ -60,6 +60,16 @@ export async function buildMonthSummaries(
       where: { driverId: { in: driverIdList }, leaveDate: { gte, lt } },
       _count: { _all: true },
     }),
+    prisma.driverMonthlyEntry.findMany({
+      where: { driverId: { in: driverIdList }, month },
+      select: {
+        driverId: true,
+        carryTrips: true,
+        fuelDeduction: true,
+        otherExpenses: true,
+        driverPayout: true,
+      },
+    }),
   ]);
 
   const jobsByDriver = new Map<string, typeof jobs>();
@@ -71,6 +81,19 @@ export async function buildMonthSummaries(
   }
 
   const leaveByDriver = new Map(leaves.map((l) => [l.driverId, l._count._all]));
+
+  // ค่ากรอกมือรายเดือน — Decimal ต้องแปลงเป็น number ตรงนี้ และคง null ไว้ถ้ายังไม่กรอก
+  const entryByDriver = new Map(
+    entries.map((e) => [
+      e.driverId,
+      {
+        carryTrips: e.carryTrips,
+        fuelDeduction: e.fuelDeduction != null ? Number(e.fuelDeduction) : null,
+        otherExpenses: e.otherExpenses != null ? Number(e.otherExpenses) : null,
+        driverPayout: e.driverPayout != null ? Number(e.driverPayout) : null,
+      },
+    ])
+  );
 
   return drivers.map((driver) =>
     calculateDriverSummary({
@@ -94,6 +117,7 @@ export async function buildMonthSummaries(
         fuelCreditLiters: j.fuelCreditLiters != null ? Number(j.fuelCreditLiters) : null,
       })),
       leaveCount: leaveByDriver.get(driver.id) ?? 0,
+      entry: entryByDriver.get(driver.id) ?? null,
       fuelPricePerLiter,
     })
   );
