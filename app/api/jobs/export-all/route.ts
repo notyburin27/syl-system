@@ -60,7 +60,10 @@ async function* driverSheets(
   }
 }
 
-// Export ทุกคนขับในเดือนเดียว → ไฟล์เดียว หนึ่ง sheet ต่อคน (stream ออกทีละ sheet)
+// ค่า group ที่หมายถึง tab "กลุ่มอื่นๆ" — คนขับที่ไม่ได้ระบุกลุ่ม (ตรงกับ OTHER_GROUP_KEY ฝั่ง UI)
+const OTHER_GROUP_KEY = "__other__";
+
+// Export คนขับในกลุ่มที่เลือก เดือนเดียว → ไฟล์เดียว หนึ่ง sheet ต่อคน (stream ออกทีละ sheet)
 // (คนที่ไม่มีงานในเดือนนั้นก็ได้ sheet ของตัวเอง มีแต่แถว banner)
 export async function GET(req: Request) {
   const session = await auth();
@@ -79,24 +82,34 @@ export async function GET(req: Request) {
 
     const isAdmin = session.user.role === "ADMIN";
 
+    // กลุ่มที่เปิดอยู่ใน tab — ไม่ระบุ = กลุ่มอื่นๆ (คนขับที่ไม่ได้ตั้งกลุ่ม) เหมือน default ฝั่ง UI
+    const group = searchParams.get("group") ?? OTHER_GROUP_KEY;
+
+    // กลุ่ม POP เข้าถึงได้เฉพาะ ADMIN — กันเรียก API ตรงด้วย group=POP
+    if (group === "POP" && !isAdmin) {
+      return NextResponse.json({ error: "ไม่มีสิทธิ์เข้าถึงกลุ่มนี้" }, { status: 403 });
+    }
+
     // กติกาเดียวกับหน้ารายการ: คนลาออกยังเห็นในเดือนที่ลาออก แต่ไม่เห็นเดือนถัดไป
-    // และกลุ่ม POP แสดงเฉพาะ ADMIN
+    // และ tab "กลุ่มอื่นๆ" = คนที่ groupName เป็น null
     const drivers = await prisma.driver.findMany({
       where: {
         isActive: true,
         OR: [{ resignedAt: null }, { resignedAt: { gte: dateFilter.gte } }],
-        ...(isAdmin ? {} : { NOT: { groupName: "POP" } }),
+        groupName: group === OTHER_GROUP_KEY ? null : group,
       },
       select: { id: true, name: true, vehicleNumber: true },
-      orderBy: [{ groupName: "asc" }, { name: "asc" }],
+      orderBy: { name: "asc" },
     });
 
     if (drivers.length === 0) {
-      return NextResponse.json({ error: "ไม่มีคนขับในเดือนที่เลือก" }, { status: 404 });
+      return NextResponse.json({ error: "ไม่มีคนขับในกลุ่มนี้" }, { status: 404 });
     }
 
     // วันลา/วันหยุดของทั้งเดือนดึงครั้งเดียว — ข้อมูลเล็ก ไม่ต้องแบ่ง batch
     const { leavesByDriver, holidays } = await fetchBannerSources(monthStr, drivers.map((d) => d.id));
+
+    const groupLabel = group === OTHER_GROUP_KEY ? "กลุ่มอื่นๆ" : group;
 
     const stream = streamAllDriversJobsExcel(
       driverSheets(drivers, dateFilter, monthStr, leavesByDriver, holidays),
@@ -107,7 +120,7 @@ export async function GET(req: Request) {
     return new NextResponse(stream, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(`รายการงานวิ่ง ทั้งหมด ${monthStr}.xlsx`)}`,
+        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(`รายการงานวิ่ง ${groupLabel} ${monthStr}.xlsx`)}`,
         // กัน proxy/browser buffer ทั้งไฟล์ก่อนส่งต่อ
         "Cache-Control": "no-store",
       },

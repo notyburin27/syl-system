@@ -231,12 +231,13 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
     }
   }
 
-  // Export ทุกคนขับในเดือนที่เลือกเป็นไฟล์เดียว หนึ่ง sheet ต่อคน
+  // Export คนขับทุกคนในกลุ่มที่เปิดอยู่ เป็นไฟล์เดียว หนึ่ง sheet ต่อคน
   const handleExportAll = async () => {
     setExportingAll(true)
     try {
       const monthStr = month.format('YYYY-MM')
-      const res = await fetch(`/api/jobs/export-all?month=${monthStr}`)
+      const params = new URLSearchParams({ month: monthStr, group: activeGroup })
+      const res = await fetch(`/api/jobs/export-all?${params}`)
       if (!res.ok) {
         const data = await res.json().catch(() => null)
         message.error(data?.error || 'เกิดข้อผิดพลาดในการ export')
@@ -246,7 +247,8 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `รายการงานวิ่ง - ทั้งหมด - ${monthStr}.xlsx`
+      const groupLabel = activeGroup === OTHER_GROUP_KEY ? 'กลุ่มอื่นๆ' : activeGroup
+      a.download = `รายการงานวิ่ง - ${groupLabel} - ${monthStr}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -293,9 +295,10 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
             data-testid="export-all-btn"
             icon={<FileExcelOutlined />}
             loading={exportingAll}
+            disabled={filteredSummaries.length === 0}
             onClick={handleExportAll}
           >
-            Export ทั้งหมด
+            Export ทั้งกลุ่ม
           </Button>
           <Button
             data-testid="job-search-btn"
