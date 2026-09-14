@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, Row, Col, DatePicker, Spin, Empty, Tabs, Divider, Button, App } from 'antd'
-import { TruckOutlined, SearchOutlined, DownloadOutlined, FileSearchOutlined } from '@ant-design/icons'
+import { TruckOutlined, SearchOutlined, DownloadOutlined, FileSearchOutlined, FileExcelOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverJobSummary } from '@/types/job'
 import dayjs from 'dayjs'
@@ -132,6 +132,7 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
   const [activeGroup, setActiveGroup] = useState<string>(initialGroup || OTHER_GROUP_KEY)
   const [prefilling, setPrefilling] = useState(false)
   const [jobSearchOpen, setJobSearchOpen] = useState(false)
+  const [exportingAll, setExportingAll] = useState(false)
   const { message } = App.useApp()
 
   // Ctrl/Cmd+K เปิดค้นหา JOB (ข้ามเมื่อโฟกัสอยู่ในช่องกรอกอื่น)
@@ -230,6 +231,31 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
     }
   }
 
+  // Export ทุกคนขับในเดือนที่เลือกเป็นไฟล์เดียว หนึ่ง sheet ต่อคน
+  const handleExportAll = async () => {
+    setExportingAll(true)
+    try {
+      const monthStr = month.format('YYYY-MM')
+      const res = await fetch(`/api/jobs/export-all?month=${monthStr}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        message.error(data?.error || 'เกิดข้อผิดพลาดในการ export')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `รายการงานวิ่ง - ทั้งหมด - ${monthStr}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      message.error('เกิดข้อผิดพลาดในการ export')
+    } finally {
+      setExportingAll(false)
+    }
+  }
+
   const handleCardClick = (driverId: string) => {
     const params = new URLSearchParams({ month: month.format('YYYY-MM') })
     if (activeGroup !== OTHER_GROUP_KEY) params.set('group', activeGroup)
@@ -263,6 +289,14 @@ export default function DriverJobList({ isAdmin }: { isAdmin: boolean }) {
               ดึงข้อมูล
             </Button>
           )}
+          <Button
+            data-testid="export-all-btn"
+            icon={<FileExcelOutlined />}
+            loading={exportingAll}
+            onClick={handleExportAll}
+          >
+            Export ทั้งหมด
+          </Button>
           <Button
             data-testid="job-search-btn"
             icon={<FileSearchOutlined />}

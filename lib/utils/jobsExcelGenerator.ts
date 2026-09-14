@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs'
+import { PassThrough } from 'node:stream'
 import type { Job } from '@/types/job'
 import { JOB_TYPES, getNoJobReasonLabel } from '@/types/job'
 import dayjs from 'dayjs'
@@ -29,6 +30,10 @@ const DATE_FMT = '[$-1070000]d/m/yy;@' // วันที่แบบไทย (
 
 // สัดส่วนแบ่งรายได้ที่แสดงเป็นสูตรใต้ตาราง (คนขับ/บริษัท)
 const SHARE_RATIOS = [0.55, 0.45]
+
+const TITLE_ROW = 1
+const HEADER_ROW = 2
+const FIRST_DATA_ROW = 3
 
 // Amounts of completed transfers, in the order they were stored (caller orders by createdAt asc)
 function completedTransferAmounts(job: JobWithRelations): number[] {
@@ -154,14 +159,30 @@ function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
   ]
 }
 
-export async function generateJobsExcel(
+// ข้อมูลหนึ่ง sheet (คนขับหนึ่งคน) — ใช้ทั้ง export รายคนและ export ทั้งหมด
+export type DriverSheetData = {
+  driverName: string
+  vehicleNumber?: string
+  jobs: JobWithRelations[]
+  banners?: ExportBanner[]
+}
+
+// workbook แบบปกติและแบบ streaming มี API ที่เราใช้ (addWorksheet/getRow/getColumn/
+// mergeCells/columns/views) เหมือนกัน แต่ type ของ exceljs ไม่ได้ประกาศร่วมกันไว้
+type AnyWorkbook = ExcelJS.Workbook | ExcelJS.stream.xlsx.WorkbookWriter
+
+// สร้าง worksheet หนึ่งแผ่นลงใน workbook ที่ส่งเข้ามา
+// (แยกจาก generateJobsExcel เพื่อให้ export ทั้งหมดวนสร้างหลาย sheet ในไฟล์เดียวได้)
+function buildJobsWorksheet(
+  workbook: AnyWorkbook,
+  sheetName: string,
   jobs: JobWithRelations[],
   driverName: string,
   month: string,
   vehicleNumber?: string,
   isAdmin = false,
   banners: ExportBanner[] = [],
-): Promise<Buffer> {
+): ExcelJS.Worksheet {
   // Max number of completed transfers across all jobs this month → one column per transfer
   const maxTransfers = jobs.reduce((max, job) => (isAdvanceType(job) ? max : Math.max(max, completedTransferAmounts(job).length)), 0)
   const columns = buildColumns(isAdmin, maxTransfers)
@@ -229,14 +250,13 @@ export async function generateJobsExcel(
   // รวม jobs + banners เรียงตามวันที่
   const merged = [...jobRows, ...bannerRows].sort((a, b) => a.day - b.day)
 
-  const workbook = new ExcelJS.Workbook()
-  const ws = workbook.addWorksheet('งาน')
+  // views ต้องตั้งตอน addWorksheet — streaming writer เปิด ws.views เป็น getter อย่างเดียว
+  const ws = workbook.addWorksheet(sheetName, {
+    views: [{ state: 'frozen', ySplit: HEADER_ROW }],
+  }) as ExcelJS.Worksheet
 
   ws.columns = columns.map((c) => ({ width: c.width }))
 
-  const TITLE_ROW = 1
-  const HEADER_ROW = 2
-  const FIRST_DATA_ROW = 3
   const lastDataRow = FIRST_DATA_ROW + merged.length - 1
 
   // --- Title ---
@@ -410,8 +430,94 @@ export async function generateJobsExcel(
     )
   }
 
-  ws.views = [{ state: 'frozen', ySplit: HEADER_ROW }]
+  return ws
+}
 
+export async function generateJobsExcel(
+  jobs: JobWithRelations[],
+  driverName: string,
+  month: string,
+  vehicleNumber?: string,
+  isAdmin = false,
+  banners: ExportBanner[] = [],
+): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook()
+  buildJobsWorksheet(workbook, 'งาน', jobs, driverName, month, vehicleNumber, isAdmin, banners)
   const arrayBuffer = await workbook.xlsx.writeBuffer()
   return Buffer.from(arrayBuffer)
+}
+
+// ชื่อ sheet: Excel จำกัด 31 ตัวอักษร, ห้ามใช้ : \\ / ? * [ ] และห้ามซ้ำ
+function toSheetName(name: string, used: Set<string>): string {
+  const base = (name.replace(/[:\\/?*[\]]/g, ' ').trim() || 'คนขับ').slice(0, 31)
+  if (!used.has(base)) {
+    used.add(base)
+    return base
+  }
+  // ชื่อซ้ำ → ต่อท้าย (2), (3), ... โดยตัดให้ยังไม่เกิน 31 ตัว
+  for (let i = 2; ; i++) {
+    const suffix = ` (${i})`
+    const candidate = base.slice(0, 31 - suffix.length) + suffix
+    if (!used.has(candidate)) {
+      used.add(candidate)
+      return candidate
+    }
+  }
+}
+
+// Export ทั้งหมด: หนึ่งไฟล์ หนึ่ง sheet ต่อคนขับหนึ่งคน
+//
+// ใช้ streaming writer: แต่ละ sheet ถูก commit ทันทีที่สร้างเสร็จ → byte ไหลออก stream
+// และ row ของคนนั้นถูกปล่อยจาก memory ทำให้ export คนขับหลักร้อยคนไม่บวมตามจำนวนคน
+// (commit ทั้ง sheet ทีเดียว ไม่ commit ทีละ row เพราะ mergeCells ต้องเข้าถึง cell
+// ที่ยังไม่ commit — title/banner/แถวสรุป ใช้ merge ทั้งหมด)
+//
+// drivers เป็น AsyncIterable เพื่อให้ caller ดึงข้อมูลทีละ batch ได้ ไม่ต้องโหลดงาน
+// ของทุกคนมาไว้ใน memory พร้อมกันก่อนเริ่มเขียน
+export function streamAllDriversJobsExcel(
+  drivers: AsyncIterable<DriverSheetData> | Iterable<DriverSheetData>,
+  month: string,
+  isAdmin = false,
+): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      // WorkbookWriter เขียนลง stream ที่เราส่งให้ — ต่อเข้ากับ ReadableStream ของ Response
+      const sink = new PassThrough()
+      sink.on('data', (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)))
+
+      const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+        stream: sink,
+        useStyles: true, // จำเป็น — ทั้ง sheet ใช้ font/border/numFmt
+        useSharedStrings: false, // shared strings ต้องเก็บทุก string ไว้จนจบไฟล์ = กิน memory
+      })
+
+      const finished = new Promise<void>((resolve, reject) => {
+        sink.on('end', resolve)
+        sink.on('error', reject)
+      })
+
+      try {
+        const used = new Set<string>()
+        for await (const d of drivers) {
+          const ws = buildJobsWorksheet(
+            workbook,
+            toSheetName(d.driverName, used),
+            d.jobs,
+            d.driverName,
+            month,
+            d.vehicleNumber,
+            isAdmin,
+            d.banners ?? [],
+          )
+          // ปิด sheet ของคนนี้ทันที → เขียนลง zip แล้วคืน memory
+          ws.commit()
+        }
+        await workbook.commit()
+        await finished
+        controller.close()
+      } catch (err) {
+        controller.error(err)
+      }
+    },
+  })
 }
