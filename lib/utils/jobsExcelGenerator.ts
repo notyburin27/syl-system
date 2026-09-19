@@ -129,7 +129,6 @@ function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
           { header: 'ค่าเที่ยวคนขับ', width: 12, numeric: true, sum: true, strongBorder: true },
         ]
       : []),
-    { header: 'ยกยอด', width: 11.5, numeric: true, sum: true },
     { header: 'เบิกล่วงหน้า', width: 11.5, numeric: true, sum: true },
     { header: 'ค่าทางด่วน', width: 11.5, numeric: true, sum: true },
     { header: 'ค่ารับตู้', width: 9.5, numeric: true, sum: true },
@@ -146,6 +145,7 @@ function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
     { header: 'น้ำมันสด (฿)', width: 13 },
     { header: 'น้ำมันเครดิต (ลิตร)', width: 18 },
     { header: 'น้ำมันเครดิต (฿)', width: 16 },
+    { header: 'ยกยอด', width: 11.5, numeric: true, sum: true },
     ...Array.from({ length: maxTransfers }, (_, i) => ({
       header: `โอนครั้งที่ ${i + 1}`,
       width: 11.7,
@@ -207,7 +207,6 @@ function buildJobsWorksheet(
       job.factoryLocation?.name ?? null,
       job.returnLocation?.name ?? null,
       ...(isAdmin ? [job.income != null ? Number(job.income) : null, job.driverWage != null ? Number(job.driverWage) : null] : []),
-      job.actualTransferPrev != null ? Number(job.actualTransferPrev) : null,
       job.advance != null ? Number(job.advance) : null,
       job.toll != null ? Number(job.toll) : null,
       job.pickupFee != null ? Number(job.pickupFee) : null,
@@ -225,6 +224,7 @@ function buildJobsWorksheet(
       job.fuelCashAmount != null ? Number(job.fuelCashAmount) : null,
       job.fuelCreditLiters != null ? Number(job.fuelCreditLiters) : null,
       job.fuelCreditAmount != null ? Number(job.fuelCreditAmount) : null,
+      job.actualTransferPrev != null ? Number(job.actualTransferPrev) : null,
       ...transferCells,
       advance ? null : computeTotal(job),
       advance ? null : computeDifference(job),
@@ -232,7 +232,7 @@ function buildJobsWorksheet(
       job.clearStatus ? '✓' : null,
       job.isCancelled ? '✓' : null,
     ]
-    return { day, cells, isBanner: false, isMerged: noJob }
+    return { day, cells, isBanner: false, isMerged: noJob, cancelled: !!job.isCancelled }
   })
 
   // คอลัมน์ index: วันที่=0, JOB=1, ลักษณะงาน=2, ลูกค้า=3, SIZE=4
@@ -244,7 +244,7 @@ function buildJobsWorksheet(
     const cells: CellValue[] = Array(totalCols).fill(null)
     cells[0] = utcDate(bannerYear, bannerMonth, b.day)
     cells[BANNER_LABEL_COL] = b.label
-    return { day: b.day, cells, isBanner: true, isMerged: true }
+    return { day: b.day, cells, isBanner: true, isMerged: true, cancelled: false }
   })
 
   // รวม jobs + banners เรียงตามวันที่
@@ -293,7 +293,8 @@ function buildJobsWorksheet(
     row.cells.forEach((value, i) => {
       const cell = excelRow.getCell(i + 1)
       if (value !== null) cell.value = value
-      cell.font = { name: FONT_NAME, size: FONT_SIZE }
+      // งานที่ยกเลิก — ขีดฆ่าทั้งแถวให้เห็นชัดว่าไม่นับในรายงาน
+      cell.font = { name: FONT_NAME, size: FONT_SIZE, ...(row.cancelled ? { strike: true } : {}) }
       cell.border = { bottom: { style: 'thin' }, left: { style: sideStyle(i) }, right: { style: sideStyle(i) } }
       if (i === 0) {
         cell.numFmt = DATE_FMT

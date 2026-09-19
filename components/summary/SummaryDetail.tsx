@@ -91,10 +91,11 @@ function MonthCard({
   const startEdit = () => {
     // ตั้งต้นจากค่าปัจจุบันทุกช่อง ผู้ใช้จะได้แก้ต่อจากของเดิม
     setDraft({
-      carryTrips: s.carryTrips,
+      // ยังไม่เคยกรอก → ตั้งต้นจากค่าที่คำนวณได้จากงาน (แก้ทับได้)
+      carryTrips: s.carryTrips ?? (s.carryTripsPrefill || null),
       // หักเก็บเป็นลบ แต่ให้ผู้ใช้กรอก/เห็นเป็นบวกตอนแก้
       fuelDeduction: s.fuelDeduction != null ? Math.abs(s.fuelDeduction) : null,
-      otherExpenses: s.otherExpenses,
+      otherExpenses: s.otherExpenses ?? (s.otherExpensesPrefill || null),
       driverPayout: s.driverPayout,
     })
     setEditing(true)
@@ -105,8 +106,18 @@ function MonthCard({
     if (ok) setEditing(false)
   }
 
+  // ค่ากรอกมือชนะ prefill เสมอ — prefill เป็นแค่ค่าตั้งต้นจากงานในเดือนนั้น
+  const effectiveCarryTrips = s.carryTrips ?? (s.carryTripsPrefill || null)
+  const effectiveOtherExpenses = s.otherExpenses ?? (s.otherExpensesPrefill || null)
+
+  // รถก๊าซ (NGV) ใช้คำว่า "ก๊าซ" และวัดเป็นกิโลกรัม — รถน้ำมันวัดเป็นลิตร
+  const fuelWord = s.isGasVehicle ? 'ก๊าซ' : 'น้ำมัน'
+  const fuelUnitWord = s.isGasVehicle ? 'กิโลกรัม' : 'ลิตร'
+  const fuelUnit = s.isGasVehicle ? 'กก.' : 'ลิตร'
+
+  // รถก๊าซไม่คิดน้ำมัน — บล็อกน้ำมันและยอดคงเหลือเว้นว่างทั้งใบ
   const fuelTotal =
-    s.fuelPricePerLiter != null ? s.fuelPricePerLiter * s.fuelLiters : null
+    !s.isGasVehicle && s.fuelPricePerLiter != null ? s.fuelPricePerLiter * s.fuelLiters : null
   const pct45 = s.income * 0.45
   const pct55 = s.income * 0.55
   const diff45 = fuelTotal != null ? pct45 - fuelTotal : null
@@ -114,8 +125,8 @@ function MonthCard({
   // ยอดคงเหลือ = รายได้ − รวมใช้น้ำมัน − สรุปเงินเดือน − ค่าใช้จ่าย
   // ถ้าตัวตั้งใดยังไม่มีค่า ให้เว้นว่าง ดีกว่าโชว์ตัวเลขครึ่งๆ กลางๆ ในรายงานเงินเดือน
   const companyBalance =
-    fuelTotal != null && s.driverPayout != null && s.otherExpenses != null
-      ? s.income - fuelTotal - s.driverPayout - s.otherExpenses
+    fuelTotal != null && s.driverPayout != null && effectiveOtherExpenses != null
+      ? s.income - fuelTotal - s.driverPayout - effectiveOtherExpenses
       : null
 
   /** แบกเป็นจำนวนเที่ยว แสดงเป็นจำนวนเต็มไม่มีทศนิยม */
@@ -172,13 +183,14 @@ function MonthCard({
         </div>
       }
     >
-      <SummaryRow label="ลาหยุด" value={s.leaveDays || null} unit="วัน" color="#cf1322" />
+      <SummaryRow label="ลาป่วย" value={s.sickLeaveDays || null} unit="วัน" color="#cf1322" />
+      <SummaryRow label="ลากิจ" value={s.personalLeaveDays || null} unit="วัน" color="#cf1322" />
       <SummaryRow label="ซ่อมรถ" value={s.repairDays || null} unit="วัน" />
       <SummaryRow label="งาน" value={s.jobTrips || null} unit="เที่ยว" color="#389e0d" />
       <SummaryRow label="ทอย" value={s.towingTrips || null} unit="เที่ยว" color="#389e0d" />
       <EditableSummaryRow
         label="แบก"
-        value={s.carryTrips}
+        value={effectiveCarryTrips}
         unit="เที่ยว"
         color="#389e0d"
         integer
@@ -186,6 +198,7 @@ function MonthCard({
         {...rowProps('carryTrips')}
       />
       <SummaryRow label="ค้างคืน" value={s.overnightDays || null} unit="วัน" />
+      <SummaryRow label="มีงานไม่ไปงาน" value={s.noShowDays || null} unit="วัน" />
 
       <RowGap />
 
@@ -195,10 +208,14 @@ function MonthCard({
 
       <RowGap />
 
-      <SummaryRow label="ราคาน้ำมันต่อลิตร" value={fmt(s.fuelPricePerLiter)} unit="บาท" />
-      <SummaryRow label="จำนวนน้ำมัน" value={fmt(s.fuelLiters)} unit="ลิตร" />
-      <SummaryRow label="รวมใช้น้ำมัน" value={fmt(fuelTotal)} unit="บาท" />
-      <SummaryRow label="45% - ราคาน้ำมัน" value={fmt(diff45)} unit="บาท" background="#fce4d6" />
+      <SummaryRow label={`ราคา${fuelWord}ต่อ${fuelUnitWord}`} value={fmt(s.fuelPricePerLiter)} unit="บาท" />
+      <SummaryRow
+        label={`จำนวน${fuelWord}`}
+        value={fmt(s.isGasVehicle ? null : s.fuelLiters)}
+        unit={fuelUnit}
+      />
+      <SummaryRow label={`รวมใช้${fuelWord}`} value={fmt(fuelTotal)} unit="บาท" />
+      <SummaryRow label={`45% - ราคา${fuelWord}`} value={fmt(diff45)} unit="บาท" background="#fce4d6" />
 
       <RowGap />
 
@@ -222,7 +239,7 @@ function MonthCard({
       />
       <EditableSummaryRow
         label="ค่าใช้จ่ายต่างๆ"
-        value={s.otherExpenses}
+        value={effectiveOtherExpenses}
         unit="บาท"
         color="#cf1322"
         format={fmt}

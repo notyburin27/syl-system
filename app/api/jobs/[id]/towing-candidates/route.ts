@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { TOWING_JOB_TYPES } from "@/types/job";
 
 // GET /api/jobs/[id]/towing-candidates?slot=1|2
 // หา towing jobs ที่ eligible สำหรับลิ้งกับ main job
@@ -48,7 +49,7 @@ export async function GET(
   // towing jobs ต้อง: driver เดียวกัน, วันที่ >= mainJob.jobDate, ยังไม่มี main ผูก
   const baseCandidates = await prisma.job.findMany({
     where: {
-      jobType: "towing",
+      jobType: { in: [...TOWING_JOB_TYPES] },
       driverId: mainJob.driverId,
       jobDate: { gte: mainJob.jobDate },
       towingLinkAsTowing: null, // ยังไม่มีใครผูก

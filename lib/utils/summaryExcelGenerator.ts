@@ -56,6 +56,15 @@ function buildMonthBlock(
   const colLetter = (c: number) => ws.getColumn(c).letter;
   const vCol = colLetter(V);
 
+  // ค่ากรอกมือชนะ prefill เสมอ — ตรงกับที่หน้าสรุปแสดง
+  const carryTrips = s.carryTrips ?? (s.carryTripsPrefill || null);
+  const otherExpenses = s.otherExpenses ?? (s.otherExpensesPrefill || null);
+  const isGas = s.isGasVehicle;
+  // รถก๊าซ (NGV) ใช้คำว่า "ก๊าซ" และวัดเป็นกิโลกรัม — รถน้ำมันวัดเป็นลิตร
+  const fuelWord = isGas ? "ก๊าซ" : "น้ำมัน";
+  const fuelUnitWord = isGas ? "กิโลกรัม" : "ลิตร";
+  const fuelUnit = isGas ? "กก." : "ลิตร";
+
   const set = (
     row: number,
     col: number,
@@ -98,98 +107,109 @@ function buildMonthBlock(
   }
 
   // จำนวนวัน/เที่ยว
-  set(5, L, "ลาหยุด", { color: RED, align: "right" });
-  set(5, V, s.leaveDays || null, { color: RED, align: "center" });
+  // เดิมมีแถว "ลาหยุด" แถวเดียว — แยกเป็นลาป่วย/ลากิจ และเพิ่ม "มีงานไม่ไปงาน"
+  // แถวด้านล่างทั้งหมดเลื่อนลง 3 แถว สูตรจึงต้องอ้างเลขแถวใหม่ด้วย
+  set(5, L, "ลาป่วย", { color: RED, align: "right" });
+  set(5, V, s.sickLeaveDays || null, { color: RED, align: "center" });
   set(5, U, "วัน", { color: RED, align: "left" });
 
-  set(6, L, "ซ่อมรถ", { align: "right" });
-  set(6, V, s.repairDays || null, { align: "center" });
-  set(6, U, "วัน", { align: "left" });
+  set(6, L, "ลากิจ", { color: RED, align: "right" });
+  set(6, V, s.personalLeaveDays || null, { color: RED, align: "center" });
+  set(6, U, "วัน", { color: RED, align: "left" });
 
-  set(7, L, "งาน", { color: GREEN, align: "right" });
-  set(7, V, s.jobTrips || null, { color: GREEN, align: "center" });
-  set(7, U, "เที่ยว", { color: GREEN, align: "left" });
+  set(7, L, "ซ่อมรถ", { align: "right" });
+  set(7, V, s.repairDays || null, { align: "center" });
+  set(7, U, "วัน", { align: "left" });
 
-  set(8, L, "ทอย", { color: GREEN, align: "right" });
-  set(8, V, s.towingTrips || null, { color: GREEN, align: "center" });
+  set(8, L, "งาน", { color: GREEN, align: "right" });
+  set(8, V, s.jobTrips || null, { color: GREEN, align: "center" });
   set(8, U, "เที่ยว", { color: GREEN, align: "left" });
 
-  // แบก — ค่าที่กรอกไว้ในหน้าสรุปงาน
-  set(9, L, "แบก", { color: GREEN, align: "right" });
-  set(9, V, s.carryTrips, { color: GREEN, align: "center" });
+  set(9, L, "ทอย", { color: GREEN, align: "right" });
+  set(9, V, s.towingTrips || null, { color: GREEN, align: "center" });
   set(9, U, "เที่ยว", { color: GREEN, align: "left" });
 
+  // แบก — ค่ากรอกมือ ถ้ายังไม่กรอกใช้จำนวนงานที่ติ๊กแบกในเดือนนั้น
+  set(10, L, "แบก", { color: GREEN, align: "right" });
+  set(10, V, carryTrips, { color: GREEN, align: "center" });
+  set(10, U, "เที่ยว", { color: GREEN, align: "left" });
+
   // ค้างคืน — นับจาก job ประเภท "ไม่มีงาน" เหตุผล overnight (เหมือนซ่อมรถ)
-  set(10, L, "ค้างคืน", { align: "right" });
-  set(10, V, s.overnightDays || null, { align: "center" });
-  set(10, U, "วัน", { align: "left" });
+  set(11, L, "ค้างคืน", { align: "right" });
+  set(11, V, s.overnightDays || null, { align: "center" });
+  set(11, U, "วัน", { align: "left" });
+
+  set(12, L, "มีงานไม่ไปงาน", { align: "right" });
+  set(12, V, s.noShowDays || null, { align: "center" });
+  set(12, U, "วัน", { align: "left" });
 
   // รายได้ + สัดส่วน
-  set(12, L, "รายได้", { align: "right" });
-  set(12, V, s.income, { fmt: MONEY_FMT });
-  set(12, U, "บาท", { align: "left" });
-
-  set(13, L, 0.55, { fmt: "0%", align: "right" });
-  set(13, V, { formula: `${vCol}12*55%` }, { fmt: MONEY_FMT });
-  set(13, U, "บาท", { align: "left" });
-
-  set(14, L, 0.45, { fmt: "0%", align: "right" });
-  set(14, V, { formula: `${vCol}12*45%` }, { fmt: MONEY_FMT });
+  set(14, L, "รายได้", { align: "right" });
+  set(14, V, s.income, { fmt: MONEY_FMT });
   set(14, U, "บาท", { align: "left" });
 
-  // น้ำมัน
-  set(16, L, "ราคาน้ำมันต่อลิตร", { align: "right" });
-  set(16, V, s.fuelPricePerLiter, { fmt: MONEY_FMT });
+  set(15, L, 0.55, { fmt: "0%", align: "right" });
+  set(15, V, { formula: `${vCol}14*55%` }, { fmt: MONEY_FMT });
+  set(15, U, "บาท", { align: "left" });
+
+  set(16, L, 0.45, { fmt: "0%", align: "right" });
+  set(16, V, { formula: `${vCol}14*45%` }, { fmt: MONEY_FMT });
   set(16, U, "บาท", { align: "left" });
 
-  set(17, L, "จำนวนน้ำมัน", { align: "right" });
-  set(17, V, s.fuelLiters, { fmt: MONEY_FMT });
-  set(17, U, "ลิตร", { align: "left" });
-
-  set(18, L, "รวมใช้น้ำมัน", { align: "right" });
-  set(18, V, { formula: `${vCol}16*${vCol}17` }, { fmt: MONEY_FMT });
+  // น้ำมัน — รถก๊าซไม่มีค่าน้ำมัน ปล่อยว่างทั้งบล็อกและไม่ใส่สูตร
+  set(18, L, `ราคา${fuelWord}ต่อ${fuelUnitWord}`, { align: "right" });
+  set(18, V, isGas ? null : s.fuelPricePerLiter, { fmt: MONEY_FMT });
   set(18, U, "บาท", { align: "left" });
 
-  set(20, L, "45% - ราคาน้ำมัน", { fill: FILL_PINK, align: "right" });
-  set(20, V, { formula: `${vCol}14-${vCol}18` }, { fill: FILL_PINK, fmt: MONEY_FMT });
-  set(20, U, "บาท", { fill: FILL_PINK, align: "left" });
+  set(19, L, `จำนวน${fuelWord}`, { align: "right" });
+  set(19, V, isGas ? null : s.fuelLiters, { fmt: MONEY_FMT });
+  set(19, U, fuelUnit, { align: "left" });
+
+  set(20, L, `รวมใช้${fuelWord}`, { align: "right" });
+  set(20, V, isGas ? null : { formula: `${vCol}18*${vCol}19` }, { fmt: MONEY_FMT });
+  set(20, U, "บาท", { align: "left" });
+
+  set(22, L, `45% - ราคา${fuelWord}`, { fill: FILL_PINK, align: "right" });
+  set(22, V, isGas ? null : { formula: `${vCol}16-${vCol}20` }, { fill: FILL_PINK, fmt: MONEY_FMT });
+  set(22, U, "บาท", { fill: FILL_PINK, align: "left" });
 
   // ค่าตอบแทน
-  set(22, L, "ค่าเที่ยว", { align: "right" });
-  set(22, V, s.driverWage, { fmt: MONEY_FMT });
-  set(22, U, "บาท", { align: "left" });
+  set(24, L, "ค่าเที่ยว", { align: "right" });
+  set(24, V, s.driverWage, { fmt: MONEY_FMT });
+  set(24, U, "บาท", { align: "left" });
 
-  set(23, L, "เงินเดือน", { align: "right" });
-  set(23, V, s.baseSalary, { fmt: MONEY_FMT });
-  set(23, U, "บาท", { align: "left" });
+  set(25, L, "เงินเดือน", { align: "right" });
+  set(25, V, s.baseSalary, { fmt: MONEY_FMT });
+  set(25, U, "บาท", { align: "left" });
 
   // หัก น้ำมัน/หยุด — ค่าที่กรอกไว้ในหน้าสรุปงาน
-  set(24, L, "หัก น้ำมัน/หยุด", { color: RED, align: "right" });
-  set(24, V, s.fuelDeduction, { color: RED, fmt: MONEY_FMT });
-  set(24, U, "บาท", { color: RED, align: "left" });
+  set(26, L, "หัก น้ำมัน/หยุด", { color: RED, align: "right" });
+  set(26, V, s.fuelDeduction, { color: RED, fmt: MONEY_FMT });
+  set(26, U, "บาท", { color: RED, align: "left" });
 
-  set(26, L, "รวม", { align: "right" });
-  set(26, V, { formula: `${vCol}22+${vCol}23+${vCol}24` }, { fmt: MONEY_FMT });
-  set(26, U, "บาท", { align: "left" });
+  set(28, L, "รวม", { align: "right" });
+  set(28, V, { formula: `${vCol}24+${vCol}25+${vCol}26` }, { fmt: MONEY_FMT });
+  set(28, U, "บาท", { align: "left" });
 
   // สรุปให้เงินเดือนคนรถ — ค่าที่กรอกไว้ (ต้นฉบับเป็นค่าคงที่ ไม่ใช่สูตร)
-  set(28, L, "สรุปให้เงินเดือนคนรถ", { fill: FILL_GREEN, align: "right" });
-  set(28, V, s.driverPayout, { fill: FILL_GREEN, fmt: MONEY_FMT });
-  set(28, U, "บาท", { fill: FILL_GREEN, align: "left" });
+  set(30, L, "สรุปให้เงินเดือนคนรถ", { fill: FILL_GREEN, align: "right" });
+  set(30, V, s.driverPayout, { fill: FILL_GREEN, fmt: MONEY_FMT });
+  set(30, U, "บาท", { fill: FILL_GREEN, align: "left" });
 
-  // ค่าใช้จ่ายต่างๆ — ค่าที่กรอกไว้ในหน้าสรุปงาน
-  set(30, L, "ค่าใช้จ่ายต่างๆ", { color: RED, align: "right" });
-  set(30, V, s.otherExpenses, { color: RED, fmt: MONEY_FMT });
-  set(30, U, "บาท", { color: RED, align: "left" });
+  // ค่าใช้จ่ายต่างๆ — ค่ากรอกมือ ถ้ายังไม่กรอกใช้ผลรวมจากงาน (ทางด่วน+ยกตู้+ฝากตู้+ยาง+อื่นๆ)
+  set(32, L, "ค่าใช้จ่ายต่างๆ", { color: RED, align: "right" });
+  set(32, V, otherExpenses, { color: RED, fmt: MONEY_FMT });
+  set(32, U, "บาท", { color: RED, align: "left" });
 
-  set(32, L, "ยอดคงเหลือของบริษัท", { fill: FILL_YELLOW, align: "right" });
+  // ยอดคงเหลือของบริษัท — รถก๊าซไม่มีบล็อกน้ำมัน จึงเว้นว่างตามหน้าสรุป
+  set(34, L, "ยอดคงเหลือของบริษัท", { fill: FILL_YELLOW, align: "right" });
   set(
-    32,
+    34,
     V,
-    { formula: `${vCol}12-${vCol}18-${vCol}28-${vCol}30` },
+    isGas ? null : { formula: `${vCol}14-${vCol}20-${vCol}30-${vCol}32` },
     { fill: FILL_YELLOW, fmt: MONEY_FMT }
   );
-  set(32, U, "บาท", { fill: FILL_YELLOW, align: "left" });
+  set(34, U, "บาท", { fill: FILL_YELLOW, align: "left" });
 }
 
 export async function generateSummaryExcel(sheets: DriverSheetData[]): Promise<Buffer> {
@@ -201,7 +221,7 @@ export async function generateSummaryExcel(sheets: DriverSheetData[]): Promise<B
     const ws = wb.addWorksheet(sanitizeSheetName(rawName, usedNames));
 
     // ความสูงแถวคงที่ทั้ง sheet
-    for (let r = 1; r <= 33; r++) ws.getRow(r).height = 24;
+    for (let r = 1; r <= 35; r++) ws.getRow(r).height = 24;
 
     // บล็อกที่ n เริ่มที่คอลัมน์ 2 + n*7 (B=2, I=9, P=16, ...)
     data.months.forEach((summary, idx) => {

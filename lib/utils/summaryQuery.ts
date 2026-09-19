@@ -25,6 +25,7 @@ export async function buildMonthSummaries(
       groupName: true,
       startDate: true,
       baseSalary: true,
+      isGasVehicle: true,
       resignedAt: true,
     },
     orderBy: [{ groupName: "asc" }, { name: "asc" }],
@@ -48,15 +49,22 @@ export async function buildMonthSummaries(
         jobType: true,
         noJobReason: true,
         isCancelled: true,
+        isCarry: true,
         income: true,
         driverWage: true,
         fuelOfficeLiters: true,
         fuelCashLiters: true,
         fuelCreditLiters: true,
+        toll: true,
+        liftFee: true,
+        storageFee: true,
+        tire: true,
+        other: true,
       },
     }),
+    // แยกนับลาป่วย/ลากิจ — leaveType อื่นที่ไม่ใช่ "sick" นับเป็นลากิจ
     prisma.driverLeave.groupBy({
-      by: ["driverId"],
+      by: ["driverId", "leaveType"],
       where: { driverId: { in: driverIdList }, leaveDate: { gte, lt } },
       _count: { _all: true },
     }),
@@ -80,7 +88,12 @@ export async function buildMonthSummaries(
     jobsByDriver.set(job.driverId, list);
   }
 
-  const leaveByDriver = new Map(leaves.map((l) => [l.driverId, l._count._all]));
+  const sickLeaveByDriver = new Map<string, number>();
+  const personalLeaveByDriver = new Map<string, number>();
+  for (const l of leaves) {
+    const target = l.leaveType === "sick" ? sickLeaveByDriver : personalLeaveByDriver;
+    target.set(l.driverId, (target.get(l.driverId) ?? 0) + l._count._all);
+  }
 
   // ค่ากรอกมือรายเดือน — Decimal ต้องแปลงเป็น number ตรงนี้ และคง null ไว้ถ้ายังไม่กรอก
   const entryByDriver = new Map(
@@ -105,18 +118,26 @@ export async function buildMonthSummaries(
         groupName: driver.groupName,
         startDate: driver.startDate ? driver.startDate.toISOString() : null,
         baseSalary: driver.baseSalary != null ? Number(driver.baseSalary) : null,
+        isGasVehicle: driver.isGasVehicle,
       },
       jobs: (jobsByDriver.get(driver.id) ?? []).map((j) => ({
         jobType: j.jobType,
         noJobReason: j.noJobReason,
         isCancelled: j.isCancelled,
+        isCarry: j.isCarry,
         income: j.income != null ? Number(j.income) : null,
         driverWage: j.driverWage != null ? Number(j.driverWage) : null,
         fuelOfficeLiters: j.fuelOfficeLiters != null ? Number(j.fuelOfficeLiters) : null,
         fuelCashLiters: j.fuelCashLiters != null ? Number(j.fuelCashLiters) : null,
         fuelCreditLiters: j.fuelCreditLiters != null ? Number(j.fuelCreditLiters) : null,
+        toll: j.toll != null ? Number(j.toll) : null,
+        liftFee: j.liftFee != null ? Number(j.liftFee) : null,
+        storageFee: j.storageFee != null ? Number(j.storageFee) : null,
+        tire: j.tire != null ? Number(j.tire) : null,
+        other: j.other != null ? Number(j.other) : null,
       })),
-      leaveCount: leaveByDriver.get(driver.id) ?? 0,
+      sickLeaveCount: sickLeaveByDriver.get(driver.id) ?? 0,
+      personalLeaveCount: personalLeaveByDriver.get(driver.id) ?? 0,
       entry: entryByDriver.get(driver.id) ?? null,
       fuelPricePerLiter,
     })

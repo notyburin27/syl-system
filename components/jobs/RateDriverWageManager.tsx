@@ -5,7 +5,7 @@ import { Table, Button, Modal, Form, Select, InputNumber, App, Space, Popconfirm
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CopyOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Location } from '@/types/job'
-import { RATE_JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel } from '@/types/job'
+import { RATE_JOB_TYPES, SIZE_OPTIONS, getJobTypeLabel, isTowingJobType } from '@/types/job'
 
 interface RateDriverWage {
   id: string
@@ -20,16 +20,13 @@ interface RateDriverWage {
 /** ข้อความ error จาก API เมื่อ combination นั้นมีอยู่แล้ว */
 const DUPLICATE_ERROR = 'มีข้อมูลนี้อยู่แล้ว'
 
-/** ทอยตู้ตั้งอัตราแบบไม่ระบุโรงงาน (ตรงกับเงื่อนไขใน POST /api/rates/driver-wage) */
-const isTowingJobType = (jobType: string) => jobType === 'towing'
-
 /** จำนวนรายการที่จะถูกสร้างจาก combination ที่เลือกไว้ */
 function comboCount(v: Partial<DriverWageFormValues>): number {
   const towingCount = (v.jobTypes ?? []).filter(isTowingJobType).length
   const otherCount = (v.jobTypes ?? []).length - towingCount
   const sizeCount = v.sizes?.length ?? 0
   const factoryCount = v.factoryLocationIds?.length ?? 0
-  // ทอยตู้ไม่ผูกกับโรงงาน — นับเป็น 1 รายการต่อ SIZE
+  // ทอยตู้/ทอยตู้หนักไม่ผูกกับโรงงาน — นับเป็น 1 รายการต่อ SIZE
   return sizeCount * (towingCount + otherCount * factoryCount)
 }
 

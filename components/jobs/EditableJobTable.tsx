@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Table, Button, App, DatePicker } from 'antd'
+import { Table, Button, App, DatePicker, Checkbox } from 'antd'
 import {
   FormOutlined,
   PlusOutlined,
@@ -401,6 +401,22 @@ export default function EditableJobTable({
     }
   }
 
+  // แบก — ติ๊กได้จากหน้า list โดยไม่ต้องเปิด modal (optimistic + rollback ถ้า save ไม่ผ่าน)
+  const handleToggleCarry = async (jobId: string, next: boolean) => {
+    setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, isCarry: next } : j)))
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isCarry: next }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, isCarry: !next } : j)))
+      message.error('บันทึกไม่สำเร็จ')
+    }
+  }
+
   // Computed fields
   const computeDriverOverall = (row: RowData) => {
     if (isBanner(row)) return null
@@ -649,16 +665,6 @@ export default function EditableJobTable({
     {
       title: 'ค่าใช้จ่ายคนขับ',
       children: [
-        {
-          title: 'ยกยอด',
-          dataIndex: 'actualTransferPrev',
-          key: 'actualTransferPrev',
-          width: 120,
-          render: (_: unknown, row: RowData) =>
-            renderCell(row, 'actualTransferPrev', 'number', undefined, {
-              disabled: isAdvanceType(row),
-            }),
-        },
         { title: 'เบิกล่วงหน้า', dataIndex: 'advance', key: 'advance', width: 110, render: (_: unknown, row: RowData) => renderCell(row, 'advance', 'number') },
         { title: 'ค่าทางด่วน', dataIndex: 'toll', key: 'toll', width: 100, render: (_: unknown, row: RowData) => renderCell(row, 'toll', 'number', undefined, { disabled: isAdvanceType(row) }) },
         { title: 'ค่ารับตู้', dataIndex: 'pickupFee', key: 'pickupFee', width: 100, render: (_: unknown, row: RowData) => renderCell(row, 'pickupFee', 'number', undefined, { disabled: isAdvanceType(row) }) },
@@ -679,6 +685,16 @@ export default function EditableJobTable({
           render: (_: unknown, row: RowData) => (
             <JobTableCell value={isAdvanceType(row) ? null : computeDriverOverall(row)} cellType="computed" />
           ),
+        },
+        {
+          title: 'ยกยอด',
+          dataIndex: 'actualTransferPrev',
+          key: 'actualTransferPrev',
+          width: 120,
+          render: (_: unknown, row: RowData) =>
+            renderCell(row, 'actualTransferPrev', 'number', undefined, {
+              disabled: isAdvanceType(row),
+            }),
         },
         ...transferColumns,
         {
@@ -767,8 +783,29 @@ export default function EditableJobTable({
     {
       title: 'สถานะ',
       fixed: 'right' as const,
-      width: isAdmin ? 80 : 40,
+      width: isAdmin ? 124 : 84,
       children: [
+        {
+          title: 'แบก',
+          key: 'isCarry',
+          width: 44,
+          fixed: 'right' as const,
+          align: 'center' as const,
+          render: (_: unknown, row: RowData) => {
+            if (isBanner(row)) return null
+            // เบิกล่วงหน้า/ไม่มีงาน ไม่มีการแบก และงานที่เคลียร์แล้วล็อกไม่ให้แก้
+            if (row.jobType === 'advance' || row.jobType === 'noJob') return null
+            return (
+              <Checkbox
+                data-testid={`job-carry-checkbox-${row.id}`}
+                checked={!!(row as Job).isCarry}
+                disabled={row.clearStatus}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => handleToggleCarry(row.id, e.target.checked)}
+              />
+            )
+          },
+        },
         {
           title: '',
           key: 'clearStatus',

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isTowingJobType } from "@/types/job";
 
 const MAIN_JOB_TYPES = ["inbound", "outbound", "flatbed"];
 
@@ -80,7 +81,7 @@ export async function GET(req: Request) {
           Number(j.fuelCashAmount || 0);
 
         const mainJobs = jobs.filter((j) => MAIN_JOB_TYPES.includes(j.jobType));
-        const towingJobs = jobs.filter((j) => j.jobType === "towing");
+        const towingJobs = jobs.filter((j) => isTowingJobType(j.jobType));
         const advanceJobs = jobs.filter((j) => j.jobType === "advance");
 
         const mainTransfer = mainJobs.reduce((sum, j) => sum + computeTotal(j), 0);

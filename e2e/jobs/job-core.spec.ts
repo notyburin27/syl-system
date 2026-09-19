@@ -112,6 +112,26 @@ test.describe.serial('Job core — ยกเลิก / ลบ / โอน / ย
     expect((await cleared.json()).clearStatus).toBe(true)
   })
 
+  test('ยกเลิกงาน: เคลียร์ค่าขนส่งและค่าเที่ยวคนขับเป็น null', async ({ page }) => {
+    const driverId = await createDriver(page)
+    const jobId = await createJob(page, { driverId, jobNumber: 'E2E-CANCEL-003', income: 5000 })
+
+    // ตั้งค่าเที่ยวคนขับผ่าน PATCH (POST /api/jobs ไม่รับ field นี้)
+    const setWage = await page.request.patch(`/api/jobs/${jobId}`, { data: { driverWage: 800 } })
+    expect(setWage.ok()).toBeTruthy()
+    const before = await getJob(page, jobId)
+    expect(Number(before.income)).toBe(5000)
+    expect(Number(before.driverWage)).toBe(800)
+
+    const cancelled = await page.request.patch(`/api/jobs/${jobId}`, { data: { isCancelled: true } })
+    expect(cancelled.ok()).toBeTruthy()
+
+    const after = await getJob(page, jobId)
+    expect(after.isCancelled).toBe(true)
+    expect(after.income).toBeNull()
+    expect(after.driverWage).toBeNull()
+  })
+
   test('ยกเลิกงาน: แถวในตารางแสดงสถานะยกเลิก (cancelled-row)', async ({ page }) => {
     const driverId = await createDriver(page)
     const jobId = await createJob(page, { driverId, jobNumber: 'E2E-CANCEL-002', liftFee: 300 })
