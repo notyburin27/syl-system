@@ -60,6 +60,7 @@ export async function buildMonthSummaries(
         storageFee: true,
         tire: true,
         other: true,
+        pairLinkAsSecondary: { select: { id: true } },
       },
     }),
     // แยกนับลาป่วย/ลากิจ — leaveType อื่นที่ไม่ใช่ "sick" นับเป็นลากิจ
@@ -135,6 +136,7 @@ export async function buildMonthSummaries(
         storageFee: j.storageFee != null ? Number(j.storageFee) : null,
         tire: j.tire != null ? Number(j.tire) : null,
         other: j.other != null ? Number(j.other) : null,
+        isPairSecondary: !!j.pairLinkAsSecondary,
       })),
       sickLeaveCount: sickLeaveByDriver.get(driver.id) ?? 0,
       personalLeaveCount: personalLeaveByDriver.get(driver.id) ?? 0,
