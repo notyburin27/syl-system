@@ -935,7 +935,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     }
 ```
 
-> **ระวัง:** guard นี้ต้องอยู่**หลัง**บล็อก `if (data.isCancelled === true) { data.income = null; ... }` (บรรทัด ~156-159) ไม่งั้นการยกเลิกงาน secondary จะถูกปฏิเสธ เพราะบล็อกนั้น set `data.income` ขึ้นมาเอง
+> **ระวัง:** guard นี้ต้องอยู่**ก่อน**บล็อก `if (data.isCancelled === true) { data.income = null; ... }` (บรรทัด ~156-159) ไม่งั้นการยกเลิกงาน secondary จะถูกปฏิเสธ เพราะบล็อกนั้น set `data.income = null` ขึ้นมาเอง ทำให้ `data.income !== undefined` เป็น true แล้ว guard จะเข้าใจผิดว่าผู้ใช้พยายามแก้ยอด
+>
+> ไล่เคสยืนยัน: ผู้ใช้ยกเลิกงาน secondary → client ส่งแค่ `{ isCancelled: true }` → ตอน guard ทำงาน `data.income` ยังเป็น `undefined` → guard ข้าม → บล็อก isCancelled ทำงานต่อ → ยกเลิกสำเร็จ ✅
 
 และเพิ่ม include เดียวกับ Step 1 เข้าไปใน `prisma.job.update({ ..., include: {...} })` (บรรทัด ~163-180)
 
