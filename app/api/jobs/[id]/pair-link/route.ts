@@ -59,8 +59,20 @@ export async function POST(
   if (g.error) return g.error;
 
   const { id } = await params;
-  const { otherJobId } = (await req.json()) as { otherJobId?: string };
-  if (!otherJobId) return NextResponse.json({ error: "ข้อมูลไม่ครบ" }, { status: 400 });
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "ข้อมูลไม่ครบ" }, { status: 400 });
+  }
+  const otherJobId =
+    body && typeof body === "object" && "otherJobId" in body
+      ? (body as { otherJobId?: unknown }).otherJobId
+      : undefined;
+  if (!otherJobId || typeof otherJobId !== "string") {
+    return NextResponse.json({ error: "ข้อมูลไม่ครบ" }, { status: 400 });
+  }
 
   const [a, b] = await Promise.all([
     prisma.job.findUnique({ where: { id }, select: PAIR_SELECT }),
@@ -98,8 +110,12 @@ export async function POST(
       secondaryJobNumber: secondary.jobNumber,
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "";
-    if (msg.includes("Unique constraint")) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
       return NextResponse.json({ error: "งานนี้ถูกจับคู่ไปแล้ว" }, { status: 409 });
     }
     console.error("pair-link POST error:", error);
