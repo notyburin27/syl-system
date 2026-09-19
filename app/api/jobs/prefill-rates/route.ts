@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isTowingJobType } from "@/types/job";
+import { getPairedSize, isTowingJobType } from "@/types/job";
 
 /**
  * ดึงค่าขนส่ง (income) + ค่าเที่ยวคนขับ (driverWage) ให้ทุกงานในเดือนที่เลือก
@@ -37,6 +37,8 @@ export async function POST(req: Request) {
         isCancelled: false,
         jobType: { notIn: ["advance", "noJob"] },
         OR: [{ income: null }, { driverWage: null }],
+        // ใบที่ถูกจับคู่แล้วยอดต้องเป็น null เสมอ — ห้ามเติมกลับ
+        pairLinkAsSecondary: null,
       },
       select: {
         id: true,
@@ -47,6 +49,7 @@ export async function POST(req: Request) {
         customerId: true,
         income: true,
         driverWage: true,
+        pairLinkAsPrimary: { select: { id: true } },
       },
     });
 
@@ -78,11 +81,16 @@ export async function POST(req: Request) {
     const updates: { id: string; data: { income?: number; driverWage?: number } }[] = [];
 
     for (const job of jobs) {
+      // ใบที่ถือยอดของคู่ ใช้อัตราคู่ (2x20DC) แม้ size ใน DB ยังเป็น 20DC
+      const rateSize = job.pairLinkAsPrimary
+        ? getPairedSize(job.size) ?? job.size
+        : job.size;
+
       const data: { income?: number; driverWage?: number } = {};
 
-      if (job.income === null && job.jobType && job.size && job.factoryLocationId && job.customerId) {
+      if (job.income === null && job.jobType && rateSize && job.factoryLocationId && job.customerId) {
         const rate = incomeByKey.get(
-          `${job.jobType}|${job.size}|${job.factoryLocationId}|${job.customerId}`
+          `${job.jobType}|${rateSize}|${job.factoryLocationId}|${job.customerId}`
         );
         if (rate) {
           let surcharge = 0;
@@ -101,10 +109,10 @@ export async function POST(req: Request) {
       }
 
       // ทอยตู้/ทอยตู้หนักไม่ผูกกับโรงงาน — ประเภทอื่นต้องมี factoryLocationId ถึงจะหาอัตราได้
-      if (job.driverWage === null && job.jobType && job.size) {
+      if (job.driverWage === null && job.jobType && rateSize) {
         const needsFactory = !isTowingJobType(job.jobType);
         if (!needsFactory || job.factoryLocationId) {
-          const rate = wageByKey.get(`${job.jobType}|${job.size}|${job.factoryLocationId ?? ""}`);
+          const rate = wageByKey.get(`${job.jobType}|${rateSize}|${job.factoryLocationId ?? ""}`);
           if (rate) {
             data.driverWage = Number(rate.driverWage);
             driverWageFilled++;
