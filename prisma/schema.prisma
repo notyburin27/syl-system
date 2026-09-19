@@ -327,6 +327,10 @@ model Job {
   towingLinksAsMain   JobTowingLink[] @relation("TowingMainJob")
   towingLinkAsTowing  JobTowingLink?  @relation("TowingJob")
 
+  // Pair link relations — จับคู่งานที่วิ่งครั้งเดียวแต่แยกใบ
+  pairLinkAsPrimary   JobPairLink? @relation("PairPrimary")
+  pairLinkAsSecondary JobPairLink? @relation("PairSecondary")
+
   // Metadata
   createdById String
   createdBy   AuthUser @relation(fields: [createdById], references: [id])
@@ -357,6 +361,21 @@ model JobTowingLink {
   @@unique([mainJobId, sequence])
   @@index([mainJobId])
   @@map("job_towing_links")
+}
+
+/// จับคู่งาน — สองใบที่วิ่งครั้งเดียวกัน ยอดรวมอยู่ที่ใบ primary
+/// @unique ทั้งสองฝั่งบังคับว่าหนึ่งใบอยู่ได้แค่คู่เดียว และเป็นได้ฝั่งเดียว
+model JobPairLink {
+  id             String   @id @default(cuid())
+  /// ใบที่ถือยอด — createdAt ใหม่กว่า
+  primaryJobId   String   @unique
+  primaryJob     Job      @relation("PairPrimary", fields: [primaryJobId], references: [id], onDelete: Cascade)
+  /// ใบที่ถูกล้างยอด — income/driverWage = null
+  secondaryJobId String   @unique
+  secondaryJob   Job      @relation("PairSecondary", fields: [secondaryJobId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@map("job_pair_links")
 }
 
 model JobTransfer {
