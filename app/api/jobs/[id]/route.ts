@@ -30,6 +30,12 @@ export async function GET(
         towingLinkAsTowing: {
           include: { mainJob: { select: { id: true, jobNumber: true, jobDate: true, jobType: true } } },
         },
+        pairLinkAsPrimary: {
+          include: { secondaryJob: { select: { id: true, jobNumber: true, jobDate: true, size: true } } },
+        },
+        pairLinkAsSecondary: {
+          include: { primaryJob: { select: { id: true, jobNumber: true, jobDate: true, size: true } } },
+        },
       },
     });
     if (!job) {
@@ -151,6 +157,20 @@ export async function PATCH(
       }
     }
 
+    // งานที่ถูกจับคู่แล้ว (ฝั่ง secondary) ยอดต้องเป็น null เสมอ — ยอดอยู่ที่ใบ primary
+    if (data.income !== undefined || data.driverWage !== undefined) {
+      const pairLink = await prisma.jobPairLink.findUnique({
+        where: { secondaryJobId: id },
+        select: { primaryJob: { select: { jobNumber: true } } },
+      });
+      if (pairLink) {
+        return NextResponse.json(
+          { error: `งานนี้ถูกจับคู่แล้ว ยอดอยู่ที่ ${pairLink.primaryJob.jobNumber}` },
+          { status: 400 }
+        );
+      }
+    }
+
     // ยกเลิกใบงาน → เคลียร์ค่าขนส่ง (รายได้) และค่าเที่ยวคนขับเป็น null
     // งานที่ยกเลิกไม่ควรมีตัวเลขค้างอยู่ในรายงาน/สรุป
     if (data.isCancelled === true) {
@@ -176,6 +196,12 @@ export async function PATCH(
         },
         towingLinkAsTowing: {
           include: { mainJob: { select: { id: true, jobNumber: true, jobDate: true, jobType: true } } },
+        },
+        pairLinkAsPrimary: {
+          include: { secondaryJob: { select: { id: true, jobNumber: true, jobDate: true, size: true } } },
+        },
+        pairLinkAsSecondary: {
+          include: { primaryJob: { select: { id: true, jobNumber: true, jobDate: true, size: true } } },
         },
       },
     });
