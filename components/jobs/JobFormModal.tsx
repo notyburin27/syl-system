@@ -30,7 +30,7 @@ import {
 import { Popconfirm } from "antd";
 import dayjs from "dayjs";
 import type { Job, Customer, Location, JobTransfer, JobTowingLink, TowingJobSummary, MainJobSummary } from "@/types/job";
-import { JOB_TYPES, SIZE_OPTIONS, NO_JOB_REASONS } from "@/types/job";
+import { JOB_TYPES, SIZE_OPTIONS, NO_JOB_REASONS, isTowingJobType } from "@/types/job";
 import QuickAddModal from "./QuickAddModal";
 
 interface JobFormModalProps {
@@ -80,6 +80,7 @@ export default function JobFormModal({
   const [clearing, setClearing] = useState(false);
   const [transfers, setTransfers] = useState<JobTransfer[]>([]);
   const [isCancelled, setIsCancelled] = useState(false);
+  const [isCarry, setIsCarry] = useState(false);
 
   // Carry-over (ยกยอดไปงานอื่น)
   const [carryOverOpen, setCarryOverOpen] = useState(false);
@@ -115,6 +116,8 @@ export default function JobFormModal({
   // "ไม่มีงาน" ใช้ฟอร์มแบบพิเศษเหมือนเบิกล่วงหน้า (ระบบออกเลขให้, ไม่มีข้อมูลการเงิน)
   const isNoJob = jobTypeWatch === "noJob";
   const isSpecialType = isAdvance || isNoJob;
+  // ทอยตู้/ทอยตู้หนักไม่ผูกกับโรงงานและไม่มีสถานที่คืนตู้ — ล็อกสองช่องนี้ไว้
+  const isTowing = isTowingJobType(jobTypeWatch ?? "");
   const watchPickupLocationId = Form.useWatch("pickupLocationId", form);
   const watchReturnLocationId = Form.useWatch("returnLocationId", form);
 
@@ -195,6 +198,7 @@ export default function JobFormModal({
       setSaveStatus("idle");
       setClearStatus(mode === "edit" && job ? !!job.clearStatus : false);
       setIsCancelled(mode === "edit" && job ? !!job.isCancelled : false);
+      setIsCarry(mode === "edit" && job ? !!job.isCarry : false);
       setTransfers(mode === "edit" && job?.transfers ? job.transfers : []);
       setCarryOverOpen(false);
       setCarryOverMonth("");
@@ -1002,25 +1006,43 @@ export default function JobFormModal({
         onCancel={onClose}
         footer={
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
+              {/* checkbox สถานะงานชิดซ้ายเป็นกลุ่มเดียวกัน — marginRight auto อยู่ที่ตัวครอบ
+                  ไม่ใช่ที่ checkbox ตัวแรก ไม่งั้นตัวถัดไปจะถูกดันไปติดปุ่มฝั่งขวา */}
               {!isSpecialType && activeJob && (
-                <Tooltip title={completedTransferSum > 0 ? "" : "ต้องมียอดโอนก่อน"}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: "auto" }}>
+                  <Tooltip title={completedTransferSum > 0 ? "" : "ต้องมียอดโอนก่อน"}>
+                    <Checkbox
+                      data-testid="job-cancel-checkbox"
+                      checked={isCancelled}
+                      disabled={isCleared || completedTransferSum === 0}
+                      onChange={async (e) => {
+                        const next = e.target.checked;
+                        setIsCancelled(next);
+                        handleSaveStatus("saving");
+                        const ok = await onFieldSave(activeJob.id, "isCancelled", next);
+                        handleSaveStatus(ok ? "saved" : "error");
+                        if (!ok) setIsCancelled(!next);
+                      }}
+                    >
+                      ยกเลิกใบงาน
+                    </Checkbox>
+                  </Tooltip>
                   <Checkbox
-                    data-testid="job-cancel-checkbox"
-                    style={{ marginRight: "auto" }}
-                    checked={isCancelled}
-                    disabled={isCleared || completedTransferSum === 0}
+                    data-testid="job-carry-checkbox"
+                    checked={isCarry}
+                    disabled={isCleared}
                     onChange={async (e) => {
                       const next = e.target.checked;
-                      setIsCancelled(next);
+                      setIsCarry(next);
                       handleSaveStatus("saving");
-                      const ok = await onFieldSave(activeJob.id, "isCancelled", next);
+                      const ok = await onFieldSave(activeJob.id, "isCarry", next);
                       handleSaveStatus(ok ? "saved" : "error");
-                      if (!ok) setIsCancelled(!next);
+                      if (!ok) setIsCarry(!next);
                     }}
                   >
-                    ยกเลิกใบงาน
+                    แบก
                   </Checkbox>
-                </Tooltip>
+                </div>
               )}
               {saveStatus === "saving" && (
                 <span style={{ color: "#1890ff", fontSize: 13 }}>
@@ -1284,7 +1306,7 @@ export default function JobFormModal({
                       "factoryLocationId",
                       factoryLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "factory", "factoryLocationId"),
-                      isAdvance || isTowingLinked,
+                      isAdvance || isTowingLinked || isTowing,
                       [prefillIncome, prefillDriverWage],
                     )}
                   </Form.Item>
@@ -1295,7 +1317,7 @@ export default function JobFormModal({
                       "returnLocationId",
                       generalLocations.map((l) => ({ value: l.id, label: l.name })),
                       addButton("location", "general", "returnLocationId"),
-                      isAdvance || isTowingLinked || hasSlot2Link,
+                      isAdvance || isTowingLinked || hasSlot2Link || isTowing,
                       [() => prefillEstimatedTransfer("returnLocationId"), prefillIncome],
                     )}
                   </Form.Item>

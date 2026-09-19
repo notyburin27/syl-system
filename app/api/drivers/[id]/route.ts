@@ -14,7 +14,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, vehicleNumber, vehicleRegistration, groupName, resignedAt, baseSalary, startDate } = body;
+    const { name, vehicleNumber, vehicleRegistration, groupName, resignedAt, baseSalary, startDate, isGasVehicle } = body;
 
     // แก้เฉพาะวันที่ลาออก (จาก action "ลาออก") — ไม่ต้องส่งข้อมูลคนขับทั้งชุด
     if ("resignedAt" in body && name === undefined) {
@@ -47,6 +47,7 @@ export async function PATCH(
         vehicleRegistration: vehicleRegistration?.trim() || null,
         groupName: groupName?.trim() || null,
         startDate: startDate ? new Date(startDate) : null,
+        isGasVehicle: !!isGasVehicle,
         // non-admin แก้เงินเดือนไม่ได้ — ไม่ใส่ key นี้เลยเพื่อไม่ให้ทับค่าเดิม
         ...(isAdmin && "baseSalary" in body && {
           baseSalary: baseSalary != null ? baseSalary : null,

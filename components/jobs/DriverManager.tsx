@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Table, Button, Modal, Form, Input, InputNumber, App, Space, Tag, Popconfirm, AutoComplete, DatePicker } from 'antd'
+import { Table, Button, Modal, Form, Input, InputNumber, App, Space, Tag, Popconfirm, AutoComplete, DatePicker, Checkbox } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import type { Driver, DriverBankAccount } from '@/types/job'
@@ -67,6 +67,7 @@ export default function DriverManager({ isAdmin }: { isAdmin: boolean }) {
         groupName: driver.groupName,
         baseSalary: driver.baseSalary != null ? Number(driver.baseSalary) : undefined,
         startDate: driver.startDate ? dayjs(driver.startDate) : undefined,
+        isGasVehicle: driver.isGasVehicle,
       })
     } else {
       setEditingDriver(null)
@@ -82,6 +83,7 @@ export default function DriverManager({ isAdmin }: { isAdmin: boolean }) {
     groupName?: string
     baseSalary?: number
     startDate?: dayjs.Dayjs
+    isGasVehicle?: boolean
   }) => {
     setSubmitLoading(true)
     try {
@@ -91,6 +93,7 @@ export default function DriverManager({ isAdmin }: { isAdmin: boolean }) {
       const payload = {
         ...values,
         startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+        isGasVehicle: !!values.isGasVehicle,
       }
 
       const res = await fetch(url, {
@@ -494,6 +497,10 @@ export default function DriverManager({ isAdmin }: { isAdmin: boolean }) {
               style={{ width: '100%' }}
               placeholder="เลือกวันเริ่มงาน"
             />
+          </Form.Item>
+          {/* รถก๊าซ — หน้าสรุปจะเว้นว่างบล็อกน้ำมันและยอดคงเหลือของบริษัท */}
+          <Form.Item name="isGasVehicle" valuePropName="checked" initialValue={false}>
+            <Checkbox data-testid="driver-gas-vehicle-checkbox">รถก๊าซ</Checkbox>
           </Form.Item>
           {isAdmin && (
             <Form.Item name="baseSalary" label="ฐานเงินเดือน">

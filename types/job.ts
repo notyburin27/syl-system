@@ -25,6 +25,8 @@ export interface Driver {
   baseSalary?: number | null;
   /** วันเริ่มงาน (ISO date string) */
   startDate: string | null;
+  /** รถก๊าซ — หน้าสรุปเว้นว่างบล็อกน้ำมันและยอดคงเหลือของบริษัท */
+  isGasVehicle: boolean;
   isActive: boolean;
   resignedAt: string | null;
   bankAccounts: DriverBankAccount[];
@@ -124,6 +126,7 @@ export interface Job {
   clearStatus: boolean;
   statementVerified: boolean;
   isCancelled: boolean;
+  isCarry: boolean;
   remarks: string | null;
   noJobReason: string | null;
   carryOverToJobId: string | null;
@@ -155,6 +158,7 @@ export const JOB_TYPES = [
   { value: "inbound",  label: "ขาเข้า" },
   { value: "outbound", label: "ขาออก" },
   { value: "towing",   label: "ทอยตู้" },
+  { value: "towingHeavy", label: "ทอยตู้หนัก" },
   { value: "flatbed",  label: "พื้นเรียบ" },
   { value: "mill",     label: "โรงสี" },
   { value: "advance",  label: "เบิกล่วงหน้า" },
@@ -172,6 +176,7 @@ export const NO_JOB_REASONS = [
   { value: "overnight", label: "ค้างคืน" },
   { value: "lowVolume", label: "งานน้อย" },
   { value: "cancelled", label: "งานยกเลิก" },
+  { value: "noShow",    label: "มีงานไม่ไปงาน" },
   { value: "other",     label: "อื่นๆ" },
 ] as const;
 
@@ -195,6 +200,16 @@ export const SIZE_OPTIONS = [
   "40FL",
   "truck",
 ] as const;
+
+/**
+ * ลักษณะงานตระกูลทอยตู้ — "ทอยตู้หนัก" มีพฤติกรรมเหมือน "ทอยตู้" ทุกอย่าง
+ * (ไม่ผูกโรงงาน, ไม่มีสถานที่คืนตู้, ลิ้งเป็น towing job ได้) ต่างแค่ตั้งอัตราแยกกัน
+ */
+export const TOWING_JOB_TYPES = ["towing", "towingHeavy"] as const;
+
+export function isTowingJobType(jobType: string): boolean {
+  return (TOWING_JOB_TYPES as readonly string[]).includes(jobType);
+}
 
 export type JobType = (typeof JOB_TYPES)[number]["value"];
 export type SizeOption = (typeof SIZE_OPTIONS)[number];
@@ -232,14 +247,23 @@ export interface DriverMonthlySummary {
   groupName: string | null;
   startDate: string | null;
 
-  leaveDays: number;          // ลาหยุด
+  /** ลาป่วย (วัน) — DriverLeave.leaveType = "sick" */
+  sickLeaveDays: number;
+  /** ลากิจ (วัน) — DriverLeave.leaveType อื่นที่ไม่ใช่ "sick" */
+  personalLeaveDays: number;
   repairDays: number;         // ซ่อมรถ
   overnightDays: number;      // ค้างคืน
+  /** มีงานไม่ไปงาน (วัน) — งาน "ไม่มีงาน" เหตุผล noShow */
+  noShowDays: number;
   jobTrips: number;           // งาน (เที่ยว)
   towingTrips: number;        // ทอย (เที่ยว)
 
-  /** แบก (เที่ยว) — กรอกมือ null = ยังไม่กรอก */
+  /** แบก (เที่ยว) — prefill จากงานที่ติ๊กแบก แก้ทับได้ (null = ใช้ค่า prefill) */
   carryTrips: number | null;
+  /** จำนวนงานที่ติ๊กแบกในเดือนนั้น — ใช้เป็นค่า prefill ของ carryTrips */
+  carryTripsPrefill: number;
+  /** ค่าใช้จ่ายต่างๆ ที่คำนวณจากงาน (ทางด่วน+ยกตู้+ฝากตู้+ยาง+อื่นๆ) — prefill ของ otherExpenses */
+  otherExpensesPrefill: number;
   /** หัก น้ำมัน/หยุด (บาท) — กรอกมือ */
   fuelDeduction: number | null;
   /** ค่าใช้จ่ายต่างๆ (บาท) — กรอกมือ */
@@ -247,6 +271,8 @@ export interface DriverMonthlySummary {
   /** สรุปให้เงินเดือนคนรถ (บาท) — กรอกมือ */
   driverPayout: number | null;
 
+  /** รถก๊าซ — UI/Excel เว้นว่างบล็อกน้ำมันและยอดคงเหลือของบริษัท */
+  isGasVehicle: boolean;
   income: number;             // รายได้
   fuelPricePerLiter: number | null;
   fuelLiters: number;         // จำนวนน้ำมัน

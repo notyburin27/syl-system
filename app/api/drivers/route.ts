@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, vehicleNumber, vehicleRegistration, groupName, baseSalary, startDate } = body;
+    const { name, vehicleNumber, vehicleRegistration, groupName, baseSalary, startDate, isGasVehicle } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -58,6 +58,7 @@ export async function POST(req: Request) {
         vehicleRegistration: vehicleRegistration?.trim() || null,
         groupName: groupName?.trim() || null,
         startDate: startDate ? new Date(startDate) : null,
+        isGasVehicle: !!isGasVehicle,
         // non-admin ส่ง baseSalary มาก็เพิกเฉย
         ...(isAdmin && { baseSalary: baseSalary != null ? baseSalary : null }),
       },

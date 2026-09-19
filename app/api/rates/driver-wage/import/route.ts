@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { JOB_TYPES, SIZE_OPTIONS } from "@/types/job";
+import { isTowingJobType } from "@/types/job";
 
 interface ImportRow {
   jobType?: string;
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
 
     rows.forEach((row, index) => {
       const rowNum = index + 1;
-      const isTowing = row.jobType === "towing";
+      const isTowing = isTowingJobType(row.jobType ?? "");
 
       if (!row.jobType) errors.push({ row: rowNum, field: "jobType", message: "กรุณาระบุลักษณะงาน" });
       else if (!JOB_TYPES.some((t) => t.value === row.jobType))
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
 
     let created = 0;
     for (const row of rows) {
-      const isTowing = row.jobType === "towing";
+      const isTowing = isTowingJobType(row.jobType ?? "");
       let factoryLocationId: string | null = null;
 
       if (!isTowing && row.factoryLocationName) {

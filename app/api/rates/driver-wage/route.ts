@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isTowingJobType } from "@/types/job";
 
 export async function GET() {
   const session = await auth();
@@ -22,8 +23,8 @@ export async function POST(req: Request) {
   try {
     const { jobType, size, factoryLocationId, driverWage } = await req.json();
 
-    // ทอยตู้ตั้งอัตราแบบไม่ระบุโรงงานได้ (ข้อมูลเดิม + CSV import) — ลักษณะงานอื่นต้องมีโรงงาน
-    const isTowing = jobType === "towing";
+    // ทอยตู้/ทอยตู้หนักตั้งอัตราแบบไม่ระบุโรงงานได้ (ข้อมูลเดิม + CSV import) — ลักษณะงานอื่นต้องมีโรงงาน
+    const isTowing = isTowingJobType(jobType ?? "");
     if (!jobType || !size || (!isTowing && !factoryLocationId) || driverWage == null) {
       return NextResponse.json({ error: "กรุณากรอกข้อมูลให้ครบ" }, { status: 400 });
     }

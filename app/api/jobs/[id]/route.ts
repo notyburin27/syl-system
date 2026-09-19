@@ -137,6 +137,7 @@ export async function PATCH(
       "noJobReason",
       "carryOverToJobId",
       "isCancelled",
+      "isCarry",
     ];
 
     const data: Record<string, unknown> = {};
@@ -148,6 +149,13 @@ export async function PATCH(
           data[field] = body[field];
         }
       }
+    }
+
+    // ยกเลิกใบงาน → เคลียร์ค่าขนส่ง (รายได้) และค่าเที่ยวคนขับเป็น null
+    // งานที่ยกเลิกไม่ควรมีตัวเลขค้างอยู่ในรายงาน/สรุป
+    if (data.isCancelled === true) {
+      data.income = null;
+      data.driverWage = null;
     }
 
     const job = await prisma.job.update({

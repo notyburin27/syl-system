@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isTowingJobType } from "@/types/job";
 
 /**
  * ดึงค่าขนส่ง (income) + ค่าเที่ยวคนขับ (driverWage) ให้ทุกงานในเดือนที่เลือก
@@ -99,9 +100,9 @@ export async function POST(req: Request) {
         }
       }
 
-      // ทอยตู้ไม่ผูกกับโรงงาน — ประเภทอื่นต้องมี factoryLocationId ถึงจะหาอัตราได้
+      // ทอยตู้/ทอยตู้หนักไม่ผูกกับโรงงาน — ประเภทอื่นต้องมี factoryLocationId ถึงจะหาอัตราได้
       if (job.driverWage === null && job.jobType && job.size) {
-        const needsFactory = job.jobType !== "towing";
+        const needsFactory = !isTowingJobType(job.jobType);
         if (!needsFactory || job.factoryLocationId) {
           const rate = wageByKey.get(`${job.jobType}|${job.size}|${job.factoryLocationId ?? ""}`);
           if (rate) {

@@ -183,6 +183,8 @@ model Driver {
   groupName           String?
   baseSalary          Decimal?            @db.Decimal(10, 2)
   startDate           DateTime?           @db.Date
+  /// รถก๊าซ — หน้าสรุปจะเว้นว่างบล็อกน้ำมันและยอดคงเหลือของบริษัท
+  isGasVehicle        Boolean             @default(false)
   isActive            Boolean             @default(true)
   resignedAt          DateTime?           @db.Date
   createdAt           DateTime            @default(now())
@@ -307,6 +309,8 @@ model Job {
   clearStatus       Boolean   @default(false)
   statementVerified Boolean   @default(false)
   isCancelled       Boolean   @default(false)
+  /// แบก — นับเพิ่มควบคู่กับหมวดเดิมในหน้าสรุป ไม่ได้แทนที่
+  isCarry           Boolean   @default(false)
 
   // Remarks
   remarks           String?
