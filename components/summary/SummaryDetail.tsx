@@ -110,6 +110,11 @@ function MonthCard({
   const effectiveCarryTrips = s.carryTrips ?? (s.carryTripsPrefill || null)
   const effectiveOtherExpenses = s.otherExpenses ?? (s.otherExpensesPrefill || null)
 
+  // รถก๊าซ (NGV) ใช้คำว่า "ก๊าซ" และวัดเป็นกิโลกรัม — รถน้ำมันวัดเป็นลิตร
+  const fuelWord = s.isGasVehicle ? 'ก๊าซ' : 'น้ำมัน'
+  const fuelUnitWord = s.isGasVehicle ? 'กิโลกรัม' : 'ลิตร'
+  const fuelUnit = s.isGasVehicle ? 'กก.' : 'ลิตร'
+
   // รถก๊าซไม่คิดน้ำมัน — บล็อกน้ำมันและยอดคงเหลือเว้นว่างทั้งใบ
   const fuelTotal =
     !s.isGasVehicle && s.fuelPricePerLiter != null ? s.fuelPricePerLiter * s.fuelLiters : null
@@ -203,14 +208,14 @@ function MonthCard({
 
       <RowGap />
 
-      <SummaryRow label="ราคาน้ำมันต่อลิตร" value={fmt(s.fuelPricePerLiter)} unit="บาท" />
+      <SummaryRow label={`ราคา${fuelWord}ต่อ${fuelUnitWord}`} value={fmt(s.fuelPricePerLiter)} unit="บาท" />
       <SummaryRow
-        label="จำนวนน้ำมัน"
+        label={`จำนวน${fuelWord}`}
         value={fmt(s.isGasVehicle ? null : s.fuelLiters)}
-        unit="ลิตร"
+        unit={fuelUnit}
       />
-      <SummaryRow label="รวมใช้น้ำมัน" value={fmt(fuelTotal)} unit="บาท" />
-      <SummaryRow label="45% - ราคาน้ำมัน" value={fmt(diff45)} unit="บาท" background="#fce4d6" />
+      <SummaryRow label={`รวมใช้${fuelWord}`} value={fmt(fuelTotal)} unit="บาท" />
+      <SummaryRow label={`45% - ราคา${fuelWord}`} value={fmt(diff45)} unit="บาท" background="#fce4d6" />
 
       <RowGap />
 

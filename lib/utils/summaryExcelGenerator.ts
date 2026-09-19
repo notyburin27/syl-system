@@ -60,6 +60,10 @@ function buildMonthBlock(
   const carryTrips = s.carryTrips ?? (s.carryTripsPrefill || null);
   const otherExpenses = s.otherExpenses ?? (s.otherExpensesPrefill || null);
   const isGas = s.isGasVehicle;
+  // รถก๊าซ (NGV) ใช้คำว่า "ก๊าซ" และวัดเป็นกิโลกรัม — รถน้ำมันวัดเป็นลิตร
+  const fuelWord = isGas ? "ก๊าซ" : "น้ำมัน";
+  const fuelUnitWord = isGas ? "กิโลกรัม" : "ลิตร";
+  const fuelUnit = isGas ? "กก." : "ลิตร";
 
   const set = (
     row: number,
@@ -153,19 +157,19 @@ function buildMonthBlock(
   set(16, U, "บาท", { align: "left" });
 
   // น้ำมัน — รถก๊าซไม่มีค่าน้ำมัน ปล่อยว่างทั้งบล็อกและไม่ใส่สูตร
-  set(18, L, "ราคาน้ำมันต่อลิตร", { align: "right" });
+  set(18, L, `ราคา${fuelWord}ต่อ${fuelUnitWord}`, { align: "right" });
   set(18, V, isGas ? null : s.fuelPricePerLiter, { fmt: MONEY_FMT });
   set(18, U, "บาท", { align: "left" });
 
-  set(19, L, "จำนวนน้ำมัน", { align: "right" });
+  set(19, L, `จำนวน${fuelWord}`, { align: "right" });
   set(19, V, isGas ? null : s.fuelLiters, { fmt: MONEY_FMT });
-  set(19, U, "ลิตร", { align: "left" });
+  set(19, U, fuelUnit, { align: "left" });
 
-  set(20, L, "รวมใช้น้ำมัน", { align: "right" });
+  set(20, L, `รวมใช้${fuelWord}`, { align: "right" });
   set(20, V, isGas ? null : { formula: `${vCol}18*${vCol}19` }, { fmt: MONEY_FMT });
   set(20, U, "บาท", { align: "left" });
 
-  set(22, L, "45% - ราคาน้ำมัน", { fill: FILL_PINK, align: "right" });
+  set(22, L, `45% - ราคา${fuelWord}`, { fill: FILL_PINK, align: "right" });
   set(22, V, isGas ? null : { formula: `${vCol}16-${vCol}20` }, { fill: FILL_PINK, fmt: MONEY_FMT });
   set(22, U, "บาท", { fill: FILL_PINK, align: "left" });
 
