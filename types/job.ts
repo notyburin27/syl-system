@@ -94,6 +94,15 @@ export interface PairedJobSummary {
   size: string | null;
 }
 
+export interface JobPairLink {
+  id: string;
+  primaryJobId: string;
+  secondaryJobId: string;
+  /** อีกฝั่งของคู่ — client หาเองจาก primaryJobId/secondaryJobId */
+  otherJob: PairedJobSummary;
+  createdAt: string;
+}
+
 /** รูปแบบที่ Prisma คืนจาก include — ฝั่งตรงข้ามมาในชื่อ field ของตัวเอง */
 export interface JobPairRelation {
   id: string;
