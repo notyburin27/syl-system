@@ -87,6 +87,23 @@ export interface JobTowingLinkAsMain {
   createdAt: string;
 }
 
+export interface PairedJobSummary {
+  id: string;
+  jobNumber: string;
+  jobDate: string;
+  size: string | null;
+}
+
+/** รูปแบบที่ Prisma คืนจาก include — ฝั่งตรงข้ามมาในชื่อ field ของตัวเอง */
+export interface JobPairRelation {
+  id: string;
+  primaryJobId: string;
+  secondaryJobId: string;
+  primaryJob?: PairedJobSummary;
+  secondaryJob?: PairedJobSummary;
+  createdAt: string;
+}
+
 export interface Job {
   id: string;
   jobDate: string;
@@ -134,6 +151,8 @@ export interface Job {
   transfers?: JobTransfer[];
   towingLinksAsMain?: JobTowingLink[];
   towingLinkAsTowing?: JobTowingLinkAsMain | null;
+  pairLinkAsPrimary?: JobPairRelation | null;
+  pairLinkAsSecondary?: JobPairRelation | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -209,6 +228,31 @@ export const TOWING_JOB_TYPES = ["towing", "towingHeavy"] as const;
 
 export function isTowingJobType(jobType: string): boolean {
   return (TOWING_JOB_TYPES as readonly string[]).includes(jobType);
+}
+
+/**
+ * จับคู่งาน — รถคันเดียววิ่งครั้งเดียวแต่ลากตู้ 20 ฟุตสองตู้
+ * size ใน DB ไม่ถูกแก้ ระบบแปลงเป็นอัตราคู่เฉพาะตอนดึงอัตรา
+ */
+const PAIRABLE_SIZE_MAP: Record<string, string> = {
+  "20DC": "2x20DC",
+  "20RF": "2x20RF",
+};
+
+/** size ของอัตราหลังจับคู่ — null = size นี้จับคู่ไม่ได้ */
+export function getPairedSize(size: string | null): string | null {
+  return size ? PAIRABLE_SIZE_MAP[size] ?? null : null;
+}
+
+export function isPairableSize(size: string | null): boolean {
+  return getPairedSize(size) !== null;
+}
+
+/** ลักษณะงานที่จับคู่ได้ — อัตรา key ด้วย jobType จึงต้องเป็นประเภทเดียวกันเท่านั้น */
+export const PAIRABLE_JOB_TYPES = ["inbound", "outbound", "towing", "towingHeavy"] as const;
+
+export function isPairableJobType(jobType: string): boolean {
+  return (PAIRABLE_JOB_TYPES as readonly string[]).includes(jobType);
 }
 
 export type JobType = (typeof JOB_TYPES)[number]["value"];
