@@ -311,6 +311,9 @@ model Job {
   isCancelled       Boolean   @default(false)
   /// แบก — นับเพิ่มควบคู่กับหมวดเดิมในหน้าสรุป ไม่ได้แทนที่
   isCarry           Boolean   @default(false)
+  /// ทอยตู้ที่ถูกงานหลัก (รับตู้จากคาหาง/รับเช้าเดินทาง) ดูดซับ
+  /// ค่าเที่ยวถูกล้างแล้ว และไม่นับเป็นเที่ยวในหน้าสรุป
+  isTowingAbsorbed  Boolean   @default(false)
 
   // Remarks
   remarks           String?

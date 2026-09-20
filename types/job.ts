@@ -153,6 +153,8 @@ export interface Job {
   statementVerified: boolean;
   isCancelled: boolean;
   isCarry: boolean;
+  /** ทอยตู้ที่ถูกงานหลักดูดซับ — ค่าเที่ยวถูกล้าง ไม่นับเป็นเที่ยว */
+  isTowingAbsorbed: boolean;
   remarks: string | null;
   noJobReason: string | null;
   carryOverToJobId: string | null;
