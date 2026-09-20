@@ -876,6 +876,8 @@ export default function EditableJobTable({
             // เบิกล่วงหน้า/ไม่มีงาน/งานที่ยกเลิก ไม่มีการแบก และงานที่เคลียร์แล้วล็อกไม่ให้แก้
             if (row.jobType === 'advance' || row.jobType === 'noJob') return null
             if ((row as Job).isCancelled) return null
+            // จับคู่แล้ว = วิ่งครั้งเดียว แบกจึงติ๊กได้ใบเดียว (ใบที่ถือยอด)
+            if (pairInfo(row).isSecondary) return null
             return (
               <Checkbox
                 data-testid={`job-carry-checkbox-${row.id}`}

@@ -1035,8 +1035,9 @@ export default function JobFormModal({
                       ยกเลิกใบงาน
                     </Checkbox>
                   </Tooltip>
-                  {/* งานที่ยกเลิกไม่มีการแบก — ซ่อนให้ตรงกับตารางหน้า list */}
-                  {!isCancelled && (
+                  {/* งานที่ยกเลิก และใบที่ถูกจับคู่ (ฝั่งถูกล้างยอด) ไม่มีการแบก
+                      — จับคู่แล้ว = วิ่งครั้งเดียว แบกจึงติ๊กได้ใบเดียว */}
+                  {!isCancelled && !isPairSecondary && (
                     <Checkbox
                       data-testid="job-carry-checkbox"
                       checked={isCarry}

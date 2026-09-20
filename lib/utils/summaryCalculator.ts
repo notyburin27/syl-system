@@ -76,7 +76,8 @@ export function calculateDriverSummary(input: SummaryInput): DriverMonthlySummar
   const num = (v: number | null) => Number(v ?? 0);
 
   // แบก/ค่าใช้จ่ายต่างๆ คำนวณจากงานจริง แล้วให้ผู้ใช้แก้ทับได้ในหน้าสรุป
-  const carryTripsPrefill = active.filter((j) => j.isCarry).length;
+  // แบกนับเหมือนเที่ยว — งานที่จับคู่แล้ววิ่งครั้งเดียวจึงนับครั้งเดียว
+  const carryTripsPrefill = counted.filter((j) => j.isCarry).length;
   const otherExpensesPrefill = active.reduce(
     (sum, j) =>
       sum + num(j.toll) + num(j.liftFee) + num(j.storageFee) + num(j.tire) + num(j.other),

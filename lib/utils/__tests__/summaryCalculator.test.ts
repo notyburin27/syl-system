@@ -366,7 +366,7 @@ test('calculateDriverSummary: ทอยตู้ที่จับคู่แ�
   assert.equal(result.income, 800)
 })
 
-test('calculateDriverSummary: แบกยังนับต่อตู้ แม้จับคู่แล้ว', () => {
+test('calculateDriverSummary: แบกนับเหมือนเที่ยว — จับคู่แล้วนับครั้งเดียว', () => {
   const base = {
     month: '2026-09',
     driver: {
@@ -385,5 +385,5 @@ test('calculateDriverSummary: แบกยังนับต่อตู้ แ�
   })
 
   assert.equal(result.jobTrips, 1)          // เที่ยวลดลง
-  assert.equal(result.carryTripsPrefill, 2) // แต่แบกยังนับสองตู้
+  assert.equal(result.carryTripsPrefill, 1) // แบกลดลงตามเที่ยว — วิ่งครั้งเดียว
 })
