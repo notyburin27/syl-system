@@ -15,6 +15,8 @@ export interface SummaryJobInput {
    * optional เพื่อให้ call site เดิมไม่ต้องแก้
    */
   isPairSecondary?: boolean;
+  /** ทอยตู้ที่ถูกงานหลักดูดซับ — ไม่นับเป็นเที่ยว (ค่าเที่ยวถูกล้างไปแล้ว) */
+  isTowingAbsorbed?: boolean;
   income: number | null;
   driverWage: number | null;
   fuelOfficeLiters: number | null;
@@ -102,7 +104,7 @@ export function calculateDriverSummary(input: SummaryInput): DriverMonthlySummar
     overnightDays: active.filter((j) => j.jobType === "noJob" && j.noJobReason === "overnight").length,
     noShowDays: active.filter((j) => j.jobType === "noJob" && j.noJobReason === "noShow").length,
     jobTrips: counted.filter((j) => MAIN_JOB_TYPES.includes(j.jobType)).length,
-    towingTrips: counted.filter((j) => isTowingJobType(j.jobType)).length,
+    towingTrips: counted.filter((j) => isTowingJobType(j.jobType) && !j.isTowingAbsorbed).length,
 
     // ค่ากรอกมือ — คงความต่างระหว่าง null (ยังไม่กรอก) กับ 0 (กรอกว่าเป็นศูนย์)
     carryTrips: entry?.carryTrips ?? null,

@@ -387,3 +387,50 @@ test('calculateDriverSummary: แบกนับเหมือนเที่�
   assert.equal(result.jobTrips, 1)          // เที่ยวลดลง
   assert.equal(result.carryTripsPrefill, 1) // แบกลดลงตามเที่ยว — วิ่งครั้งเดียว
 })
+
+test('calculateDriverSummary: ทอยตู้ที่ถูกดูดซับไม่นับเป็นเที่ยว แต่ทอยตู้ปกติยังนับ', () => {
+  const base = {
+    month: '2026-08',
+    driver: {
+      id: 'd1', name: 'ประวิทย์ กันภัย', vehicleNumber: 'SYL 50',
+      groupName: 'กลุ่ม 1', startDate: '2025-08-25', baseSalary: 9000, isGasVehicle: false,
+    },
+    sickLeaveCount: 0, personalLeaveCount: 0, fuelPricePerLiter: 36,
+  }
+
+  const result = calculateDriverSummary({
+    ...base,
+    jobs: [
+      // งานหลักที่รับตู้จากคาหาง
+      { jobType: 'outbound', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: 7000, driverWage: 650, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+      // ทอยตู้ที่ถูกดูดซับ — ค่าเที่ยวถูกล้างไปแล้ว
+      { jobType: 'towing', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: null, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0, isTowingAbsorbed: true },
+      // ทอยตู้ปกติในเดือนเดียวกัน — ยังนับ
+      { jobType: 'towing', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: 150, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+    ],
+  })
+
+  assert.equal(result.towingTrips, 1)   // นับเฉพาะใบที่ไม่ถูกดูดซับ
+  assert.equal(result.jobTrips, 1)      // งานหลักยังนับปกติ
+  assert.equal(result.driverWage, 800)  // 650 + 150 (ใบที่ถูกดูดซับเป็น null)
+})
+
+test('calculateDriverSummary: ทอยตู้หนักที่ถูกดูดซับก็ไม่นับ', () => {
+  const base = {
+    month: '2026-08',
+    driver: {
+      id: 'd1', name: 'ประวิทย์ กันภัย', vehicleNumber: 'SYL 50',
+      groupName: 'กลุ่ม 1', startDate: '2025-08-25', baseSalary: 9000, isGasVehicle: false,
+    },
+    sickLeaveCount: 0, personalLeaveCount: 0, fuelPricePerLiter: 36,
+  }
+
+  const result = calculateDriverSummary({
+    ...base,
+    jobs: [
+      { jobType: 'towingHeavy', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: null, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0, isTowingAbsorbed: true },
+    ],
+  })
+
+  assert.equal(result.towingTrips, 0)
+})
