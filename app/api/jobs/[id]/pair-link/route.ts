@@ -15,6 +15,7 @@ const PAIR_SELECT = {
   factoryLocationId: true,
   isCancelled: true,
   clearStatus: true,
+  isCarry: true,
   createdAt: true,
   pairLinkAsPrimary: { select: { id: true } },
   pairLinkAsSecondary: { select: { id: true } },
@@ -23,7 +24,7 @@ const PAIR_SELECT = {
 type JobRow = {
   id: string; jobNumber: string; jobDate: Date; jobType: string; size: string | null;
   driverId: string | null; factoryLocationId: string | null;
-  isCancelled: boolean; clearStatus: boolean; createdAt: Date;
+  isCancelled: boolean; clearStatus: boolean; isCarry: boolean; createdAt: Date;
   pairLinkAsPrimary: { id: string } | null;
   pairLinkAsSecondary: { id: string } | null;
 };
@@ -100,6 +101,18 @@ export async function POST(
         where: { id: { in: [primary.id, secondary.id] } },
         data: { income: null, driverWage: null },
       });
+
+      // แบกก็นับเหมือนเที่ยว — วิ่งครั้งเดียวคือแบกครั้งเดียว
+      // ถ้าฝั่งใดติ๊กไว้ก่อนจับคู่ ให้ยุบไปอยู่ที่ใบถือยอดใบเดียว
+      // (ไม่งั้น isCarry ค้างที่ secondary แบบกดแก้ไม่ได้ แล้วเด้งกลับมานับซ้ำตอนปลดคู่)
+      const eitherCarried = primary.isCarry || secondary.isCarry;
+      if (eitherCarried) {
+        await tx.job.update({ where: { id: primary.id }, data: { isCarry: true } });
+      }
+      if (secondary.isCarry) {
+        await tx.job.update({ where: { id: secondary.id }, data: { isCarry: false } });
+      }
+
       return created;
     });
 
