@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recalcAbsorbForDriverDay } from "@/lib/utils/towingAbsorb";
 
 export async function GET(
   _req: Request,
@@ -171,12 +172,27 @@ export async function PATCH(
       }
     }
 
+    // ทอยตู้ที่ถูกดูดซับ ค่าเที่ยวต้องเป็น null — ยอดถูกรวมไปกับงานหลักแล้ว
+    // ต้องอยู่ก่อนบล็อกยกเลิกด้านล่าง เพราะบล็อกนั้น set data.driverWage เอง
+    // ถ้าวางทีหลัง การยกเลิกทอยตู้ที่ถูกดูดซับจะถูกปฏิเสธผิดๆ
+    if (data.driverWage !== undefined && existing.isTowingAbsorbed) {
+      return NextResponse.json(
+        { error: "ทอยตู้นี้ถูกงานหลักดูดซับแล้ว ค่าเที่ยวรวมอยู่กับงานหลัก" },
+        { status: 400 }
+      );
+    }
+
     // ยกเลิกใบงาน → เคลียร์ค่าขนส่ง (รายได้) และค่าเที่ยวคนขับเป็น null
     // งานที่ยกเลิกไม่ควรมีตัวเลขค้างอยู่ในรายงาน/สรุป
     if (data.isCancelled === true) {
       data.income = null;
       data.driverWage = null;
     }
+
+    // จำ scope เดิมไว้ก่อนอัปเดต — ถ้าย้ายคนขับ/วัน ต้องคำนวณใหม่ทั้งของเก่าและของใหม่
+    // ไม่งั้นทอยตู้ที่ติดธงอยู่ใต้คนขับ/วันเดิมจะค้างธงโดยไม่มีใครมาปลด
+    const prevDriverId = existing.driverId;
+    const prevJobDate = existing.jobDate;
 
     const job = await prisma.job.update({
       where: { id },
@@ -205,6 +221,40 @@ export async function PATCH(
         },
       },
     });
+
+    // แก้ field ที่กระทบการดูดซับ → คำนวณใหม่
+    // (เปลี่ยนสถานที่รับตู้ออกจากคาหาง = ปลดธงทอยตู้ที่เคยดูดซับไว้)
+    const ABSORB_TRIGGER_FIELDS = [
+      "pickupLocationId",
+      "customerId",
+      "size",
+      "jobDate",
+      "jobType",
+      "driverId",
+      "isCancelled",
+    ];
+    if (ABSORB_TRIGGER_FIELDS.some((f) => f in data)) {
+      // scope ใหม่ของใบนี้ (คำนวณเมื่อยังเป็นงานหลัก) + scope เดิมถ้าย้ายคนขับ/วัน
+      const scopes: { driverId: string | null; jobDate: Date }[] = [];
+      if (job.jobType === "inbound" || job.jobType === "outbound") {
+        scopes.push({ driverId: job.driverId, jobDate: job.jobDate });
+      }
+      // ใบเดิมอาจเคยเป็นงานหลักของคนขับ/วันอื่น — ต้องปล่อยธงที่ค้างไว้ที่นั่น
+      const movedScope =
+        prevDriverId !== job.driverId ||
+        prevJobDate.getTime() !== job.jobDate.getTime();
+      if (movedScope) {
+        scopes.push({ driverId: prevDriverId, jobDate: prevJobDate });
+      }
+      for (const scope of scopes) {
+        try {
+          await recalcAbsorbForDriverDay(scope.driverId, scope.jobDate);
+        } catch (e) {
+          // ไม่ให้การคำนวณดูดซับล้มทั้งคำขอ — ผู้ใช้กด "ดึงข้อมูล" ซ่อมได้
+          console.error("recalcAbsorbForDriverDay error:", e);
+        }
+      }
+    }
 
     return NextResponse.json(job);
   } catch (error: unknown) {

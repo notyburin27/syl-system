@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import { isTowingJobType } from "@/types/job";
 
 /**
@@ -55,4 +56,153 @@ export function isAbsorbedBy(towing: AbsorbJob, main: AbsorbJob): boolean {
   if (towing.createdAt >= main.createdAt) return false;
 
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// ส่วนที่แตะ DB (server-only) — ส่วนบนของไฟล์ยังเป็น pure function ที่ test ได้
+// ---------------------------------------------------------------------------
+
+const RECALC_SELECT = {
+  id: true,
+  jobNumber: true,
+  jobDate: true,
+  jobType: true,
+  size: true,
+  driverId: true,
+  customerId: true,
+  createdAt: true,
+  isCancelled: true,
+  clearStatus: true,
+  isTowingAbsorbed: true,
+} as const;
+
+type RecalcRow = {
+  id: string;
+  jobNumber: string;
+  jobDate: Date;
+  jobType: string;
+  size: string | null;
+  driverId: string | null;
+  customerId: string | null;
+  createdAt: Date;
+  isCancelled: boolean;
+  clearStatus: boolean;
+  isTowingAbsorbed: boolean;
+};
+
+export interface RecalcResult {
+  absorbed: number;
+  released: number;
+  jobNumbers: string[];
+}
+
+const EMPTY_RESULT: RecalcResult = { absorbed: 0, released: 0, jobNumbers: [] };
+
+// jobDate/createdAt ต้องเป็นค่าดิบจาก Prisma — isAbsorbedBy เทียบด้วย UTC getters
+// ห้ามแปลงผ่าน new Date(...)/toISOString() เพราะจะเพี้ยน timezone
+const toAbsorbJob = (j: RecalcRow): AbsorbJob => ({
+  id: j.id,
+  jobDate: j.jobDate,
+  jobType: j.jobType,
+  size: j.size,
+  driverId: j.driverId,
+  customerId: j.customerId,
+  createdAt: j.createdAt,
+  isCancelled: j.isCancelled,
+  clearStatus: j.clearStatus,
+});
+
+/**
+ * คำนวณการดูดซับใหม่ทั้งหมดของคนขับ+วันที่ระบุ
+ *
+ * ดูงานหลัก "ทุกใบ" ของคนขับในวันนั้น ไม่ใช่แค่ใบที่เป็นต้นเหตุให้คำนวณ —
+ * ไม่งั้นการปลดธงจากมุมมองของใบหนึ่ง จะไปลบธงที่อีกใบเป็นคนติดไว้อย่างถูกต้อง
+ */
+export async function recalcAbsorbForDriverDay(
+  driverId: string | null | undefined,
+  jobDate: Date | null | undefined
+): Promise<RecalcResult> {
+  if (!driverId || !jobDate) return EMPTY_RESULT;
+
+  const [mains, towings] = await Promise.all([
+    prisma.job.findMany({
+      where: {
+        driverId,
+        jobDate,
+        jobType: { in: ["inbound", "outbound"] },
+      },
+      select: { ...RECALC_SELECT, pickupLocation: { select: { name: true } } },
+    }),
+    prisma.job.findMany({
+      where: {
+        driverId,
+        jobDate,
+        jobType: { in: ["towing", "towingHeavy"] },
+      },
+      select: RECALC_SELECT,
+    }),
+  ]);
+
+  // งานหลักที่รับตู้จากคาหาง/รับเช้าเดินทางเท่านั้นที่ดูดซับได้
+  const absorbers = mains
+    .filter((m) => isAbsorbPickupName(m.pickupLocation?.name))
+    .map(toAbsorbJob);
+
+  const toAbsorb: { id: string; jobNumber: string }[] = [];
+  const toRelease: string[] = [];
+
+  for (const t of towings) {
+    const tj = toAbsorbJob(t);
+    // เข้าเกณฑ์ถ้ามีงานหลัก "ใบใดใบหนึ่ง" ดูดซับได้
+    const qualifies = absorbers.some((m) => isAbsorbedBy(tj, m));
+    if (qualifies && !t.isTowingAbsorbed) {
+      toAbsorb.push({ id: t.id, jobNumber: t.jobNumber });
+    }
+    // ปลดธงเฉพาะใบที่ไม่เข้าเกณฑ์แล้ว และยังแก้ได้ (ไม่เคลียร์/ไม่ยกเลิก)
+    if (!qualifies && t.isTowingAbsorbed && !t.clearStatus && !t.isCancelled) {
+      toRelease.push(t.id);
+    }
+  }
+
+  if (toAbsorb.length > 0 || toRelease.length > 0) {
+    await prisma.$transaction([
+      ...(toAbsorb.length > 0
+        ? [
+            prisma.job.updateMany({
+              where: { id: { in: toAbsorb.map((t) => t.id) } },
+              data: { driverWage: null, isTowingAbsorbed: true },
+            }),
+          ]
+        : []),
+      ...(toRelease.length > 0
+        ? [
+            prisma.job.updateMany({
+              where: { id: { in: toRelease } },
+              data: { isTowingAbsorbed: false },
+            }),
+          ]
+        : []),
+    ]);
+  }
+
+  return {
+    absorbed: toAbsorb.length,
+    released: toRelease.length,
+    jobNumbers: toAbsorb.map((t) => t.jobNumber),
+  };
+}
+
+/**
+ * คำนวณการดูดซับใหม่ โดยอิงคนขับ+วันของงานหลักใบที่ระบุ
+ * คืน null ถ้าไม่พบงาน — ผู้เรียกที่เป็น endpoint จะได้ตอบ 404 ได้
+ */
+export async function recalcAbsorbForMain(
+  mainJobId: string
+): Promise<RecalcResult | null> {
+  const main = await prisma.job.findUnique({
+    where: { id: mainJobId },
+    select: { driverId: true, jobDate: true },
+  });
+  if (!main) return null;
+  return recalcAbsorbForDriverDay(main.driverId, main.jobDate);
 }
