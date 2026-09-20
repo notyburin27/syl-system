@@ -92,10 +92,12 @@ export async function POST(
       const created = await tx.jobPairLink.create({
         data: { primaryJobId: primary.id, secondaryJobId: secondary.id },
       });
-      // ล้างยอดฝั่ง secondary — ยอดทั้งคู่ไปรวมที่ primary ในอัตราคู่
+      // ล้างยอดทั้งสองใบ — ยอดเดิมเป็นอัตราตู้เดียว ใช้กับคู่ไม่ได้
+      // primary ต้องว่างด้วย ไม่งั้นปุ่ม "ดึงข้อมูล" จะข้ามมัน (เติมเฉพาะช่องที่ null)
+      // แล้วทริปนี้จะค้างอยู่ที่ราคาตู้เดียวตลอดไป
       // (update ตรงนี้ไม่ผ่าน PATCH endpoint จึงไม่ติด guard ของตัวเอง)
-      await tx.job.update({
-        where: { id: secondary.id },
+      await tx.job.updateMany({
+        where: { id: { in: [primary.id, secondary.id] } },
         data: { income: null, driverWage: null },
       });
       return created;
