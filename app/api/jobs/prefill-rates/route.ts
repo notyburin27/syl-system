@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPairedSize, isTowingJobType } from "@/types/job";
+import { isAbsorbPickupName, isAbsorbedBy, type AbsorbJob } from "@/lib/utils/towingAbsorb";
 
 /**
  * ดึงค่าขนส่ง (income) + ค่าเที่ยวคนขับ (driverWage) ให้ทุกงานในเดือนที่เลือก
@@ -39,6 +40,8 @@ export async function POST(req: Request) {
         OR: [{ income: null }, { driverWage: null }],
         // ใบที่ถูกจับคู่แล้วยอดต้องเป็น null เสมอ — ห้ามเติมกลับ
         pairLinkAsSecondary: null,
+        // ทอยตู้ที่ถูกดูดซับแล้ว ค่าเที่ยวต้องเป็น null เสมอ — ห้ามเติมกลับ
+        isTowingAbsorbed: false,
       },
       select: {
         id: true,
@@ -129,11 +132,71 @@ export async function POST(req: Request) {
       );
     }
 
+    // ── ดูดซับทอยตู้ ──
+    // งานหลักที่รับตู้จากคาหาง/รับเช้าเดินทาง ดูดซับทอยตู้ที่เป็นขาเตรียมของมัน
+    const monthJobs = await prisma.job.findMany({
+      where: {
+        jobDate: { gte: start, lt: end },
+        isCancelled: false,
+        clearStatus: false,
+        jobType: { in: ["inbound", "outbound", "towing", "towingHeavy"] },
+      },
+      select: {
+        id: true,
+        jobDate: true,
+        jobType: true,
+        size: true,
+        driverId: true,
+        customerId: true,
+        createdAt: true,
+        isCancelled: true,
+        clearStatus: true,
+        isTowingAbsorbed: true,
+        pickupLocation: { select: { name: true } },
+      },
+    });
+
+    const toAbsorbJob = (j: (typeof monthJobs)[number]): AbsorbJob => ({
+      id: j.id,
+      jobDate: j.jobDate,
+      jobType: j.jobType,
+      size: j.size,
+      driverId: j.driverId,
+      customerId: j.customerId,
+      createdAt: j.createdAt,
+      isCancelled: j.isCancelled,
+      clearStatus: j.clearStatus,
+    });
+
+    const absorbers = monthJobs
+      .filter(
+        (j) =>
+          (j.jobType === "inbound" || j.jobType === "outbound") &&
+          isAbsorbPickupName(j.pickupLocation?.name)
+      )
+      .map(toAbsorbJob);
+
+    const absorbIds: string[] = [];
+    for (const j of monthJobs) {
+      if (j.jobType !== "towing" && j.jobType !== "towingHeavy") continue;
+      if (j.isTowingAbsorbed) continue;
+      const tj = toAbsorbJob(j);
+      if (absorbers.some((m) => isAbsorbedBy(tj, m))) absorbIds.push(j.id);
+    }
+
+    if (absorbIds.length > 0) {
+      await prisma.job.updateMany({
+        where: { id: { in: absorbIds } },
+        data: { driverWage: null, isTowingAbsorbed: true },
+      });
+    }
+
     return NextResponse.json({
       scanned: jobs.length,
       updated: updates.length,
       incomeFilled,
       driverWageFilled,
+      absorbed: absorbIds.length,
     });
   } catch (error) {
     console.error("Error prefilling job rates:", error);
