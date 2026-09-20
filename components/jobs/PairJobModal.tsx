@@ -53,7 +53,11 @@ export default function PairJobModal({
         setCandidates(list)
         if (list.length === 1) setSelectedId(list[0].id)
       })
-      .catch(() => message.error('เกิดข้อผิดพลาดในการดึงข้อมูล'))
+      .catch(() => {
+        // ล้างรายการเดิมด้วย — ไม่งั้นจะโชว์ candidate ของใบก่อนหน้าค้างไว้
+        setCandidates([])
+        message.error('เกิดข้อผิดพลาดในการดึงข้อมูล')
+      })
       .finally(() => setLoading(false))
   }, [open, job, message])
 
