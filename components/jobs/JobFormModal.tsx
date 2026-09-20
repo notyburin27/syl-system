@@ -30,7 +30,7 @@ import {
 import { Popconfirm } from "antd";
 import dayjs from "dayjs";
 import type { Job, Customer, Location, JobTransfer, JobTowingLink, TowingJobSummary, MainJobSummary } from "@/types/job";
-import { JOB_TYPES, SIZE_OPTIONS, NO_JOB_REASONS, isTowingJobType } from "@/types/job";
+import { JOB_TYPES, SIZE_OPTIONS, NO_JOB_REASONS, isTowingJobType, getPairedSize } from "@/types/job";
 import QuickAddModal from "./QuickAddModal";
 
 interface JobFormModalProps {
@@ -426,7 +426,9 @@ export default function JobFormModal({
     const currentVal = form.getFieldValue("income");
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
-    const size = form.getFieldValue("size");
+    const rawSize = form.getFieldValue("size");
+    // ใบที่ถือยอดของคู่ใช้อัตราคู่ (2x20DC) แม้ size ใน DB ยังเป็น 20DC
+    const size = isPairPrimary ? getPairedSize(rawSize) ?? rawSize : rawSize;
     const factoryLocationId = form.getFieldValue("factoryLocationId");
     const customerId = form.getFieldValue("customerId");
     const jobDateVal = form.getFieldValue("jobDate");
@@ -455,7 +457,9 @@ export default function JobFormModal({
     const currentVal = form.getFieldValue("driverWage");
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
-    const size = form.getFieldValue("size");
+    const rawSize = form.getFieldValue("size");
+    // ใบที่ถือยอดของคู่ใช้อัตราคู่ (2x20DC) แม้ size ใน DB ยังเป็น 20DC
+    const size = isPairPrimary ? getPairedSize(rawSize) ?? rawSize : rawSize;
     const factoryLocationId = form.getFieldValue("factoryLocationId") ?? null;
     if (!jobType || !size) return;
     if (jobType !== "towing" && !factoryLocationId) return;
@@ -855,6 +859,10 @@ export default function JobFormModal({
   const isCleared = clearStatus;
   const fieldsDisabled = mode === "create" && !isCreated;
   const isTowingLinked = jobTypeWatch === "towing" && !!towingMainJob;
+  // จับคู่งาน — UI จับคู่อยู่ที่ตาราง modal แค่ใช้สถานะเพื่อดึงอัตราให้ถูกและกันแก้ยอด
+  const isPairPrimary = !!activeJob?.pairLinkAsPrimary;
+  const isPairSecondary = !!activeJob?.pairLinkAsSecondary;
+  const pairPrimaryJobNumber = activeJob?.pairLinkAsSecondary?.primaryJob?.jobNumber ?? "";
   const hasSlot1Link = towingLinks.some((l) => l.sequence === 1);
   const hasSlot2Link = towingLinks.some((l) => l.sequence === 2);
   const hasAnyTowingLink = hasSlot1Link || hasSlot2Link;
@@ -1061,7 +1069,7 @@ export default function JobFormModal({
                   บันทึกล้มเหลว
                 </span>
               )}
-              {isAdmin && !isSpecialType && activeJob && (
+              {isAdmin && !isSpecialType && activeJob && !isPairSecondary && (
                 <Button
                   data-testid="job-prefill-btn"
                   type="default"
@@ -1574,9 +1582,21 @@ export default function JobFormModal({
                 </Col>
                 {isAdmin && (
                   <>
-                    <Col span={3}>{numberInput("income", "ค่าขนส่ง", isAdvance)}</Col>
                     <Col span={3}>
-                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance)}
+                      {numberInput("income", "ค่าขนส่ง", isAdvance || isPairSecondary)}
+                      {isPairSecondary && (
+                        <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
+                          ยอดรวมอยู่ที่ {pairPrimaryJobNumber}
+                        </div>
+                      )}
+                    </Col>
+                    <Col span={3}>
+                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance || isPairSecondary)}
+                      {isPairSecondary && (
+                        <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
+                          ยอดรวมอยู่ที่ {pairPrimaryJobNumber}
+                        </div>
+                      )}
                     </Col>
                   </>
                 )}
