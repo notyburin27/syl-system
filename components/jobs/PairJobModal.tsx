@@ -142,11 +142,19 @@ export default function PairJobModal({
             >
               <div style={{ fontWeight: 500, marginBottom: 4 }}>ผลลัพธ์:</div>
               <div>ใบที่จะถือยอด → <b>{primaryLabel}</b> (สร้างทีหลัง)</div>
-              <div>
-                {isAdmin
-                  ? `ยอดที่จะถูกล้างทั้งคู่ → ${job?.jobNumber}: ค่าขนส่ง ${fmt(job?.income)} · ค่าเที่ยว ${fmt(job?.driverWage)} , ${selected.jobNumber}: ค่าขนส่ง ${fmt(selected.income)} · ค่าเที่ยว ${fmt(selected.driverWage)}`
-                  : `ยอดของทั้งสองใบจะถูกล้าง`}
-              </div>
+              {isAdmin ? (
+                <>
+                  <div>ยอดที่จะถูกล้างทั้งคู่ →</div>
+                  <div style={{ paddingLeft: 12 }}>
+                    {job?.jobNumber}: ค่าขนส่ง {fmt(job?.income)} · ค่าเที่ยว {fmt(job?.driverWage)}
+                  </div>
+                  <div style={{ paddingLeft: 12 }}>
+                    {selected.jobNumber}: ค่าขนส่ง {fmt(selected.income)} · ค่าเที่ยว {fmt(selected.driverWage)}
+                  </div>
+                </>
+              ) : (
+                <div>ยอดของทั้งสองใบจะถูกล้าง</div>
+              )}
               <div>อัตราที่จะใช้ → <b>{pairedSize ?? '—'}</b></div>
             </div>
           )}
