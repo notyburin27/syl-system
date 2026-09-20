@@ -239,7 +239,18 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const existing = await prisma.job.findUnique({ where: { id } });
+    const existing = await prisma.job.findUnique({
+      where: { id },
+      select: {
+        clearStatus: true,
+        pairLinkAsPrimary: {
+          select: { secondaryJob: { select: { jobNumber: true } } },
+        },
+        pairLinkAsSecondary: {
+          select: { primaryJob: { select: { jobNumber: true } } },
+        },
+      },
+    });
     if (!existing) {
       return NextResponse.json({ error: "ไม่พบงาน" }, { status: 404 });
     }
@@ -247,6 +258,18 @@ export async function DELETE(
       return NextResponse.json(
         { error: "งานนี้ถูกล็อคแล้ว ไม่สามารถลบได้" },
         { status: 403 }
+      );
+    }
+    // ลบใบเดียวของคู่ไม่ได้ — JobPairLink เป็น onDelete: Cascade
+    // อีกใบจะเหลือยอดอัตราคู่ (2x20DC) ทั้งที่ไม่มีคู่แล้ว โดยไม่มีอะไรเตือน
+    const pairPartner =
+      existing.pairLinkAsPrimary?.secondaryJob ??
+      existing.pairLinkAsSecondary?.primaryJob ??
+      null;
+    if (pairPartner) {
+      return NextResponse.json(
+        { error: `งานนี้จับคู่อยู่กับ ${pairPartner.jobNumber} กรุณาปลดคู่ก่อนลบ` },
+        { status: 400 }
       );
     }
 

@@ -478,4 +478,86 @@ test.describe.serial('จับคู่งาน', () => {
     expect(after).toBe(before - 1)
     expect(after).toBe(1)
   })
+
+  // ─── 9. เคลียร์ทับคู่ที่ยังไม่มียอด ──────────────────────────────────────
+  test('เคลียร์งานที่จับคู่อยู่ไม่ได้ถ้าอีกใบยังไม่มียอด', async ({ page }) => {
+    const driverId = await createDriver(page)
+    const { factoryLocationId, customerId } = await seedRefData(page, 'PAIR9')
+
+    const firstId = await createJob(page, {
+      driverId, jobNumber: 'E2E-PAIR-I1', factoryLocationId, customerId,
+    })
+    const secondId = await createJob(page, {
+      driverId, jobNumber: 'E2E-PAIR-I2', factoryLocationId, customerId,
+    })
+    const link = await pairViaApi(page, firstId, secondId)
+    // ใบที่สร้างทีหลังถือยอด — จับคู่แล้วยอดถูกล้างทั้งคู่ (ยังไม่ได้กด "ดึงข้อมูล")
+    expect(link.primaryJobId).toBe(secondId)
+    expect((await getJob(page, firstId)).income).toBeNull()
+    expect((await getJob(page, secondId)).income).toBeNull()
+
+    // เคลียร์ใบ secondary ต้องถูกปฏิเสธ พร้อมบอกเลข JOB ของคู่
+    const blocked = await page.request.patch(`/api/jobs/${firstId}/clear`)
+    expect(blocked.status()).toBe(400)
+    expect((await blocked.json()).error).toContain('E2E-PAIR-I2')
+    expect((await getJob(page, firstId)).clearStatus).toBe(false)
+
+    // ฝั่ง primary ก็ถูกปฏิเสธเหมือนกัน (คู่เดียวกัน ยังไม่มียอดทั้งคู่)
+    const blockedPrimary = await page.request.patch(`/api/jobs/${secondId}/clear`)
+    expect(blockedPrimary.status()).toBe(400)
+    expect((await blockedPrimary.json()).error).toContain('E2E-PAIR-I1')
+    expect((await getJob(page, secondId)).clearStatus).toBe(false)
+
+    // เมื่อคู่มียอดแล้ว (primary ถือยอด) ใบ secondary ต้องเคลียร์ได้ตามปกติ
+    const priced = await page.request.patch(`/api/jobs/${secondId}`, {
+      data: { income: 12000, driverWage: 2200 },
+    })
+    expect(priced.ok()).toBeTruthy()
+    const cleared = await page.request.patch(`/api/jobs/${firstId}/clear`)
+    expect(cleared.ok()).toBeTruthy()
+    expect((await cleared.json()).clearStatus).toBe(true)
+  })
+
+  // ─── 10. ลบใบเดียวของคู่ ────────────────────────────────────────────────
+  test('ลบงานที่จับคู่อยู่ไม่ได้ ต้องปลดคู่ก่อน', async ({ page }) => {
+    const driverId = await createDriver(page)
+    const { factoryLocationId, customerId } = await seedRefData(page, 'PAIR10')
+
+    const firstId = await createJob(page, {
+      driverId, jobNumber: 'E2E-PAIR-J1', factoryLocationId, customerId,
+    })
+    const secondId = await createJob(page, {
+      driverId, jobNumber: 'E2E-PAIR-J2', factoryLocationId, customerId,
+    })
+    const link = await pairViaApi(page, firstId, secondId)
+    expect(link.primaryJobId).toBe(secondId)
+
+    // ลบใบ primary ไม่ได้ — ข้อความต้องอ้างถึงคู่ของมัน
+    const delPrimary = await page.request.delete(`/api/jobs/${secondId}`)
+    expect(delPrimary.status()).toBe(400)
+    expect((await delPrimary.json()).error).toContain('E2E-PAIR-J1')
+
+    // ลบใบ secondary ก็ไม่ได้เช่นกัน
+    const delSecondary = await page.request.delete(`/api/jobs/${firstId}`)
+    expect(delSecondary.status()).toBe(400)
+    expect((await delSecondary.json()).error).toContain('E2E-PAIR-J2')
+
+    // ทั้งสองใบยังอยู่ครบ และ link ยังไม่ถูก cascade ทิ้ง
+    const list = (await (
+      await page.request.get(`/api/jobs?month=${CURRENT_MONTH}&driverId=${driverId}`)
+    ).json()) as {
+      id: string
+      pairLinkAsPrimary?: { id: string } | null
+      pairLinkAsSecondary?: { id: string } | null
+    }[]
+    expect(list.find((j) => j.id === firstId)?.pairLinkAsSecondary).toBeTruthy()
+    expect(list.find((j) => j.id === secondId)?.pairLinkAsPrimary).toBeTruthy()
+
+    // ปลดคู่ก่อน แล้วลบได้ตามปกติ
+    const unpaired = await page.request.delete(`/api/jobs/${secondId}/pair-link`)
+    expect(unpaired.ok()).toBeTruthy()
+    const delAfterUnpair = await page.request.delete(`/api/jobs/${secondId}`)
+    expect(delAfterUnpair.ok()).toBeTruthy()
+    expect((await page.request.get(`/api/jobs/${secondId}`)).status()).toBe(404)
+  })
 })
