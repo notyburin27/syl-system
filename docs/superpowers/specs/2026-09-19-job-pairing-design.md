@@ -178,8 +178,10 @@ Body: `{ otherJobId: string }`
 1. validate เงื่อนไขทั้งหมดฝั่ง server อีกรอบ (ห้ามเชื่อ client)
 2. ตัดสิน primary/secondary จาก `createdAt` — ใหม่กว่าเป็น primary
 3. สร้าง `JobPairLink`
-4. `UPDATE secondaryJob SET income = NULL, driverWage = NULL`
+4. `UPDATE primaryJob, secondaryJob SET income = NULL, driverWage = NULL` — ล้างทั้งคู่
 5. คืนข้อมูลคู่ + ใบทั้งสองที่อัปเดตแล้ว
+
+> **ทำไมต้องล้าง primary ด้วย** (แก้จากดีไซน์เดิมที่ล้างเฉพาะ secondary): ยอดเดิมของ primary เป็นอัตราตู้เดียว (`20DC`) ซึ่งใช้กับคู่ไม่ได้ และปุ่ม "ดึงข้อมูล" เติมเฉพาะช่องที่ `null` — ถ้าไม่ล้าง ปุ่มจะข้าม primary ตลอดไป ทริปนั้นจะค้างที่ราคาตู้เดียวโดยไม่มีใครสังเกต หลังจับคู่แล้วผู้ใช้กด "ดึงข้อมูล" ครั้งเดียวได้อัตรา `2x20DC` ทันที
 
 Error cases:
 
