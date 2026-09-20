@@ -1035,21 +1035,24 @@ export default function JobFormModal({
                       ยกเลิกใบงาน
                     </Checkbox>
                   </Tooltip>
-                  <Checkbox
-                    data-testid="job-carry-checkbox"
-                    checked={isCarry}
-                    disabled={isCleared}
-                    onChange={async (e) => {
-                      const next = e.target.checked;
-                      setIsCarry(next);
-                      handleSaveStatus("saving");
-                      const ok = await onFieldSave(activeJob.id, "isCarry", next);
-                      handleSaveStatus(ok ? "saved" : "error");
-                      if (!ok) setIsCarry(!next);
-                    }}
-                  >
-                    แบก
-                  </Checkbox>
+                  {/* งานที่ยกเลิกไม่มีการแบก — ซ่อนให้ตรงกับตารางหน้า list */}
+                  {!isCancelled && (
+                    <Checkbox
+                      data-testid="job-carry-checkbox"
+                      checked={isCarry}
+                      disabled={isCleared}
+                      onChange={async (e) => {
+                        const next = e.target.checked;
+                        setIsCarry(next);
+                        handleSaveStatus("saving");
+                        const ok = await onFieldSave(activeJob.id, "isCarry", next);
+                        handleSaveStatus(ok ? "saved" : "error");
+                        if (!ok) setIsCarry(!next);
+                      }}
+                    >
+                      แบก
+                    </Checkbox>
+                  )}
                 </div>
               )}
               {saveStatus === "saving" && (

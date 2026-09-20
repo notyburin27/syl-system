@@ -873,8 +873,9 @@ export default function EditableJobTable({
           align: 'center' as const,
           render: (_: unknown, row: RowData) => {
             if (isBanner(row)) return null
-            // เบิกล่วงหน้า/ไม่มีงาน ไม่มีการแบก และงานที่เคลียร์แล้วล็อกไม่ให้แก้
+            // เบิกล่วงหน้า/ไม่มีงาน/งานที่ยกเลิก ไม่มีการแบก และงานที่เคลียร์แล้วล็อกไม่ให้แก้
             if (row.jobType === 'advance' || row.jobType === 'noJob') return null
+            if ((row as Job).isCancelled) return null
             return (
               <Checkbox
                 data-testid={`job-carry-checkbox-${row.id}`}
