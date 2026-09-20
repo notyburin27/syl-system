@@ -56,80 +56,80 @@ export async function POST(req: Request) {
       },
     });
 
-    if (jobs.length === 0) {
-      return NextResponse.json({ scanned: 0, updated: 0, incomeFilled: 0, driverWageFilled: 0 });
-    }
-
-    const [incomeRates, driverWageRates, fuelLogs] = await Promise.all([
-      prisma.rateIncome.findMany({ include: { fuelSurcharges: true } }),
-      prisma.rateDriverWage.findMany(),
-      prisma.fuelPriceLog.findMany({ orderBy: { effectiveDate: "desc" } }),
-    ]);
-
-    const incomeByKey = new Map(
-      incomeRates.map((r) => [`${r.jobType}|${r.size}|${r.factoryLocationId}|${r.customerId}`, r])
-    );
-    const wageByKey = new Map(
-      driverWageRates.map((r) => [`${r.jobType}|${r.size}|${r.factoryLocationId ?? ""}`, r])
-    );
-
-    /** ราคาน้ำมันที่มีผล ณ วันที่งาน = log ล่าสุดที่ effectiveDate <= jobDate */
-    const fuelPriceAt = (date: Date): number | null => {
-      const log = fuelLogs.find((l) => l.effectiveDate <= date);
-      return log ? Number(log.pricePerLiter) : null;
-    };
-
     let incomeFilled = 0;
     let driverWageFilled = 0;
     const updates: { id: string; data: { income?: number; driverWage?: number } }[] = [];
 
-    for (const job of jobs) {
-      // ใบที่ถือยอดของคู่ ใช้อัตราคู่ (2x20DC) แม้ size ใน DB ยังเป็น 20DC
-      const rateSize = job.pairLinkAsPrimary
-        ? getPairedSize(job.size) ?? job.size
-        : job.size;
+    // เติมอัตราเฉพาะตอนมีงานที่ต้องเติมจริง — แต่ขั้นตอนดูดซับทอยตู้ด้านล่างต้องรันเสมอ
+    // แม้เดือนนี้ทุกใบจะมีอัตราครบแล้ว (กรณีปกติของเดือนที่ทำงานไปแล้ว) ก็ยังต้องดูดซับได้
+    if (jobs.length > 0) {
+      const [incomeRates, driverWageRates, fuelLogs] = await Promise.all([
+        prisma.rateIncome.findMany({ include: { fuelSurcharges: true } }),
+        prisma.rateDriverWage.findMany(),
+        prisma.fuelPriceLog.findMany({ orderBy: { effectiveDate: "desc" } }),
+      ]);
 
-      const data: { income?: number; driverWage?: number } = {};
+      const incomeByKey = new Map(
+        incomeRates.map((r) => [`${r.jobType}|${r.size}|${r.factoryLocationId}|${r.customerId}`, r])
+      );
+      const wageByKey = new Map(
+        driverWageRates.map((r) => [`${r.jobType}|${r.size}|${r.factoryLocationId ?? ""}`, r])
+      );
 
-      if (job.income === null && job.jobType && rateSize && job.factoryLocationId && job.customerId) {
-        const rate = incomeByKey.get(
-          `${job.jobType}|${rateSize}|${job.factoryLocationId}|${job.customerId}`
-        );
-        if (rate) {
-          let surcharge = 0;
-          if (rate.fuelSurcharges.length > 0) {
-            const price = fuelPriceAt(job.jobDate);
-            if (price !== null) {
-              const matched = rate.fuelSurcharges.find(
-                (s) => price >= Number(s.fuelPriceMin) && price < Number(s.fuelPriceMax)
-              );
-              if (matched) surcharge = Number(matched.surcharge);
+      /** ราคาน้ำมันที่มีผล ณ วันที่งาน = log ล่าสุดที่ effectiveDate <= jobDate */
+      const fuelPriceAt = (date: Date): number | null => {
+        const log = fuelLogs.find((l) => l.effectiveDate <= date);
+        return log ? Number(log.pricePerLiter) : null;
+      };
+
+      for (const job of jobs) {
+        // ใบที่ถือยอดของคู่ ใช้อัตราคู่ (2x20DC) แม้ size ใน DB ยังเป็น 20DC
+        const rateSize = job.pairLinkAsPrimary
+          ? getPairedSize(job.size) ?? job.size
+          : job.size;
+
+        const data: { income?: number; driverWage?: number } = {};
+
+        if (job.income === null && job.jobType && rateSize && job.factoryLocationId && job.customerId) {
+          const rate = incomeByKey.get(
+            `${job.jobType}|${rateSize}|${job.factoryLocationId}|${job.customerId}`
+          );
+          if (rate) {
+            let surcharge = 0;
+            if (rate.fuelSurcharges.length > 0) {
+              const price = fuelPriceAt(job.jobDate);
+              if (price !== null) {
+                const matched = rate.fuelSurcharges.find(
+                  (s) => price >= Number(s.fuelPriceMin) && price < Number(s.fuelPriceMax)
+                );
+                if (matched) surcharge = Number(matched.surcharge);
+              }
+            }
+            data.income = Number(rate.income) + surcharge;
+            incomeFilled++;
+          }
+        }
+
+        // ทอยตู้/ทอยตู้หนักไม่ผูกกับโรงงาน — ประเภทอื่นต้องมี factoryLocationId ถึงจะหาอัตราได้
+        if (job.driverWage === null && job.jobType && rateSize) {
+          const needsFactory = !isTowingJobType(job.jobType);
+          if (!needsFactory || job.factoryLocationId) {
+            const rate = wageByKey.get(`${job.jobType}|${rateSize}|${job.factoryLocationId ?? ""}`);
+            if (rate) {
+              data.driverWage = Number(rate.driverWage);
+              driverWageFilled++;
             }
           }
-          data.income = Number(rate.income) + surcharge;
-          incomeFilled++;
         }
+
+        if (Object.keys(data).length > 0) updates.push({ id: job.id, data });
       }
 
-      // ทอยตู้/ทอยตู้หนักไม่ผูกกับโรงงาน — ประเภทอื่นต้องมี factoryLocationId ถึงจะหาอัตราได้
-      if (job.driverWage === null && job.jobType && rateSize) {
-        const needsFactory = !isTowingJobType(job.jobType);
-        if (!needsFactory || job.factoryLocationId) {
-          const rate = wageByKey.get(`${job.jobType}|${rateSize}|${job.factoryLocationId ?? ""}`);
-          if (rate) {
-            data.driverWage = Number(rate.driverWage);
-            driverWageFilled++;
-          }
-        }
+      if (updates.length > 0) {
+        await prisma.$transaction(
+          updates.map((u) => prisma.job.update({ where: { id: u.id }, data: u.data }))
+        );
       }
-
-      if (Object.keys(data).length > 0) updates.push({ id: job.id, data });
-    }
-
-    if (updates.length > 0) {
-      await prisma.$transaction(
-        updates.map((u) => prisma.job.update({ where: { id: u.id }, data: u.data }))
-      );
     }
 
     // ── ดูดซับทอยตู้ ──
