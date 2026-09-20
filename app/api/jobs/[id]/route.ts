@@ -234,17 +234,17 @@ export async function PATCH(
       "isCancelled",
     ];
     if (ABSORB_TRIGGER_FIELDS.some((f) => f in data)) {
-      // scope ใหม่ของใบนี้ (คำนวณเมื่อยังเป็นงานหลัก) + scope เดิมถ้าย้ายคนขับ/วัน
-      const scopes: { driverId: string | null; jobDate: Date }[] = [];
-      if (job.jobType === "inbound" || job.jobType === "outbound") {
-        scopes.push({ driverId: job.driverId, jobDate: job.jobDate });
-      }
-      // ใบเดิมอาจเคยเป็นงานหลักของคนขับ/วันอื่น — ต้องปล่อยธงที่ค้างไว้ที่นั่น
+      // scope เดิมต้องคำนวณเสมอ — ใบนี้อาจเพิ่งเลิกเป็นงานหลัก (เช่นเปลี่ยน jobType)
+      // ซึ่งต้องปล่อยธงที่มันเคยติดไว้ ถึงคนขับ/วันจะไม่เปลี่ยนก็ตาม
+      const scopes: { driverId: string | null; jobDate: Date }[] = [
+        { driverId: prevDriverId, jobDate: prevJobDate },
+      ];
+      // ย้ายคนขับ/วัน → scope ใหม่เป็นคนละอันกับเดิม ต้องคำนวณด้วย
       const movedScope =
         prevDriverId !== job.driverId ||
         prevJobDate.getTime() !== job.jobDate.getTime();
       if (movedScope) {
-        scopes.push({ driverId: prevDriverId, jobDate: prevJobDate });
+        scopes.push({ driverId: job.driverId, jobDate: job.jobDate });
       }
       for (const scope of scopes) {
         try {
