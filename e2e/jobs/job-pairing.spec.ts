@@ -177,14 +177,7 @@ test.describe.serial('จับคู่งาน', () => {
     await expect(dialog.getByTestId('pair-candidate-E2E-PAIR-A2')).toBeVisible({ timeout: 10_000 })
     await dialog.getByTestId('pair-candidate-E2E-PAIR-A2').click()
 
-    // สรุปผลลัพธ์ต้องชี้ว่าใบที่สร้างทีหลัง (E2E-PAIR-A2) เป็นคนถือยอด และใช้อัตราคู่
-    // (จับที่ div ชั้นในตรงๆ — getByText กับข้อความที่ซ้อนใน wrapper เดียวกันเสี่ยง strict-mode)
-    await expect(
-      dialog.locator('div').filter({ hasText: /^ใบที่จะถือยอด → E2E-PAIR-A2 \(สร้างทีหลัง\)$/ })
-    ).toHaveCount(1)
-    await expect(
-      dialog.locator('div').filter({ hasText: /^อัตราที่จะใช้ → 2x20DC$/ })
-    ).toHaveCount(1)
+    // modal ไม่สรุปผลลัพธ์แล้ว — ใครถือยอดและยอดถูกล้างไหม พิสูจน์ที่ DB ด้านล่างแทน
     await page.getByTestId('pair-confirm-btn').click()
     await expect(dialog).not.toBeVisible({ timeout: 15_000 })
 

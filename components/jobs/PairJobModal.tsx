@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Modal, Radio, Spin, Empty, App, Space, Alert } from 'antd'
-import { getPairedSize } from '@/types/job'
+import { Modal, Radio, Spin, Empty, App, Space } from 'antd'
 
 interface PairCandidate {
   id: string
@@ -62,7 +61,6 @@ export default function PairJobModal({
   }, [open, job, message])
 
   const selected = candidates.find((c) => c.id === selectedId) ?? null
-  const pairedSize = getPairedSize(job?.size ?? null)
 
   const handleConfirm = async () => {
     if (!job || !selectedId) return
@@ -87,11 +85,6 @@ export default function PairJobModal({
       setSaving(false)
     }
   }
-
-  // ใบไหนถือยอด — candidate ที่ willBePrimary หรือใบที่เปิดอยู่
-  const primaryLabel = selected
-    ? selected.willBePrimary ? selected.jobNumber : job?.jobNumber
-    : ''
 
   return (
     <Modal
@@ -136,41 +129,6 @@ export default function PairJobModal({
             </Space>
           </Radio.Group>
 
-          {selected && (
-            <div
-              style={{
-                marginTop: 16, padding: 12,
-                background: '#F6FFED', border: '1px solid #B7EB8F', borderRadius: 6,
-                fontSize: 13, lineHeight: 1.8,
-              }}
-            >
-              <div style={{ fontWeight: 500, marginBottom: 4 }}>ผลลัพธ์:</div>
-              <div>ใบที่จะถือยอด → <b>{primaryLabel}</b> (สร้างทีหลัง)</div>
-              {isAdmin ? (
-                <>
-                  <div>ยอดที่จะถูกล้างทั้งคู่ →</div>
-                  <div style={{ paddingLeft: 12 }}>
-                    {job?.jobNumber}: ค่าขนส่ง {fmt(job?.income)} · ค่าเที่ยว {fmt(job?.driverWage)}
-                  </div>
-                  <div style={{ paddingLeft: 12 }}>
-                    {selected.jobNumber}: ค่าขนส่ง {fmt(selected.income)} · ค่าเที่ยว {fmt(selected.driverWage)}
-                  </div>
-                </>
-              ) : (
-                <div>ยอดของทั้งสองใบจะถูกล้าง</div>
-              )}
-              <div>อัตราที่จะใช้ → <b>{pairedSize ?? '—'}</b></div>
-            </div>
-          )}
-
-          {selected && (
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginTop: 12 }}
-              message={`ยอดของทั้งสองใบจะถูกล้าง — กด "ดึงข้อมูล" เพื่อเติมอัตรา ${pairedSize ?? ''}`}
-            />
-          )}
         </>
       )}
     </Modal>
