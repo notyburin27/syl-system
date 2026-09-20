@@ -651,7 +651,8 @@ export default function EditableJobTable({
           title: 'SIZE',
           dataIndex: 'size',
           key: 'size',
-          width: 70,
+          // เผื่อ Tag "2x" ของงานที่จับคู่แล้ว
+          width: 100,
           onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 0 } : {}),
           render: (_: unknown, row: RowData) => {
             const p = pairInfo(row)
