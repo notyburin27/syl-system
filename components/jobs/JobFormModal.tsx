@@ -375,6 +375,26 @@ export default function JobFormModal({
     } else {
       handleSaveStatus("error");
     }
+
+    // เลือกสถานที่รับตู้ → คำนวณการดูดซับทอยตู้ใหม่
+    const jt = form.getFieldValue("jobType");
+    if (
+      success &&
+      isAdmin &&
+      field === "pickupLocationId" &&
+      (jt === "inbound" || jt === "outbound")
+    ) {
+      try {
+        const res = await fetch(`/api/jobs/${targetJob.id}/absorb-towing`, { method: "POST" });
+        if (res.ok) {
+          const d = (await res.json()) as { absorbed: number; released: number };
+          if (d.absorbed > 0) message.success(`ล้างค่าเที่ยวทอยตู้ ${d.absorbed} ใบ`);
+          if (d.released > 0) message.info(`คืนสถานะทอยตู้ ${d.released} ใบ`);
+        }
+      } catch {
+        // เงียบไว้ — ผู้ใช้กด "ดึงข้อมูล" ซ่อมได้
+      }
+    }
   };
 
   const prefillEstimatedTransfer = async (trigger?: "pickupLocationId" | "returnLocationId" | "size" | "jobType") => {
@@ -863,6 +883,8 @@ export default function JobFormModal({
   const isPairPrimary = !!activeJob?.pairLinkAsPrimary;
   const isPairSecondary = !!activeJob?.pairLinkAsSecondary;
   const pairPrimaryJobNumber = activeJob?.pairLinkAsSecondary?.primaryJob?.jobNumber ?? "";
+  // ทอยตู้ที่ถูกงานหลักดูดซับ — ค่าเที่ยวรวมไปกับงานหลักแล้ว
+  const isTowingAbsorbed = !!activeJob?.isTowingAbsorbed;
   const hasSlot1Link = towingLinks.some((l) => l.sequence === 1);
   const hasSlot2Link = towingLinks.some((l) => l.sequence === 2);
   const hasAnyTowingLink = hasSlot1Link || hasSlot2Link;
@@ -1073,7 +1095,7 @@ export default function JobFormModal({
                   บันทึกล้มเหลว
                 </span>
               )}
-              {isAdmin && !isSpecialType && activeJob && !isPairSecondary && (
+              {isAdmin && !isSpecialType && activeJob && !isPairSecondary && !isTowingAbsorbed && (
                 <Button
                   data-testid="job-prefill-btn"
                   type="default"
@@ -1595,10 +1617,15 @@ export default function JobFormModal({
                       )}
                     </Col>
                     <Col span={3}>
-                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance || isPairSecondary)}
+                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance || isPairSecondary || isTowingAbsorbed)}
                       {isPairSecondary && (
                         <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
                           ยอดรวมอยู่ที่ {pairPrimaryJobNumber}
+                        </div>
+                      )}
+                      {isTowingAbsorbed && (
+                        <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
+                          ค่าเที่ยวรวมอยู่กับงานหลัก
                         </div>
                       )}
                     </Col>

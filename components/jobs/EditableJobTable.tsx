@@ -659,21 +659,31 @@ export default function EditableJobTable({
             const cell = renderCell(row, 'size', 'select', sizeOptions, {
               disabled: isAdvanceType(row),
             })
-            if (!p.isPaired) return cell
+            const absorbed = !isBanner(row) && (row as Job).isTowingAbsorbed
+            if (!p.isPaired && !absorbed) return cell
             // จับคู่แล้ว — size ใน DB ยังเป็น 20DC อยู่ Tag "2x" บอกว่าคิดอัตราคู่
             return (
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 {cell}
-                <Tooltip
-                  title={p.isPrimary ? `จับคู่กับ ${p.otherJobNumber}` : `ยอดรวมอยู่ที่ ${p.otherJobNumber}`}
-                >
-                  <Tag
-                    color={p.isPrimary ? 'blue' : undefined}
-                    style={{ margin: 0, fontSize: 11 }}
+                {p.isPaired && (
+                  <Tooltip
+                    title={p.isPrimary ? `จับคู่กับ ${p.otherJobNumber}` : `ยอดรวมอยู่ที่ ${p.otherJobNumber}`}
                   >
-                    2x
-                  </Tag>
-                </Tooltip>
+                    <Tag
+                      color={p.isPrimary ? 'blue' : undefined}
+                      style={{ margin: 0, fontSize: 11 }}
+                    >
+                      2x
+                    </Tag>
+                  </Tooltip>
+                )}
+                {absorbed && (
+                  <Tooltip title="ค่าเที่ยวรวมอยู่กับงานหลักที่รับตู้จากคาหาง/รับเช้าเดินทาง">
+                    <Tag color="orange" style={{ margin: 0, fontSize: 11 }}>
+                      รวม
+                    </Tag>
+                  </Tooltip>
+                )}
               </span>
             )
           },
