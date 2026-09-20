@@ -621,7 +621,10 @@ export default function EditableJobTable({
           // banner + record ไม่มีงาน: label พาด 4 คอลัมน์ (JOB+ลักษณะงาน+ลูกค้า+SIZE)
           onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 4 } : {}),
           render: (_: unknown, row: RowData) =>
-            isNoJobRecord(row) ? (
+            // banner ก็ต้องไม่เข้า flex wrapper — มันพาด 4 คอลัมน์เหมือน noJob (ดู onCell ด้านบน)
+            isBanner(row) ? (
+              renderCell(row, 'jobNumber', 'text', undefined, { disabled: isAdvanceType(row) })
+            ) : isNoJobRecord(row) ? (
               <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{noJobLabel(row)}</span>
             ) : (
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
