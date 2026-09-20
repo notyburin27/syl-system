@@ -203,12 +203,12 @@ test.describe.serial('จับคู่งาน', () => {
     expect(firstRow.pairLinkAsSecondary).toBeTruthy()
     expect(firstRow.pairLinkAsPrimary).toBeFalsy()
 
-    // ── Tag ในตาราง: primary = "2x20DC" (สีฟ้า), secondary = "จับคู่"
+    // ── Tag "2x" ในคอลัมน์ SIZE ทั้งสองแถว (primary สีฟ้า, secondary สีเทา)
     await expect(
-      jobRow(page, 'E2E-PAIR-A2').locator('.ant-tag', { hasText: '2x20DC' })
+      jobRow(page, 'E2E-PAIR-A2').locator('.ant-tag').filter({ hasText: /^2x$/ })
     ).toBeVisible({ timeout: 15_000 })
     await expect(
-      jobRow(page, 'E2E-PAIR-A1').locator('.ant-tag').filter({ hasText: /^จับคู่$/ })
+      jobRow(page, 'E2E-PAIR-A1').locator('.ant-tag').filter({ hasText: /^2x$/ })
     ).toBeVisible()
     // ทั้งสองแถวถูกทำเครื่องหมายว่าเป็นคู่
     await expect(page.locator('tr.paired-row')).toHaveCount(2)

@@ -28,7 +28,6 @@ import {
   getNoJobReasonLabel,
   isPairableJobType,
   isPairableSize,
-  getPairedSize,
 } from '@/types/job'
 import type { DriverLeave, CompanyHoliday } from '@/types/leave'
 import { LEAVE_TYPE_LABELS } from '@/types/leave'
@@ -621,36 +620,12 @@ export default function EditableJobTable({
           // banner + record ไม่มีงาน: label พาด 4 คอลัมน์ (JOB+ลักษณะงาน+ลูกค้า+SIZE)
           onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 4 } : {}),
           render: (_: unknown, row: RowData) =>
-            // banner ก็ต้องไม่เข้า flex wrapper — มันพาด 4 คอลัมน์เหมือน noJob (ดู onCell ด้านบน)
-            isBanner(row) ? (
-              renderCell(row, 'jobNumber', 'text', undefined, { disabled: isAdvanceType(row) })
-            ) : isNoJobRecord(row) ? (
+            isNoJobRecord(row) ? (
               <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{noJobLabel(row)}</span>
             ) : (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                {renderCell(row, 'jobNumber', 'text', undefined, {
-                  disabled: isAdvanceType(row),
-                })}
-                {(() => {
-                  // isNoJobRecord เป็น type guard (row is Job) — TS จึงแคบ row เหลือ BannerRow
-                  // ในสาขานี้ ทั้งที่จริงๆ แล้วงานปกติมาทางนี้ จึงต้องขยายกลับเป็น RowData
-                  const jobRow = row as RowData
-                  const p = pairInfo(jobRow)
-                  if (!p.isPaired) return null
-                  const rowSize = isBanner(jobRow) ? null : jobRow.size
-                  return p.isPrimary ? (
-                    <Tooltip title={`จับคู่กับ ${p.otherJobNumber}`}>
-                      <Tag color="blue" style={{ margin: 0, fontSize: 11 }}>
-                        {getPairedSize(rowSize) ?? '2x'}
-                      </Tag>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip title={`ยอดรวมอยู่ที่ ${p.otherJobNumber}`}>
-                      <Tag style={{ margin: 0, fontSize: 11 }}>จับคู่</Tag>
-                    </Tooltip>
-                  )
-                })()}
-              </span>
+              renderCell(row, 'jobNumber', 'text', undefined, {
+                disabled: isAdvanceType(row),
+              })
             ),
         },
         {
@@ -678,10 +653,29 @@ export default function EditableJobTable({
           key: 'size',
           width: 70,
           onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 0 } : {}),
-          render: (_: unknown, row: RowData) =>
-            renderCell(row, 'size', 'select', sizeOptions, {
+          render: (_: unknown, row: RowData) => {
+            const p = pairInfo(row)
+            const cell = renderCell(row, 'size', 'select', sizeOptions, {
               disabled: isAdvanceType(row),
-            }),
+            })
+            if (!p.isPaired) return cell
+            // จับคู่แล้ว — size ใน DB ยังเป็น 20DC อยู่ Tag "2x" บอกว่าคิดอัตราคู่
+            return (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {cell}
+                <Tooltip
+                  title={p.isPrimary ? `จับคู่กับ ${p.otherJobNumber}` : `ยอดรวมอยู่ที่ ${p.otherJobNumber}`}
+                >
+                  <Tag
+                    color={p.isPrimary ? 'blue' : undefined}
+                    style={{ margin: 0, fontSize: 11 }}
+                  >
+                    2x
+                  </Tag>
+                </Tooltip>
+              </span>
+            )
+          },
         },
       ],
     },
