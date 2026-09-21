@@ -153,8 +153,15 @@ export async function POST(req: Request) {
         clearStatus: true,
         isTowingAbsorbed: true,
         pickupLocation: { select: { name: true } },
+        // ต้องรู้ว่างานถูกจับคู่งานหรือไม่ (ฝั่งใดฝั่งหนึ่ง) — ทอยตู้ที่ถูกจับคู่ห้ามถูกดูดซับ
+        pairLinkAsPrimary: { select: { id: true } },
+        pairLinkAsSecondary: { select: { id: true } },
       },
     });
+
+    /** งานถูกจับคู่งานอยู่ไหม (ฝั่งใดฝั่งหนึ่งก็นับ) */
+    const hasPairLink = (j: { pairLinkAsPrimary: { id: string } | null; pairLinkAsSecondary: { id: string } | null }): boolean =>
+      !!j.pairLinkAsPrimary || !!j.pairLinkAsSecondary;
 
     const toAbsorbJob = (j: (typeof monthJobs)[number]): AbsorbJob => ({
       id: j.id,
@@ -166,6 +173,7 @@ export async function POST(req: Request) {
       createdAt: j.createdAt,
       isCancelled: j.isCancelled,
       clearStatus: j.clearStatus,
+      hasPairLink: hasPairLink(j),
     });
 
     const absorbers = monthJobs
@@ -180,6 +188,8 @@ export async function POST(req: Request) {
     for (const j of monthJobs) {
       if (j.jobType !== "towing" && j.jobType !== "towingHeavy") continue;
       if (j.isTowingAbsorbed) continue;
+      // ทอยตู้ที่ถูกจับคู่งานแล้วห้ามถูกดูดซับ — เงินเป็นเรื่องของระบบจับคู่งานอยู่แล้ว
+      if (hasPairLink(j)) continue;
       const tj = toAbsorbJob(j);
       if (absorbers.some((m) => isAbsorbedBy(tj, m))) absorbIds.push(j.id);
     }

@@ -22,6 +22,11 @@ export interface AbsorbJob {
   createdAt: Date;
   isCancelled: boolean;
   clearStatus: boolean;
+  /**
+   * งานใบนี้เป็นฝั่งใดฝั่งหนึ่งของการจับคู่งาน (pairLinkAsPrimary/pairLinkAsSecondary) หรือไม่
+   * ใช้ default false เพื่อไม่ให้ fixture เดิมที่ยังไม่รู้จัก field นี้พัง
+   */
+  hasPairLink?: boolean;
 }
 
 /** เทียบเฉพาะวัน — jobDate เก็บเป็น @db.Date อยู่แล้วแต่กันพลาด */
@@ -42,6 +47,11 @@ function isSameDay(a: Date, b: Date): boolean {
 export function isAbsorbedBy(towing: AbsorbJob, main: AbsorbJob): boolean {
   if (towing.id === main.id) return false;
   if (!isTowingJobType(towing.jobType)) return false;
+
+  // ทอยตู้ที่ถูกจับคู่งานแล้ว (ไม่ว่าจะเป็น primary หรือ secondary) ต้องไม่ถูกดูดซับ —
+  // เงินของมันถูกจัดการโดยระบบจับคู่งานอยู่แล้ว ห้ามให้การดูดซับมาแตะ driverWage/flag ซ้ำ
+  // หมายเหตุ: เช็คเฉพาะฝั่งทอยตู้เท่านั้น งานหลัก (main) ที่ถูกจับคู่ไม่เกี่ยวกับกฎนี้
+  if (towing.hasPairLink) return false;
 
   if (towing.isCancelled || main.isCancelled) return false;
   if (towing.clearStatus || main.clearStatus) return false;
@@ -74,6 +84,10 @@ const RECALC_SELECT = {
   isCancelled: true,
   clearStatus: true,
   isTowingAbsorbed: true,
+  // ต้องรู้ว่างานถูกจับคู่งานหรือไม่ (ไม่ว่าฝั่ง primary หรือ secondary) —
+  // ถ้าเป็นทอยตู้ที่ถูกจับคู่ ห้ามให้ตรรกะดูดซับไปแตะ driverWage/flag เด็ดขาด
+  pairLinkAsPrimary: { select: { id: true } },
+  pairLinkAsSecondary: { select: { id: true } },
 } as const;
 
 type RecalcRow = {
@@ -88,7 +102,14 @@ type RecalcRow = {
   isCancelled: boolean;
   clearStatus: boolean;
   isTowingAbsorbed: boolean;
+  pairLinkAsPrimary: { id: string } | null;
+  pairLinkAsSecondary: { id: string } | null;
 };
+
+/** งานถูกจับคู่งานอยู่ไหม (ฝั่งใดฝั่งหนึ่งก็นับ) */
+function hasPairLink(j: { pairLinkAsPrimary: { id: string } | null; pairLinkAsSecondary: { id: string } | null }): boolean {
+  return !!j.pairLinkAsPrimary || !!j.pairLinkAsSecondary;
+}
 
 export interface RecalcResult {
   absorbed: number;
@@ -110,6 +131,7 @@ const toAbsorbJob = (j: RecalcRow): AbsorbJob => ({
   createdAt: j.createdAt,
   isCancelled: j.isCancelled,
   clearStatus: j.clearStatus,
+  hasPairLink: hasPairLink(j),
 });
 
 /**
@@ -152,6 +174,10 @@ export async function recalcAbsorbForDriverDay(
   const toRelease: string[] = [];
 
   for (const t of towings) {
+    // ทอยตู้ที่ถูกจับคู่งานแล้ว (ฝั่งใดฝั่งหนึ่ง) ห้ามให้โค้ดดูดซับแตะเลย —
+    // ทั้งห้ามดูดซับใหม่ และห้ามปลดธงเดิม เพราะเงินของมันเป็นเรื่องของระบบจับคู่งาน
+    if (hasPairLink(t)) continue;
+
     const tj = toAbsorbJob(t);
     // เข้าเกณฑ์ถ้ามีงานหลัก "ใบใดใบหนึ่ง" ดูดซับได้
     const qualifies = absorbers.some((m) => isAbsorbedBy(tj, m));

@@ -107,3 +107,15 @@ test('isAbsorbedBy: ดูดซับตัวเองไม่ได้', () 
   const j = towing({ id: 'same' })
   assert.equal(isAbsorbedBy(j, main({ id: 'same' })), false)
 })
+
+test('isAbsorbedBy: ทอยตู้ที่ถูกจับคู่งานแล้วไม่ถูกดูดซับ แม้เข้าเกณฑ์อื่นครบ', () => {
+  assert.equal(isAbsorbedBy(towing({ hasPairLink: true }), main()), false)
+})
+
+test('isAbsorbedBy: ทอยตู้ที่ไม่ได้จับคู่ยังถูกดูดซับได้ตามปกติ', () => {
+  assert.equal(isAbsorbedBy(towing({ hasPairLink: false }), main()), true)
+})
+
+test('isAbsorbedBy: งานหลักที่ถูกจับคู่งานเองไม่ถูกยกเว้น — hasPairLink ของ main ไม่มีผล', () => {
+  assert.equal(isAbsorbedBy(towing(), main({ hasPairLink: true })), true)
+})
