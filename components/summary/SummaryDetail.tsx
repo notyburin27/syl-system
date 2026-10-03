@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, DatePicker, Spin, Empty, Button, App } from 'antd'
 import { DownloadOutlined, ArrowLeftOutlined, SwapOutlined, EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
-import type { DriverMonthlySummary } from '@/types/job'
+import type { DriverMonthlySummary, FuelStandardSummary } from '@/types/job'
 import { toThaiMonthYear } from '@/lib/utils/thaiDate'
 import dayjs from 'dayjs'
 import ExportRangeModal from './ExportRangeModal'
 import EditableSummaryRow, { type EditableField, ROW_HEIGHT } from './EditableSummaryRow'
 import SummaryDriverSwitchModal from './SummaryDriverSwitchModal'
+import FuelSegmentsModal, { fmtSignedLiters, diffColor } from './FuelSegmentsModal'
 
 function fmt(value: number | null) {
   if (value == null) return ''
@@ -23,12 +24,14 @@ function SummaryRow({
   unit,
   color,
   background,
+  testId,
 }: {
   label: string
   value: string | number | null
   unit: string
   color?: string
   background?: string
+  testId?: string
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px', height: ROW_HEIGHT, background, gap: 8 }}>
@@ -46,6 +49,7 @@ function SummaryRow({
       </span>
       {/* กว้างพอสำหรับจำนวนเงินหลักล้าน เช่น 1,000,000.00 (วัดจริง 88px) */}
       <span
+        data-testid={testId}
         style={{
           width: 112,
           minWidth: 112,
@@ -70,14 +74,45 @@ function RowGap() {
   return <div style={{ borderTop: '1px solid #f0f0f0', margin: '6px 0' }} />
 }
 
+/** แถว "ช่วงน้ำมัน" — จำนวนช่วง + เตือนช่วงที่ข้อมูลไม่ครบ + ปุ่มเปิดรายละเอียด */
+function FuelSegmentsRow({ fuel, onOpen }: { fuel: FuelStandardSummary | null; onOpen: () => void }) {
+  const incomplete = fuel ? fuel.segments.filter((s) => s.status !== 'ok').length : 0
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px', height: ROW_HEIGHT, gap: 8 }}>
+      <span style={{ flex: 1, textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>ช่วงน้ำมัน</span>
+      {/* ข้อความยาวกว่าตัวเลข — ใช้ minWidth ให้ยืดได้แทน width ตายตัว */}
+      <span
+        data-testid="fuel-segments-summary"
+        style={{ minWidth: 112, flexShrink: 0, textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}
+      >
+        {fuel && (
+          <>
+            {fuel.segments.length} ช่วง
+            {incomplete > 0 && <span style={{ color: '#d48806' }}> ⚠ {incomplete} ไม่ครบ</span>}
+          </>
+        )}
+      </span>
+      <span style={{ width: 38, minWidth: 38, flexShrink: 0 }}>
+        {fuel && (
+          <Button type="link" size="small" style={{ padding: 0 }} onClick={onOpen} data-testid="fuel-segments-view-btn">
+            ดู
+          </Button>
+        )}
+      </span>
+    </div>
+  )
+}
+
 /** การ์ดสรุปของหนึ่งเดือน */
 function MonthCard({
   s,
   saving,
   onSave,
+  onOpenFuelSegments,
 }: {
   s: DriverMonthlySummary
   saving: boolean
+  onOpenFuelSegments: () => void
   onSave: (month: string, values: Record<EditableField, number | null>) => Promise<boolean>
 }) {
   const [editing, setEditing] = useState(false)
@@ -121,6 +156,8 @@ function MonthCard({
   const pct45 = s.income * 0.45
   const pct55 = s.income * 0.55
   const diff45 = fuelTotal != null ? pct45 - fuelTotal : null
+  // รถก๊าซไม่คำนวณน้ำมันมาตรฐาน — 3 แถวเว้นว่าง
+  const fuelStd = s.isGasVehicle ? null : s.fuelStandard ?? null
 
   // ยอดคงเหลือ = รายได้ − รวมใช้น้ำมัน − สรุปเงินเดือน − ค่าใช้จ่าย
   // ถ้าตัวตั้งใดยังไม่มีค่า ให้เว้นว่าง ดีกว่าโชว์ตัวเลขครึ่งๆ กลางๆ ในรายงานเงินเดือน
@@ -216,6 +253,21 @@ function MonthCard({
       />
       <SummaryRow label={`รวมใช้${fuelWord}`} value={fmt(fuelTotal)} unit="บาท" />
       <SummaryRow label={`45% - ราคา${fuelWord}`} value={fmt(diff45)} unit="บาท" background="#fce4d6" />
+      <SummaryRow
+        label="น้ำมันเกินมาตรฐาน"
+        value={fuelStd ? fmtSignedLiters(fuelStd.excessLiters) : null}
+        unit="ลิตร"
+        color={fuelStd ? diffColor(fuelStd.excessLiters) : undefined}
+        testId="fuel-excess-value"
+      />
+      <SummaryRow
+        label="น้ำมันเกินสุทธิ"
+        value={fuelStd ? fmtSignedLiters(fuelStd.netDiffLiters) : null}
+        unit="ลิตร"
+        color={fuelStd ? diffColor(fuelStd.netDiffLiters) : undefined}
+        testId="fuel-net-value"
+      />
+      <FuelSegmentsRow fuel={fuelStd} onOpen={onOpenFuelSegments} />
 
       <RowGap />
 
@@ -268,6 +320,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
   const [exportOpen, setExportOpen] = useState(false)
   const [switchOpen, setSwitchOpen] = useState(false)
   const [savingMonth, setSavingMonth] = useState<string | null>(null)
+  const [fuelMonth, setFuelMonth] = useState<string | null>(null)
   const { message } = App.useApp()
 
   const handleSaveCard = useCallback(
@@ -346,6 +399,12 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
     return months.filter((s) => s.month < currentMonth)
   }, [months])
 
+  // อ่านจาก months ทุกครั้ง — หลัง quick-add แล้ว refetch modal จะเห็นตัวเลขใหม่ทันที
+  const fuelMonthSummary = useMemo(
+    () => (fuelMonth ? months.find((m) => m.month === fuelMonth) ?? null : null),
+    [months, fuelMonth]
+  )
+
   // ช่วง default ตอน export = ม.ค. ถึงเดือนล่าสุดที่จบแล้ว ให้ตรงกับการ์ดที่เห็นบนหน้าจอ
   // ปีเก่าที่จบไปแล้วเอาถึง ธ.ค. ได้เต็มปี
   const exportDefaultRange = useMemo((): [dayjs.Dayjs, dayjs.Dayjs] => {
@@ -414,11 +473,24 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
         >
           {visibleMonths.map((s) => (
             <div key={s.month} style={{ flex: '0 0 auto', width: 400 }}>
-              <MonthCard s={s} saving={savingMonth === s.month} onSave={handleSaveCard} />
+              <MonthCard
+                s={s}
+                saving={savingMonth === s.month}
+                onSave={handleSaveCard}
+                onOpenFuelSegments={() => setFuelMonth(s.month)}
+              />
             </div>
           ))}
         </div>
       )}
+
+      <FuelSegmentsModal
+        open={fuelMonth !== null}
+        month={fuelMonth}
+        fuel={fuelMonthSummary?.fuelStandard ?? null}
+        onClose={() => setFuelMonth(null)}
+        onStandardSaved={() => fetchYear(year)}
+      />
 
       <SummaryDriverSwitchModal
         open={switchOpen}
