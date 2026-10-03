@@ -112,13 +112,14 @@ Error message ภาษาไทย
   - สถานที่รับตู้ / คืนตู้ ต้องมี, โรงงานว่างได้
   - **ชื่อสถานที่ต้องมีอยู่แล้วใน `Location` (isActive)** — ไม่เจอ → error `ไม่พบสถานที่ "X"`
     (ต่างจาก import เดิมที่ upsert สถานที่ใหม่ — กันพิมพ์ผิดแล้วได้สถานที่ซ้ำที่ไม่ match กับ job)
+  - ชื่อในคอลัมน์โรงงานต้องเป็นสถานที่ `type = factory` — ไม่ใช่ → error (ให้ตรงกับ modal ที่เลือกได้เฉพาะโรงงาน)
   - liters ต้องเป็นตัวเลข ≥ 0
   - key ซ้ำกันเองในไฟล์ → error
 - Import: key ซ้ำกับของเดิม → update liters, ไม่ซ้ำ → create
 
 ### Export
 
-ปุ่ม Export ในหน้าตั้งค่า สร้าง CSV ฝั่ง client จากข้อมูลที่โหลดอยู่ ใช้ headers เดียวกับ import (แก้แล้ว import กลับได้)
+ปุ่ม Export ในหน้าตั้งค่า สร้าง CSV ฝั่ง client จากข้อมูลที่โหลดอยู่ ใช้ headers เดียวกับ import และไม่มีแถว label ภาษาไทย (แก้แล้ว import กลับได้ทันที)
 
 ## Settings Page
 
@@ -177,7 +178,7 @@ interface FuelSegment {
   standardLiters: number | null // null เมื่อ incomplete
   diffLiters: number | null     // actual − standard
   status: 'ok' | 'missing_standard' | 'no_previous_fill'
-  missingRoutes: MissingRoute[] // เฉพาะ missing_standard
+  missingRoutes: MissingRoute[] // job ในช่วงที่หาค่าไม่เจอ (มีได้ทุก status — ใช้ทำ quick-add)
 }
 
 interface FuelSegmentResult {
@@ -212,13 +213,18 @@ function computeFuelSegments(
 
 ปัดทศนิยม 2 ตำแหน่งตอนคืนผล (Decimal → number แปลงก่อนเข้า function)
 
-## Data Fetching — `lib/utils/summaryQuery.ts`
+## Data Fetching — `lib/utils/fuelSegmentsQuery.ts`
 
-ใน `buildMonthSummaries` (เฉพาะคนขับที่ไม่ใช่ NGV):
+`buildMonthSummaries` ถูกเรียกจาก 3 ที่ (`/api/summary` list, `/api/summary/[driverId]`, `/api/summary/export`) แต่ผลน้ำมันมาตรฐานแสดงเฉพาะหน้ารายคน
+จึงเพิ่ม option `{ includeFuelStandard?: boolean }` (default false) — เฉพาะ `/api/summary/[driverId]` ส่ง true
+ที่อื่นพฤติกรรมเหมือนเดิม ไม่มี query เพิ่ม
 
-1. หาจุดเติมล่าสุดก่อนต้นเดือนของแต่ละคนขับในคำสั่งเดียว — raw query `DISTINCT ON ("driverId")` จาก `jobs` ที่ `jobDate < gte`, ไม่ยกเลิก, ไม่ใช่ noJob/advance, ลิตรรวม > 0 เรียง `jobDate DESC, createdAt DESC`
-2. ดึง job ของทุกคนขับ ตั้งแต่ `min(วันที่จุดเติมก่อนหน้า)` ถึงสิ้นเดือน (หรือต้นเดือนถ้าไม่มีจุดก่อนหน้า) ในคำสั่งเดียว select field ที่ `FuelJob` ต้องใช้ + `pairLinkAsPrimary`/`pairLinkAsSecondary` + `createdAt`
-3. ต่อคนขับ: ตัด job ที่อยู่ก่อนหรือเป็นจุดเติมก่อนหน้า (เทียบ `jobDate, createdAt`) ออก → ส่งเข้า `computeFuelSegments` พร้อม `hasPreviousFill`
+`buildFuelStandardSummaries(month, driverIds)` (เฉพาะคนขับที่ไม่ใช่ NGV) ต่อคนขับ:
+
+1. หาจุดเติมล่าสุดก่อนต้นเดือน — `findFirst` job ที่ `jobDate < ต้นเดือน`, ไม่ยกเลิก, ไม่ใช่ noJob/advance, ช่องลิตรใดช่องหนึ่ง > 0 เรียง `jobDate DESC, createdAt DESC`
+   (หน้ารายคนเรียกทีละคนขับ 12 เดือน = 24 query เล็กๆ — ไม่ต้องใช้ raw SQL)
+2. ดึง job ตั้งแต่วันที่จุดเติมก่อนหน้า (หรือต้นเดือนถ้าไม่มี) ถึงสิ้นเดือน เรียง `jobDate ASC, createdAt ASC`
+3. ตัด job จนถึงจุดเติมก่อนหน้า (หาด้วย id) ออก → ส่งเข้า `computeFuelSegments` พร้อม `hasPreviousFill`
 4. `FuelStandard` ทั้งหมดดึงครั้งเดียวต่อ request
 
 ถ้าไม่มีจุดเติมก่อนหน้าเลย → ดึงตั้งแต่ต้นเดือน และช่วงแรกเป็น `no_previous_fill`
@@ -292,7 +298,7 @@ fuelPendingJobs: number
   - เพิ่ม / แก้ / ลบ (ผ่าน `modal.confirm`)
   - เพิ่มซ้ำ (รวมกรณีโรงงานว่าง) → error
   - Import CSV: สำเร็จ, ไม่พบสถานที่ → error, ซ้ำในไฟล์ → error, key เดิม → update liters
-  - STAFF เรียก `/api/rates/fuel-standard` → 403
-- `e2e/summary/summary.spec.ts` เพิ่ม case
+  - MANAGER (testmanager — e2e seed ไม่มี user STAFF) เรียก `/api/rates/fuel-standard` → 403
+- `e2e/summary/fuel-standard-summary.spec.ts` (ไฟล์ใหม่ seed ข้อมูลผ่าน script แยก ไม่ปน `summary.spec.ts`)
   - seed job มีจุดเติม 2 จุด + ค่ามาตรฐาน → การ์ดแสดง "น้ำมันเกินมาตรฐาน" ถูกต้อง
   - ช่วงที่ขาดค่ามาตรฐาน → ⚠ ใน modal → กด "ตั้งค่า" → บันทึก → การ์ดคำนวณใหม่
