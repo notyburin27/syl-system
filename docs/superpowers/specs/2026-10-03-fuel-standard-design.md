@@ -37,7 +37,7 @@ H  ไมล์ 707,015  เติม 97
    ใช้จริง = ลิตรรวม ณ จุดเติมที่ปิดช่วง, มาตรฐาน = Σ มาตรฐานของทุก job ในช่วง, ส่วนต่าง = ใช้จริง − มาตรฐาน
 4. **ไม่มีค่ามาตรฐาน** — ถ้าในช่วงมี job ใดหาค่ามาตรฐานไม่เจอ ช่วงนั้น **ไม่คำนวณ** (incomplete) และแสดงคำเตือนพร้อมเส้นทางที่ขาด ไม่นำไปรวมยอดเดือน
 5. **ไม่มีจุดเติมก่อนหน้า** (ช่วงแรกสุดของรถคันนั้น) — incomplete เพราะไม่รู้ว่าถังเหลือเท่าไร
-6. **งานจับคู่** — ใบ primary ใช้ค่ามาตรฐานของ paired size (`getPairedSize`: 20DC → 2x20DC, 20RF → 2x20RF) ครั้งเดียว ใบ secondary มาตรฐาน = 0 (แต่ถ้าใบ secondary มีการเติมก็ยังเป็นจุดเติมได้)
+6. **งานจับคู่** — ในการตัดช่วง ใบ secondary ถูกจัดให้อยู่ถัดจากใบ primary เสมอ (ไม่ว่าลิตรอยู่ใบไหนผลเท่ากัน); ใบ primary ใช้ค่ามาตรฐานของ paired size (`getPairedSize`: 20DC → 2x20DC, 20RF → 2x20RF) ครั้งเดียว ใบ secondary มาตรฐาน = 0 (แต่ถ้าใบ secondary มีการเติมก็ยังเป็นจุดเติมได้)
 7. **ช่วงคร่อมเดือน** — นับเข้าเดือนของ job ที่ปิดช่วง job หลังจุดเติมสุดท้ายของเดือน = "รอปิดช่วง" ยังไม่นับ
 8. **ยอดรายเดือน** แสดงทั้งสองแบบ:
    - เกินรวม = Σ ส่วนต่างที่ > 0
@@ -113,9 +113,9 @@ Error message ภาษาไทย
   - **ชื่อสถานที่ต้องมีอยู่แล้วใน `Location` (isActive)** — ไม่เจอ → error `ไม่พบสถานที่ "X"`
     (ต่างจาก import เดิมที่ upsert สถานที่ใหม่ — กันพิมพ์ผิดแล้วได้สถานที่ซ้ำที่ไม่ match กับ job)
   - ชื่อในคอลัมน์โรงงานต้องเป็นสถานที่ `type = factory` — ไม่ใช่ → error (ให้ตรงกับ modal ที่เลือกได้เฉพาะโรงงาน)
-  - liters ต้องเป็นตัวเลข ≥ 0
+  - liters ต้องเป็นตัวเลข 0 ≤ liters ≤ 99,999,999.99 (Decimal(10,2)) — trim ช่องว่าง, ว่าง/Infinity/เกินค่าสูงสุด → error (POST/PUT ใช้กฎเดียวกัน)
   - key ซ้ำกันเองในไฟล์ → error
-- Import: key ซ้ำกับของเดิม → update liters, ไม่ซ้ำ → create
+- Import: key ซ้ำกับของเดิม → update liters, ไม่ซ้ำ → create — โหลด `FuelStandard` เดิมครั้งเดียวก่อนเริ่ม transaction (map key → id, factory null → '') แล้วใน `$transaction` ทำเฉพาะ update-by-id / create ต่อแถว ตั้ง `timeout: 30000` (ค่าเริ่มต้น 5 วินาทีไม่พอกับไฟล์ใหญ่)
 
 ### Export
 
@@ -142,7 +142,7 @@ Pure function ไม่แตะ DB
 interface FuelJob {
   id: string
   jobNumber: string
-  jobDate: Date
+  jobDate: string               // 'YYYY-MM-DD'
   jobType: string
   isCancelled: boolean
   size: string | null
@@ -151,6 +151,7 @@ interface FuelJob {
   returnLocationId: string | null
   fuelLiters: number            // OFF + สด + เครดิต (null → 0)
   pairRole: 'primary' | 'secondary' | null
+  pairPartnerId: string | null  // id ของอีกใบในคู่ (null เมื่อไม่จับคู่)
 }
 
 interface FuelStandardEntry {
@@ -170,15 +171,15 @@ interface MissingRoute {
 }
 
 interface FuelSegment {
-  startDate: Date               // jobDate ของ job แรกในช่วง
-  endDate: Date                 // jobDate ของจุดเติมที่ปิดช่วง
-  closingJobId: string
+  startDate: string             // 'YYYY-MM-DD' jobDate ของ job แรกในช่วง
+  endDate: string               // 'YYYY-MM-DD' jobDate ของจุดเติมที่ปิดช่วง
+  closingJobNumber: string
   jobCount: number
   actualLiters: number
   standardLiters: number | null // null เมื่อ incomplete
   diffLiters: number | null     // actual − standard
   status: 'ok' | 'missing_standard' | 'no_previous_fill'
-  missingRoutes: MissingRoute[] // job ในช่วงที่หาค่าไม่เจอ (มีได้ทุก status — ใช้ทำ quick-add)
+  missingRoutes: MissingRoute[] // job ในช่วงที่หาค่าไม่เจอ — มีได้ทุก status (รวม no_previous_fill) ใช้ทำ quick-add
 }
 
 interface FuelSegmentResult {
@@ -197,7 +198,8 @@ function computeFuelSegments(
 
 ขั้นตอน:
 
-1. กรอง job ที่ `isCancelled` / `noJob` / `advance` ออก
+1. กรอง job ที่ `isCancelled` / `noJob` / `advance` ออก แล้วจัดลำดับให้ใบ secondary อยู่ **ถัดจากใบ primary ของมันทันที** (เมื่อ primary อยู่ในรายการ; job อื่นคงลำดับเดิม)
+   — primary มี `createdAt` ใหม่กว่าจึงเรียงหลัง secondary ถ้าไม่ย้าย การเติมที่ใบ secondary จะปิดช่วงก่อนมาตรฐาน 2x ของ primary ทำให้ผลต่างเพี้ยนตามว่าลิตรอยู่ใบไหน
 2. หามาตรฐานต่อ job:
    - `pairRole = 'secondary'` → 0
    - `pairRole = 'primary'` → ใช้ `getPairedSize(size)` เป็น size ในการหา
@@ -233,10 +235,14 @@ function computeFuelSegments(
 เพิ่ม field ใน `DriverMonthlySummary` ([types/job.ts](../../../types/job.ts)):
 
 ```ts
-fuelExcessLiters: number | null      // null สำหรับรถ NGV
-fuelNetDiffLiters: number | null
-fuelSegments: FuelSegmentView[]      // FuelSegment + ชื่อสถานที่ของ missingRoutes สำหรับแสดงผล
-fuelPendingJobs: number
+fuelStandard?: FuelStandardSummary | null   // null/undefined สำหรับรถ NGV หรือไม่ได้ขอ
+
+interface FuelStandardSummary {
+  excessLiters: number
+  netDiffLiters: number
+  segments: FuelSegmentView[]   // FuelSegment + ชื่อสถานที่ของ missingRoutes สำหรับแสดงผล
+  pendingJobCount: number
+}
 ```
 
 ชื่อสถานที่ใน `missingRoutes` resolve ฝั่ง server (ดึง Location ตาม id ที่ขาด) เพื่อให้ UI แสดงได้ทันที
@@ -247,8 +253,8 @@ fuelPendingJobs: number
 
 | แถว | ค่า | การแสดง |
 |---|---|---|
-| น้ำมันเกินมาตรฐาน | `fuelExcessLiters` ลิตร | สีแดงเมื่อ > 0 |
-| น้ำมันเกินสุทธิ | `fuelNetDiffLiters` ลิตร | แดงเมื่อ > 0, เขียวเมื่อ < 0 |
+| น้ำมันเกินมาตรฐาน | `fuelStandard.excessLiters` ลิตร | สีแดงเมื่อ > 0; เว้นว่างเมื่อไม่มีช่วง `ok` เลย |
+| น้ำมันเกินสุทธิ | `fuelStandard.netDiffLiters` ลิตร | แดงเมื่อ > 0, เขียวเมื่อ < 0; เว้นว่างเมื่อไม่มีช่วง `ok` เลย |
 | ช่วงน้ำมัน | `N ช่วง` + `⚠ M ไม่ครบ` (ถ้ามี) + ปุ่ม "ดู" | |
 
 - รถ NGV เว้นว่างทั้ง 3 แถว
@@ -265,7 +271,7 @@ fuelPendingJobs: number
   `40DC · CMA/KM.18 → โรงงาน B → SYL  (JOB 123, 456)` + ปุ่ม "ตั้งค่า"
   - ปุ่ม "ตั้งค่า" เปิด `FuelStandardFormModal` กรอกค่า size/สถานที่ไว้ให้ → บันทึกสำเร็จ → refetch summary ของการ์ดนั้น
   - ถ้า route ที่ขาดไม่มี size หรือสถานที่ (job กรอกไม่ครบ) → ไม่แสดงปุ่ม แสดงข้อความ "job กรอกข้อมูลไม่ครบ"
-- ท้ายตาราง (ถ้า `fuelPendingJobs > 0`): `รอปิดช่วง: N job หลังเติมครั้งล่าสุด`
+- ท้ายตาราง (ถ้า `fuelStandard.pendingJobCount > 0`): `รอปิดช่วง: N job หลังเติมครั้งล่าสุด`
 
 หน้าสรุปเข้าได้เฉพาะ ADMIN อยู่แล้ว → quick-add ใช้สิทธิ์เดียวกับหน้าตั้งค่า
 
@@ -286,7 +292,8 @@ fuelPendingJobs: number
 - job ในช่วงไม่มีค่ามาตรฐาน → `missing_standard` + `missingRoutes` group ตาม key พร้อม jobNumbers, ไม่รวมยอด
 - `hasPreviousFill = false` → ช่วงแรก `no_previous_fill`
 - job หลังจุดเติมสุดท้าย → `pendingJobCount`
-- งานจับคู่: primary ใช้ค่า 2x20DC, secondary = 0; secondary เป็นจุดเติมได้
+- งานจับคู่: primary ใช้ค่า 2x20DC, secondary = 0; secondary เป็นจุดเติมได้; secondary เรียงก่อน primary แต่เติมที่ใบใดก็ได้ผลช่วงเท่ากัน (จัด secondary ไว้หลัง primary)
+- liters ใน import: ช่องว่าง, `1e999`, `100000000` → error
 - job ยกเลิก / noJob / advance ถูกข้าม (ทั้งมาตรฐานและลิตร)
 - factory null match เฉพาะมาตรฐานที่ factory null
 - excess vs net: ช่วง +17 และ −10 → excess 17, net 7
