@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SIZE_OPTIONS } from "@/types/job";
+import { parseFuelLiters } from "@/lib/utils/fuelStandardImport";
 
 export const DUPLICATE_FUEL_STANDARD_ERROR = "มีข้อมูลนี้อยู่แล้ว";
 
@@ -36,13 +37,14 @@ export function parseFuelStandardInput(body: unknown): { data: FuelStandardInput
   const pickupLocationId = str(b.pickupLocationId);
   const returnLocationId = str(b.returnLocationId);
   const factoryLocationId = str(b.factoryLocationId);
-  const liters = typeof b.liters === "number" ? b.liters : Number(b.liters);
 
   if (!size || !pickupLocationId || !returnLocationId || b.liters == null || b.liters === "") {
     return { error: "กรุณากรอกข้อมูลให้ครบ" };
   }
   if (!(SIZE_OPTIONS as readonly string[]).includes(size)) return { error: `SIZE "${size}" ไม่ถูกต้อง` };
-  if (Number.isNaN(liters) || liters < 0) return { error: "ลิตรต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป" };
+  const parsed = parseFuelLiters(b.liters);
+  if ("error" in parsed) return parsed;
+  const { liters } = parsed;
 
   return { data: { size, pickupLocationId, factoryLocationId, returnLocationId, liters } };
 }

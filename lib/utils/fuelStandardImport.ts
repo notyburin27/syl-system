@@ -28,6 +28,20 @@ export interface ResolvedFuelStandardRow {
   liters: number;
 }
 
+/** Decimal(10,2) */
+export const MAX_FUEL_LITERS = 99999999.99;
+
+/** แปลงลิตรจาก input (string/number) — คืน error เป็นข้อความไทยถ้าไม่ผ่าน */
+export function parseFuelLiters(value: unknown): { liters: number } | { error: string } {
+  const invalid = { error: "ลิตรต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป" };
+  const text = typeof value === "string" ? value.trim() : value;
+  if (text == null || text === "" || (typeof text !== "string" && typeof text !== "number")) return invalid;
+  const liters = Number(text);
+  if (Number.isNaN(liters) || liters < 0) return invalid;
+  if (!Number.isFinite(liters) || liters > MAX_FUEL_LITERS) return { error: "ลิตรต้องไม่เกิน 99,999,999.99" };
+  return { liters };
+}
+
 /**
  * ตรวจแถว CSV และแปลงชื่อสถานที่เป็น id
  * ไม่สร้างสถานที่ใหม่ให้ (ต่างจาก import อัตราอื่น) — ชื่อพิมพ์ผิดจะได้สถานที่ซ้ำที่ไม่ match กับ job เงียบๆ
@@ -73,9 +87,9 @@ export function validateFuelStandardRows(
         err("factoryLocationName", `"${r.factoryLocationName}" ไม่ใช่สถานที่ประเภทโรงงาน`);
     }
 
-    const liters = Number(r.liters);
-    if (r.liters == null || r.liters === "" || Number.isNaN(liters) || liters < 0)
-      err("liters", "ลิตรต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป");
+    const parsedLiters = parseFuelLiters(r.liters);
+    if ("error" in parsedLiters) err("liters", parsedLiters.error);
+    const liters = "liters" in parsedLiters ? parsedLiters.liters : 0;
 
     const dups = rowsByKey.get(keyOf(r)) ?? [];
     if (dups.length > 1 && dups[0] !== rowNum) err("size", `ข้อมูลซ้ำในไฟล์ (แถว ${dups.join(", ")})`);

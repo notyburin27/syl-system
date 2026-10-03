@@ -64,3 +64,17 @@ test('key ซ้ำกันในไฟล์ → error ที่แถวห�
   const r = validateFuelStandardRows([row(), row({ liters: '310' })], LOCS)
   assert.deepEqual(r.errors, [{ row: 2, field: 'size', message: 'ข้อมูลซ้ำในไฟล์ (แถว 1, 2)' }])
 })
+
+test('ลิตรว่างเปล่า / ช่องว่าง / infinity / เกิน Decimal(10,2) → error', () => {
+  for (const liters of ['  ', '1e999', '100000000']) {
+    const r = validateFuelStandardRows([row({ liters })], LOCS)
+    assert.equal(r.errors.length, 1, `liters=${JSON.stringify(liters)}`)
+    assert.equal(r.errors[0].field, 'liters')
+    assert.equal(r.resolved.length, 0)
+  }
+  assert.equal(
+    validateFuelStandardRows([row({ liters: '100000000' })], LOCS).errors[0].message,
+    'ลิตรต้องไม่เกิน 99,999,999.99',
+  )
+  assert.deepEqual(validateFuelStandardRows([row({ liters: ' 99999999.99 ' })], LOCS).errors, [])
+})
