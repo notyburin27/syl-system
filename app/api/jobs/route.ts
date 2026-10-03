@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isAutoNumberJobType, validateJobNumber } from "@/lib/utils/jobNumber";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -105,6 +106,15 @@ export async function POST(req: Request) {
         { error: "กรุณากรอกเลขที่งาน" },
         { status: 400 }
       );
+    }
+
+    // เลข JOB ที่คนกรอก ห้ามมีภาษาไทยหรือจุด — บันทึกค่าหลัง trim
+    if (!isAutoNumberJobType(jobType)) {
+      const result = validateJobNumber(finalJobNumber);
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+      finalJobNumber = result.value;
     }
 
     if (!jobDate) {
