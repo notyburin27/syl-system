@@ -55,6 +55,7 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/stock/export")) return "stock-export";
     if (pathname?.startsWith("/stock/buyers")) return "stock-buyers";
     if (pathname === "/stock") return "stock-dashboard";
+    if (pathname?.startsWith("/jobs/settings/fuel-standard")) return "jobs-fuel-standard";
     if (pathname?.startsWith("/jobs/settings/fuel-price")) return "jobs-fuel-price";
     if (pathname?.startsWith("/jobs/settings/rates/transfer")) return "jobs-rates-transfer";
     if (pathname?.startsWith("/jobs/settings/rates/income")) return "jobs-rates-income";
@@ -117,6 +118,7 @@ export default function ProtectedLayoutClient({
             { key: "jobs-rates-income", label: <Link href="/jobs/settings/rates/income">ค่าขนส่ง</Link> },
             { key: "jobs-rates-driver-wage", label: <Link href="/jobs/settings/rates/driver-wage">ค่าเที่ยวคนขับ</Link> },
             { key: "jobs-fuel-price", label: <Link href="/jobs/settings/fuel-price">ราคาน้ำมัน</Link> },
+            { key: "jobs-fuel-standard", label: <Link href="/jobs/settings/fuel-standard">น้ำมันมาตรฐาน</Link> },
             { key: "jobs-holidays", label: <Link href="/jobs/settings/holidays">วันหยุดบริษัท</Link> },
           ] : []),
         ],
