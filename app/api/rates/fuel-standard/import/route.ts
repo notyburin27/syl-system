@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fuelStandardKeyWhere, requireAdmin } from "@/lib/utils/fuelStandardApi";
+import { requireAdmin } from "@/lib/utils/fuelStandardApi";
 import { validateFuelStandardRows, type FuelStandardImportRow } from "@/lib/utils/fuelStandardImport";
 
 export async function POST(req: Request) {
@@ -27,13 +27,21 @@ export async function POST(req: Request) {
     }
 
     // key ซ้ำของเดิม → อัปเดตลิตร; ทั้งไฟล์สำเร็จหรือไม่สำเร็จพร้อมกัน
-    await prisma.$transaction(async (tx) => {
-      for (const r of resolved) {
-        const existing = await tx.fuelStandard.findFirst({ where: fuelStandardKeyWhere(r), select: { id: true } });
-        if (existing) await tx.fuelStandard.update({ where: { id: existing.id }, data: { liters: r.liters } });
-        else await tx.fuelStandard.create({ data: r });
-      }
-    });
+    // โหลดของเดิมครั้งเดียวนอก transaction — ไม่ query ทีละแถวใน transaction (timeout 5 วินาทีเริ่มต้นไม่พอกับไฟล์ใหญ่)
+    const keyOf = (r: { size: string; pickupLocationId: string; factoryLocationId: string | null; returnLocationId: string }) =>
+      [r.size, r.pickupLocationId, r.factoryLocationId ?? "", r.returnLocationId].join("|");
+    const existingIds = new Map((await prisma.fuelStandard.findMany()).map((e) => [keyOf(e), e.id]));
+
+    await prisma.$transaction(
+      async (tx) => {
+        for (const r of resolved) {
+          const id = existingIds.get(keyOf(r));
+          if (id) await tx.fuelStandard.update({ where: { id }, data: { liters: r.liters } });
+          else await tx.fuelStandard.create({ data: r });
+        }
+      },
+      { timeout: 30000 }
+    );
 
     return NextResponse.json({ success: true, created: resolved.length }, { status: 201 });
   } catch (error) {
