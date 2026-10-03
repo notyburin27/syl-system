@@ -2,8 +2,9 @@
  * ตัวช่วยของ scripts/fix-job-numbers.ts — เสนอเลข JOB ที่ถูกต้องให้งานเก่าที่กรอกผิด
  * แยกออกมาเป็น pure function เพื่อ unit test ได้ (ไม่แตะ DB)
  *
- * กฎบันทึก (lib/utils/jobNumber.ts) แค่ห้ามไทย/จุด แต่สคริปต์นี้ยังจับเลขที่ไม่ใช่รูปแบบมาตรฐาน
- * 123456/123456(-1) เพื่อเสนอแก้ typo ด้วย — ยกเว้นเลขรูปแบบ A (A5, A47/B155040) ที่ถือว่าถูก
+ * สคริปต์นี้แก้เฉพาะเลข JOB ที่ผิดกฎบันทึก — มีภาษาไทยหรือจุด (เช่น "ิ163700/545513",
+ * "163735/ตู้อุบัติเหตุ", "16420.3/547228")
+ * เลขที่แค่ผิดรูปแบบ 6/6 (typo หลักขาด/เกิน) ไม่แตะ
  *
  * ทั้ง booking (ส่วนหน้า) และเลขใบงาน (ส่วนหลัง) เป็นเลขวิ่งที่เพิ่มขึ้นตามวัน
  * จึงใช้งานที่ถูกรูปแบบในช่วงวันใกล้กัน (±WINDOW_DAYS) เป็นหลักฐานได้
@@ -15,18 +16,11 @@ export const WINDOW_DAYS = 3;
 
 /** รูปแบบมาตรฐาน booking/เลขใบงาน 6/6 หลัก + suffix ตู้ที่ 2+ */
 export const STANDARD_JOB_NUMBER_REGEX = /^\d{6}\/\d{6}(-\d{1,2})?$/;
-/** รูปแบบ A ที่ผู้ใช้ยืนยันว่าถูก เช่น A5, A33, A47/B155040 */
-export const A_PREFIX_JOB_NUMBER_REGEX = /^A\d+(\/B\d+)?$/;
-/** มาตรฐานที่ถูกต่อท้าย -X / -X2 ... (งานซ้ำที่สคริปต์นี้ mark ไว้) */
-const DUPLICATE_MARKED_REGEX = /^\d{6}\/\d{6}(-\d{1,2})?-X\d*$/;
 
-/** งานนี้ต้องให้สคริปต์เสนอแก้ไหม (ไม่รวม advance/noJob — ผู้เรียกกรองเอง) */
+/** งานนี้ต้องให้สคริปต์เสนอแก้ไหม — เฉพาะเลขที่ผิดกฎบันทึก (มีภาษาไทยหรือจุด)
+ *  ไม่รวม advance/noJob — ผู้เรียกกรองเอง */
 export function needsJobNumberFix(jobNumber: string): boolean {
-  return !(
-    STANDARD_JOB_NUMBER_REGEX.test(jobNumber) ||
-    A_PREFIX_JOB_NUMBER_REGEX.test(jobNumber) ||
-    DUPLICATE_MARKED_REGEX.test(jobNumber)
-  );
+  return JOB_NUMBER_FORBIDDEN_REGEX.test(jobNumber);
 }
 
 export interface FixTargetJob {
