@@ -255,6 +255,9 @@ model Location {
   rateTransfers         RateTransfer[]  @relation("RateTransferLocation")
   rateIncomeFactory     RateIncome[]    @relation("RateIncomeFactory")
   rateDriverWageFactory RateDriverWage[] @relation("RateDriverWageFactory")
+  fuelStandardPickup    FuelStandard[]  @relation("FuelStandardPickup")
+  fuelStandardFactory   FuelStandard[]  @relation("FuelStandardFactory")
+  fuelStandardReturn    FuelStandard[]  @relation("FuelStandardReturn")
 
   @@index([name])
   @@index([type])
@@ -506,6 +509,26 @@ model RateDriverWage {
 
   @@unique([jobType, size, factoryLocationId])
   @@map("rate_driver_wage")
+}
+
+// น้ำมันมาตรฐานต่อเที่ยว ตาม size + เส้นทาง (ไม่แยก jobType)
+// factoryLocationId ว่างได้ (งานทอย) — Postgres ถือว่า NULL ไม่ซ้ำ จึงต้องเช็คซ้ำใน API ด้วย
+model FuelStandard {
+  id                String   @id @default(cuid())
+  size              String
+  pickupLocationId  String
+  factoryLocationId String?
+  returnLocationId  String
+  liters            Decimal  @db.Decimal(10, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  pickupLocation  Location  @relation("FuelStandardPickup", fields: [pickupLocationId], references: [id])
+  factoryLocation Location? @relation("FuelStandardFactory", fields: [factoryLocationId], references: [id])
+  returnLocation  Location  @relation("FuelStandardReturn", fields: [returnLocationId], references: [id])
+
+  @@unique([size, pickupLocationId, factoryLocationId, returnLocationId])
+  @@map("fuel_standard")
 }
 
 // ==================== LINE Bot Module ====================
