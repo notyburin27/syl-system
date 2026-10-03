@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recalcAbsorbForDriverDay } from "@/lib/utils/towingAbsorb";
+import { resolveJobNumberChange } from "@/lib/utils/jobNumber";
 
 export async function GET(
   _req: Request,
@@ -88,26 +89,30 @@ export async function PATCH(
       );
     }
 
-    // เลขที่งานห้ามซ้ำกับงานอื่น (ยกเว้นตัวเอง)
+    // เลขที่งาน: ตรวจรูปแบบเฉพาะตอนเปลี่ยนค่าจริง (งานเก่าที่เลขผิดรูปแบบยังแก้ช่องอื่นได้)
+    // และห้ามซ้ำกับงานอื่น (ยกเว้นตัวเอง)
     if ("jobNumber" in body) {
-      const jobNumber = String(body.jobNumber ?? "").trim();
-      if (!jobNumber) {
-        return NextResponse.json(
-          { error: "กรุณากรอก JOB/เลขที่" },
-          { status: 400 }
-        );
-      }
-      const duplicate = await prisma.job.findFirst({
-        where: { jobNumber, id: { not: id } },
-        select: { id: true },
+      const change = resolveJobNumberChange({
+        input: body.jobNumber,
+        current: existing.jobNumber,
+        jobType: "jobType" in body ? body.jobType : existing.jobType,
       });
-      if (duplicate) {
-        return NextResponse.json(
-          { error: "เลขที่งานนี้มีอยู่แล้ว" },
-          { status: 400 }
-        );
+      if (!change.ok) {
+        return NextResponse.json({ error: change.error }, { status: 400 });
       }
-      body.jobNumber = jobNumber;
+      if (change.changed) {
+        const duplicate = await prisma.job.findFirst({
+          where: { jobNumber: change.value, id: { not: id } },
+          select: { id: true },
+        });
+        if (duplicate) {
+          return NextResponse.json(
+            { error: "เลขที่งานนี้มีอยู่แล้ว" },
+            { status: 400 }
+          );
+        }
+      }
+      body.jobNumber = change.value;
     }
 
     // Build update data from provided fields only

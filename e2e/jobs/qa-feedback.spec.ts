@@ -144,6 +144,62 @@ test.describe.serial('QA feedback batch', () => {
     await expect(page.getByText('เลขที่งานนี้มีอยู่แล้ว')).toBeVisible({ timeout: 5_000 })
   })
 
+  // ─── กฎเลข JOB: ห้ามมีภาษาไทยหรือจุด (นอกนั้นบันทึกตามที่พิมพ์ แค่ trim) ─────
+  test('เลข JOB: ห้ามมีภาษาไทยหรือจุด ทั้ง API และฟอร์ม', async ({ page }) => {
+    const RULE_ERROR = 'เลข JOB ห้ามมีภาษาไทยหรือจุด (.)'
+    const driverId = await createDriver(page)
+    const jobData = { jobDate: JOB_DAY.format('YYYY-MM-DD'), jobType: 'inbound', driverId }
+
+    // API: ไทย → 400, จุด → 400
+    for (const jobNumber of ['\u0E34E2E-RULE-TH', 'E2E-RULE-ตู้', 'E2E-RULE.1']) {
+      const res = await page.request.post('/api/jobs', { data: { ...jobData, jobNumber } })
+      expect(res.status(), jobNumber).toBe(400)
+      expect((await res.json()).error).toBe(RULE_ERROR)
+    }
+    // API: รูปแบบ A ผ่าน และบันทึกตามที่พิมพ์ (แค่ trim ไม่ normalize อย่างอื่น)
+    const aRes = await page.request.post('/api/jobs', { data: { ...jobData, jobNumber: ' A47/B155040 ' } })
+    expect(aRes.status()).toBe(201)
+    const aJob = (await aRes.json()) as { id: string; jobNumber: string }
+    expect(aJob.jobNumber).toBe('A47/B155040')
+
+    // API: แก้เป็นค่าที่มีจุด → 400
+    const badPatch = await page.request.patch(`/api/jobs/${aJob.id}`, { data: { jobNumber: 'A47.1/B155040' } })
+    expect(badPatch.status()).toBe(400)
+    expect((await badPatch.json()).error).toBe(RULE_ERROR)
+
+    await page.goto(`/jobs/${driverId}?month=${CURRENT_MONTH}`)
+    const modal = await openCreateJobModal(page)
+    await fillDateAndType(page, 'ขาเข้า')
+
+    // ฟอร์มสร้าง: มีภาษาไทย → เห็น error ใต้ช่อง และไม่ยิง POST
+    const posts: string[] = []
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && r.url().endsWith('/api/jobs')) posts.push(r.url())
+    })
+    const jobNumberInput = page.locator('#jobNumber')
+    await jobNumberInput.fill('E2E-RULE-ตู้')
+    await page.getByTestId('job-create-btn').click()
+    await expect(modal.getByText(RULE_ERROR)).toBeVisible()
+    expect(posts).toHaveLength(0)
+
+    // แก้ให้ถูก → สร้างได้
+    await jobNumberInput.fill('E2E-RULE-OK')
+    await page.getByTestId('job-create-btn').click()
+    await expect(modal.getByText('ลูกค้า')).toBeVisible({ timeout: 10_000 })
+    await expect(jobNumberInput).toHaveValue('E2E-RULE-OK')
+
+    // งานที่สร้างแล้ว: แก้เป็นค่าที่มีจุดแล้ว blur → เห็น error และไม่ยิง PATCH
+    const patches: string[] = []
+    page.on('request', (r) => {
+      if (r.method() === 'PATCH' && r.url().includes('/api/jobs/')) patches.push(r.url())
+    })
+    await jobNumberInput.fill('E2E-RULE.2')
+    await jobNumberInput.blur()
+    await expect(modal.getByText(RULE_ERROR)).toBeVisible()
+    await page.waitForTimeout(1_500) // auto-save debounce 1 วินาที
+    expect(patches).toHaveLength(0)
+  })
+
   // ─── Item 2: คาดการณ์ค่ารับ/คืนตู้ พิมพ์ได้ + คาดการณ์โอน sum realtime ──
   test('Item 2: คาดการณ์ค่ารับ/คืนตู้ พิมพ์ได้ และคาดการณ์โอน (read-only) sum ทันทีที่พิมพ์', async ({ page }) => {
     const driverId = await createDriver(page)

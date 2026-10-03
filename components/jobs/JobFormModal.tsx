@@ -31,6 +31,7 @@ import { Popconfirm } from "antd";
 import dayjs from "dayjs";
 import type { Job, Customer, Location, JobTransfer, JobTowingLink, TowingJobSummary, MainJobSummary } from "@/types/job";
 import { JOB_TYPES, SIZE_OPTIONS, NO_JOB_REASONS, isTowingJobType, getPairedSize } from "@/types/job";
+import { isAutoNumberJobType, validateJobNumber } from "@/lib/utils/jobNumber";
 import QuickAddModal from "./QuickAddModal";
 
 interface JobFormModalProps {
@@ -395,6 +396,35 @@ export default function JobFormModal({
         // เงียบไว้ — ผู้ใช้กด "ดึงข้อมูล" ซ่อมได้
       }
     }
+  };
+
+  // เลข JOB: ห้ามมีภาษาไทยหรือจุด (ข้ามงาน advance/noJob และค่าเดิมของงานเก่าที่ผิดกฎ
+  // เพื่อให้งานเก่ายังแก้ช่องอื่นได้ — ตรงกับ resolveJobNumberChange ฝั่ง API)
+  const jobNumberFormatRule = {
+    validator: (_: unknown, value: unknown) => {
+      if (isSpecialType) return Promise.resolve();
+      const raw = String(value ?? "").trim();
+      if (!raw || raw === activeJob?.jobNumber) return Promise.resolve();
+      const result = validateJobNumber(raw);
+      return result.ok ? Promise.resolve() : Promise.reject(new Error(result.error));
+    },
+  };
+
+  // blur ช่อง JOB ของงานที่สร้างแล้ว: ตรวจกฎก่อนส่งเข้า auto-save
+  // ค่าที่ไม่ผ่าน → ไม่บันทึก ค้างไว้ให้แก้ (ช่องแสดง error จาก jobNumberFormatRule)
+  const handleJobNumberBlur = () => {
+    const targetJob = activeJob;
+    if (!targetJob) return;
+    const raw = String(form.getFieldValue("jobNumber") ?? "").trim();
+    const unchanged = raw === "" || raw === targetJob.jobNumber;
+    if (!unchanged && !isAutoNumberJobType(form.getFieldValue("jobType"))) {
+      const result = validateJobNumber(raw);
+      if (!result.ok) {
+        message.error(result.error);
+        return;
+      }
+    }
+    handleFieldBlur("jobNumber");
   };
 
   const prefillEstimatedTransfer = async (trigger?: "pickupLocationId" | "returnLocationId" | "size" | "jobType") => {
@@ -1207,13 +1237,16 @@ export default function JobFormModal({
               <Form.Item
                 label="JOB/เลขที่"
                 name="jobNumber"
-                rules={[{ required: !isCreated && mode === "create" && !isSpecialType, message: "กรุณากรอก JOB/เลขที่" }]}
+                rules={[
+                  { required: !isCreated && mode === "create" && !isSpecialType, message: "กรุณากรอก JOB/เลขที่" },
+                  jobNumberFormatRule,
+                ]}
               >
                 <Input
                   id="jobNumber"
                   data-testid="job-number-input"
                   disabled={isSpecialType || (isCreated && isCleared)}
-                  onBlur={() => isCreated && handleFieldBlur("jobNumber")}
+                  onBlur={() => isCreated && handleJobNumberBlur()}
                 />
               </Form.Item>
             </Col>
