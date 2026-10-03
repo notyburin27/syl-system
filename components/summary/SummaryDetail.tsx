@@ -158,6 +158,8 @@ function MonthCard({
   const diff45 = fuelTotal != null ? pct45 - fuelTotal : null
   // รถก๊าซไม่คำนวณน้ำมันมาตรฐาน — 3 แถวเว้นว่าง
   const fuelStd = s.isGasVehicle ? null : s.fuelStandard ?? null
+  // ไม่มีช่วงที่คำนวณได้เลย → ไม่มีตัวเลขให้แสดง (ไม่โชว์ 0.00 ที่ดูเหมือนผ่านมาตรฐาน)
+  const fuelStdComputed = fuelStd && fuelStd.segments.some((seg) => seg.status === 'ok') ? fuelStd : null
 
   // ยอดคงเหลือ = รายได้ − รวมใช้น้ำมัน − สรุปเงินเดือน − ค่าใช้จ่าย
   // ถ้าตัวตั้งใดยังไม่มีค่า ให้เว้นว่าง ดีกว่าโชว์ตัวเลขครึ่งๆ กลางๆ ในรายงานเงินเดือน
@@ -255,16 +257,16 @@ function MonthCard({
       <SummaryRow label={`45% - ราคา${fuelWord}`} value={fmt(diff45)} unit="บาท" background="#fce4d6" />
       <SummaryRow
         label="น้ำมันเกินมาตรฐาน"
-        value={fuelStd ? fmtSignedLiters(fuelStd.excessLiters) : null}
+        value={fuelStdComputed ? fmtSignedLiters(fuelStdComputed.excessLiters) : null}
         unit="ลิตร"
-        color={fuelStd ? diffColor(fuelStd.excessLiters) : undefined}
+        color={fuelStdComputed ? diffColor(fuelStdComputed.excessLiters) : undefined}
         testId="fuel-excess-value"
       />
       <SummaryRow
         label="น้ำมันเกินสุทธิ"
-        value={fuelStd ? fmtSignedLiters(fuelStd.netDiffLiters) : null}
+        value={fuelStdComputed ? fmtSignedLiters(fuelStdComputed.netDiffLiters) : null}
         unit="ลิตร"
-        color={fuelStd ? diffColor(fuelStd.netDiffLiters) : undefined}
+        color={fuelStdComputed ? diffColor(fuelStdComputed.netDiffLiters) : undefined}
         testId="fuel-net-value"
       />
       <FuelSegmentsRow fuel={fuelStd} onOpen={onOpenFuelSegments} />
@@ -365,8 +367,9 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
   )
 
   const fetchYear = useCallback(
-    async (y: dayjs.Dayjs) => {
-      setLoading(true)
+    async (y: dayjs.Dayjs, opts: { silent?: boolean } = {}) => {
+      // silent = refresh เบื้องหลัง ไม่สลับเป็น Spin (ไม่เสีย scroll ของแถบการ์ด)
+      if (!opts.silent) setLoading(true)
       try {
         const yyyy = y.format('YYYY')
         // API คืนเดือนล่าสุดก่อนอยู่แล้ว — ครอบทั้งปี ม.ค. ถึง ธ.ค.
@@ -375,7 +378,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
       } catch {
         console.error('Error fetching summary')
       } finally {
-        setLoading(false)
+        if (!opts.silent) setLoading(false)
       }
     },
     [driverId]
@@ -489,7 +492,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
         month={fuelMonth}
         fuel={fuelMonthSummary?.fuelStandard ?? null}
         onClose={() => setFuelMonth(null)}
-        onStandardSaved={() => fetchYear(year)}
+        onStandardSaved={() => fetchYear(year, { silent: true })}
       />
 
       <SummaryDriverSwitchModal
