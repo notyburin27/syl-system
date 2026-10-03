@@ -36,7 +36,7 @@ export async function GET(
 
     // เดือนล่าสุดก่อน — ตรงกับลำดับบล็อกใน Excel (ซ้ายสุด = ล่าสุด)
     const results = await Promise.all(
-      months.map((m) => buildMonthSummaries(m, [driverId]))
+      months.map((m) => buildMonthSummaries(m, [driverId], { includeFuelStandard: true }))
     );
     return NextResponse.json(results.flat());
   } catch (error) {

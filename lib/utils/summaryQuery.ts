@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { calculateDriverSummary } from "@/lib/utils/summaryCalculator";
+import { buildFuelStandardSummaries } from "@/lib/utils/fuelSegmentsQuery";
 import type { DriverMonthlySummary } from "@/types/job";
 
 /** ดึงสรุปของคนขับหลายคนในเดือนเดียว — ใช้ร่วมกันโดย /api/summary และ /api/summary/[driverId] */
 export async function buildMonthSummaries(
   month: string,
-  driverIds?: string[]
+  driverIds?: string[],
+  // น้ำมันมาตรฐานแสดงเฉพาะหน้ารายคน — list/export ไม่ต้องเสีย query เพิ่ม
+  opts: { includeFuelStandard?: boolean } = {}
 ): Promise<DriverMonthlySummary[]> {
   const [year, mon] = month.split("-").map(Number);
   const gte = new Date(Date.UTC(year, mon - 1, 1));
@@ -110,7 +113,7 @@ export async function buildMonthSummaries(
     ])
   );
 
-  return drivers.map((driver) =>
+  const summaries = drivers.map((driver) =>
     calculateDriverSummary({
       month,
       driver: {
@@ -146,4 +149,13 @@ export async function buildMonthSummaries(
       fuelPricePerLiter,
     })
   );
+
+  if (!opts.includeFuelStandard) return summaries;
+
+  // รถก๊าซไม่คิดน้ำมัน — ไม่ต้องคำนวณ
+  const fuelByDriver = await buildFuelStandardSummaries(
+    month,
+    drivers.filter((d) => !d.isGasVehicle).map((d) => d.id)
+  );
+  return summaries.map((s) => ({ ...s, fuelStandard: fuelByDriver.get(s.driverId) ?? null }));
 }
