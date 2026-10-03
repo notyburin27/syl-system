@@ -11,7 +11,10 @@ import type { FuelStandardSummary } from "@/types/job";
 
 const num = (v: { toString(): string } | null) => (v != null ? Number(v) : null);
 
-/** job ที่นับเป็นจุดเติม — ช่องลิตรใดช่องหนึ่ง > 0 และไม่ใช่ job ที่ถูกข้าม */
+/**
+ * job ที่นับเป็นจุดเติม — ช่องลิตรใดช่องหนึ่ง > 0 และไม่ใช่ job ที่ถูกข้าม
+ * "ช่องใดช่องหนึ่ง > 0" เท่ากับ "ผลรวม > 0" (ที่ calculator ใช้) ก็ต่อเมื่อลิตรไม่ติดลบ ซึ่ง API/ฟอร์มกันไว้แล้ว
+ */
 const FILL_WHERE = {
   isCancelled: false,
   jobType: { notIn: [...FUEL_EXCLUDED_JOB_TYPES] },
@@ -48,8 +51,8 @@ async function computeForDriver(
       fuelOfficeLiters: true,
       fuelCashLiters: true,
       fuelCreditLiters: true,
-      pairLinkAsPrimary: { select: { id: true } },
-      pairLinkAsSecondary: { select: { id: true } },
+      pairLinkAsPrimary: { select: { secondaryJobId: true } },
+      pairLinkAsSecondary: { select: { primaryJobId: true } },
     },
   });
 
@@ -71,6 +74,7 @@ async function computeForDriver(
       fuelCreditLiters: num(r.fuelCreditLiters),
     }),
     pairRole: r.pairLinkAsPrimary ? "primary" : r.pairLinkAsSecondary ? "secondary" : null,
+    pairPartnerId: r.pairLinkAsPrimary?.secondaryJobId ?? r.pairLinkAsSecondary?.primaryJobId ?? null,
   }));
 
   return computeFuelSegments(jobs, standards, { month, hasPreviousFill: !!prevFill });

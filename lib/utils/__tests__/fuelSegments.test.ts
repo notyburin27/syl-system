@@ -20,6 +20,7 @@ function job(over: Partial<FuelJob> = {}): FuelJob {
     ...R1,
     fuelLiters: 0,
     pairRole: null,
+    pairPartnerId: null,
     ...over,
   }
 }
@@ -94,8 +95,8 @@ test('job หลังจุดเติมสุดท้าย → pendingJobC
 
 test('งานจับคู่: primary ใช้ค่า 2x20DC, secondary = 0', () => {
   const r = run([
-    job({ size: '20DC', pairRole: 'secondary' }),
-    job({ size: '20DC', pairRole: 'primary', fuelLiters: 60 }),
+    job({ id: 'S', size: '20DC', pairRole: 'secondary', pairPartnerId: 'P' }),
+    job({ id: 'P', size: '20DC', pairRole: 'primary', pairPartnerId: 'S', fuelLiters: 60 }),
   ])
   assert.equal(r.segments[0].standardLiters, 50)
   assert.equal(r.segments[0].diffLiters, 10)
@@ -103,11 +104,36 @@ test('งานจับคู่: primary ใช้ค่า 2x20DC, secondary 
 
 test('งานจับคู่: secondary เป็นจุดเติมได้', () => {
   const r = run([
-    job({ size: '20DC', pairRole: 'primary' }),
-    job({ size: '20DC', pairRole: 'secondary', fuelLiters: 45 }),
+    job({ id: 'P', size: '20DC', pairRole: 'primary', pairPartnerId: 'S' }),
+    job({ id: 'S', size: '20DC', pairRole: 'secondary', pairPartnerId: 'P', fuelLiters: 45 }),
   ])
   assert.equal(r.segments.length, 1)
   assert.equal(r.segments[0].diffLiters, -5)
+})
+
+test('งานจับคู่: secondary เรียงก่อน primary และเติมที่ secondary → ช่วงเดียว มาตรฐาน 2x20DC', () => {
+  const r = run([
+    job({ id: 'S', size: '20DC', pairRole: 'secondary', pairPartnerId: 'P', fuelLiters: 100 }),
+    job({ id: 'P', size: '20DC', pairRole: 'primary', pairPartnerId: 'S' }),
+  ])
+  assert.equal(r.segments.length, 1)
+  assert.equal(r.segments[0].jobCount, 2)
+  assert.equal(r.segments[0].standardLiters, 50)
+  assert.equal(r.segments[0].diffLiters, 50)
+  assert.equal(r.pendingJobCount, 0)
+})
+
+test('งานจับคู่: secondary เรียงก่อน primary และเติมที่ primary → ช่วงปิดที่ primary, secondary (0) ตกช่วงถัดไป', () => {
+  const r = run([
+    job({ id: 'S', size: '20DC', pairRole: 'secondary', pairPartnerId: 'P' }),
+    job({ id: 'P', size: '20DC', pairRole: 'primary', pairPartnerId: 'S', fuelLiters: 60 }),
+    job({ id: 'X', fuelLiters: 40 }),
+  ])
+  assert.equal(r.segments.length, 2)
+  assert.equal(r.segments[0].jobCount, 1)
+  assert.equal(r.segments[0].standardLiters, 50)
+  assert.equal(r.segments[1].jobCount, 2)
+  assert.equal(r.segments[1].standardLiters, 40)
 })
 
 test('งานจับคู่ที่ไม่มีค่า 2x20DC → missingRoutes ใช้ size 2x20DC (ไว้ quick-add)', () => {

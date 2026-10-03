@@ -17,6 +17,8 @@ export interface FuelJob {
   /** OFF + สด + เครดิต — มากกว่า 0 คือจุดเติมเต็มถัง */
   fuelLiters: number;
   pairRole: "primary" | "secondary" | null;
+  /** id ของอีกใบในคู่ (null เมื่อไม่จับคู่) */
+  pairPartnerId: string | null;
 }
 
 export interface FuelStandardEntry {
@@ -99,6 +101,29 @@ function resolveStandard(
   return { lookupSize, liters: liters ?? null };
 }
 
+/**
+ * ใบรองต้องมาอยู่ถัดจากใบหลักเสมอ — ใบหลักสร้างทีหลังจึงถูกเรียงหลังใบรอง
+ * ถ้าไม่ย้าย การเติมที่ใบรองจะปิดช่วงก่อนมาตรฐาน 2x ของใบหลัก (ผลต่างเพี้ยนตามว่าลิตรอยู่ใบไหน)
+ */
+function placeSecondariesAfterPrimary(jobs: FuelJob[]): FuelJob[] {
+  const ids = new Set(jobs.map((j) => j.id));
+  const secondaryOf = new Map<string, FuelJob>();
+  for (const j of jobs) {
+    if (j.pairRole === "secondary" && j.pairPartnerId && ids.has(j.pairPartnerId)) {
+      secondaryOf.set(j.pairPartnerId, j);
+    }
+  }
+  const moved = new Set(secondaryOf.values());
+  const out: FuelJob[] = [];
+  for (const j of jobs) {
+    if (moved.has(j)) continue;
+    out.push(j);
+    const sec = secondaryOf.get(j.id);
+    if (sec && j.pairRole === "primary") out.push(sec);
+  }
+  return out;
+}
+
 function buildSegment(
   jobs: FuelJob[],
   litersByKey: Map<string, number>,
@@ -167,7 +192,7 @@ export function computeFuelSegments(
 
   const segments: FuelSegment[] = [];
   let current: FuelJob[] = [];
-  for (const job of jobs.filter(isFuelCountedJob)) {
+  for (const job of placeSecondariesAfterPrimary(jobs.filter(isFuelCountedJob))) {
     current.push(job);
     if (job.fuelLiters > 0) {
       segments.push(buildSegment(current, litersByKey, segments.length === 0 && !opts.hasPreviousFill));
