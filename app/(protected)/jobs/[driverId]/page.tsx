@@ -25,7 +25,9 @@ export default async function DriverJobPage({ params, searchParams }: Props) {
   if (!driver) redirect('/jobs')
 
   const currentMonth = month || dayjs().format('YYYY-MM')
-  const isAdmin = (session.user as { role?: string }).role === 'ADMIN'
+  const role = (session.user as { role?: string }).role
+  const isAdmin = role === 'ADMIN'
+  const canPairJobs = role === 'ADMIN' || role === 'SENIOR_STAFF'
 
   return (
     <Suspense>
@@ -35,6 +37,7 @@ export default async function DriverJobPage({ params, searchParams }: Props) {
         vehicleNumber={driver.vehicleNumber}
         month={currentMonth}
         isAdmin={isAdmin}
+        canPairJobs={canPairJobs}
       />
     </Suspense>
   )

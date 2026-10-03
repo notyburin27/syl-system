@@ -30,7 +30,7 @@ import {
 import { Popconfirm } from "antd";
 import dayjs from "dayjs";
 import type { Job, Customer, Location, JobTransfer, JobTowingLink, TowingJobSummary, MainJobSummary } from "@/types/job";
-import { JOB_TYPES, SIZE_OPTIONS, NO_JOB_REASONS, isTowingJobType } from "@/types/job";
+import { JOB_TYPES, SIZE_OPTIONS, NO_JOB_REASONS, isTowingJobType, getPairedSize } from "@/types/job";
 import QuickAddModal from "./QuickAddModal";
 
 interface JobFormModalProps {
@@ -375,6 +375,26 @@ export default function JobFormModal({
     } else {
       handleSaveStatus("error");
     }
+
+    // เลือกสถานที่รับตู้ → คำนวณการดูดซับทอยตู้ใหม่
+    const jt = form.getFieldValue("jobType");
+    if (
+      success &&
+      isAdmin &&
+      field === "pickupLocationId" &&
+      (jt === "inbound" || jt === "outbound")
+    ) {
+      try {
+        const res = await fetch(`/api/jobs/${targetJob.id}/absorb-towing`, { method: "POST" });
+        if (res.ok) {
+          const d = (await res.json()) as { absorbed: number; released: number };
+          if (d.absorbed > 0) message.success(`ล้างค่าเที่ยวทอยตู้ ${d.absorbed} ใบ`);
+          if (d.released > 0) message.info(`คืนสถานะทอยตู้ ${d.released} ใบ`);
+        }
+      } catch {
+        // เงียบไว้ — ผู้ใช้กด "ดึงข้อมูล" ซ่อมได้
+      }
+    }
   };
 
   const prefillEstimatedTransfer = async (trigger?: "pickupLocationId" | "returnLocationId" | "size" | "jobType") => {
@@ -426,7 +446,9 @@ export default function JobFormModal({
     const currentVal = form.getFieldValue("income");
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
-    const size = form.getFieldValue("size");
+    const rawSize = form.getFieldValue("size");
+    // ใบที่ถือยอดของคู่ใช้อัตราคู่ (2x20DC) แม้ size ใน DB ยังเป็น 20DC
+    const size = isPairPrimary ? getPairedSize(rawSize) ?? rawSize : rawSize;
     const factoryLocationId = form.getFieldValue("factoryLocationId");
     const customerId = form.getFieldValue("customerId");
     const jobDateVal = form.getFieldValue("jobDate");
@@ -455,7 +477,9 @@ export default function JobFormModal({
     const currentVal = form.getFieldValue("driverWage");
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
-    const size = form.getFieldValue("size");
+    const rawSize = form.getFieldValue("size");
+    // ใบที่ถือยอดของคู่ใช้อัตราคู่ (2x20DC) แม้ size ใน DB ยังเป็น 20DC
+    const size = isPairPrimary ? getPairedSize(rawSize) ?? rawSize : rawSize;
     const factoryLocationId = form.getFieldValue("factoryLocationId") ?? null;
     if (!jobType || !size) return;
     if (jobType !== "towing" && !factoryLocationId) return;
@@ -855,6 +879,12 @@ export default function JobFormModal({
   const isCleared = clearStatus;
   const fieldsDisabled = mode === "create" && !isCreated;
   const isTowingLinked = jobTypeWatch === "towing" && !!towingMainJob;
+  // จับคู่งาน — UI จับคู่อยู่ที่ตาราง modal แค่ใช้สถานะเพื่อดึงอัตราให้ถูกและกันแก้ยอด
+  const isPairPrimary = !!activeJob?.pairLinkAsPrimary;
+  const isPairSecondary = !!activeJob?.pairLinkAsSecondary;
+  const pairPrimaryJobNumber = activeJob?.pairLinkAsSecondary?.primaryJob?.jobNumber ?? "";
+  // ทอยตู้ที่ถูกงานหลักดูดซับ — ค่าเที่ยวรวมไปกับงานหลักแล้ว
+  const isTowingAbsorbed = !!activeJob?.isTowingAbsorbed;
   const hasSlot1Link = towingLinks.some((l) => l.sequence === 1);
   const hasSlot2Link = towingLinks.some((l) => l.sequence === 2);
   const hasAnyTowingLink = hasSlot1Link || hasSlot2Link;
@@ -1027,21 +1057,25 @@ export default function JobFormModal({
                       ยกเลิกใบงาน
                     </Checkbox>
                   </Tooltip>
-                  <Checkbox
-                    data-testid="job-carry-checkbox"
-                    checked={isCarry}
-                    disabled={isCleared}
-                    onChange={async (e) => {
-                      const next = e.target.checked;
-                      setIsCarry(next);
-                      handleSaveStatus("saving");
-                      const ok = await onFieldSave(activeJob.id, "isCarry", next);
-                      handleSaveStatus(ok ? "saved" : "error");
-                      if (!ok) setIsCarry(!next);
-                    }}
-                  >
-                    แบก
-                  </Checkbox>
+                  {/* งานที่ยกเลิก และใบที่ถูกจับคู่ (ฝั่งถูกล้างยอด) ไม่มีการแบก
+                      — จับคู่แล้ว = วิ่งครั้งเดียว แบกจึงติ๊กได้ใบเดียว */}
+                  {!isCancelled && !isPairSecondary && (
+                    <Checkbox
+                      data-testid="job-carry-checkbox"
+                      checked={isCarry}
+                      disabled={isCleared}
+                      onChange={async (e) => {
+                        const next = e.target.checked;
+                        setIsCarry(next);
+                        handleSaveStatus("saving");
+                        const ok = await onFieldSave(activeJob.id, "isCarry", next);
+                        handleSaveStatus(ok ? "saved" : "error");
+                        if (!ok) setIsCarry(!next);
+                      }}
+                    >
+                      แบก
+                    </Checkbox>
+                  )}
                 </div>
               )}
               {saveStatus === "saving" && (
@@ -1061,7 +1095,7 @@ export default function JobFormModal({
                   บันทึกล้มเหลว
                 </span>
               )}
-              {isAdmin && !isSpecialType && activeJob && (
+              {isAdmin && !isSpecialType && activeJob && !isPairSecondary && !isTowingAbsorbed && (
                 <Button
                   data-testid="job-prefill-btn"
                   type="default"
@@ -1574,9 +1608,26 @@ export default function JobFormModal({
                 </Col>
                 {isAdmin && (
                   <>
-                    <Col span={3}>{numberInput("income", "ค่าขนส่ง", isAdvance)}</Col>
                     <Col span={3}>
-                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance)}
+                      {numberInput("income", "ค่าขนส่ง", isAdvance || isPairSecondary)}
+                      {isPairSecondary && (
+                        <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
+                          ยอดรวมอยู่ที่ {pairPrimaryJobNumber}
+                        </div>
+                      )}
+                    </Col>
+                    <Col span={3}>
+                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance || isPairSecondary || isTowingAbsorbed)}
+                      {isPairSecondary && (
+                        <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
+                          ยอดรวมอยู่ที่ {pairPrimaryJobNumber}
+                        </div>
+                      )}
+                      {isTowingAbsorbed && (
+                        <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
+                          ค่าเที่ยวรวมอยู่กับงานหลัก
+                        </div>
+                      )}
                     </Col>
                   </>
                 )}

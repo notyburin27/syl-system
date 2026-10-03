@@ -51,6 +51,12 @@ export async function GET(req: Request) {
         towingLinkAsTowing: {
           include: { mainJob: { select: { id: true, jobNumber: true, jobDate: true, jobType: true } } },
         },
+        pairLinkAsPrimary: {
+          include: { secondaryJob: { select: { id: true, jobNumber: true, jobDate: true, size: true } } },
+        },
+        pairLinkAsSecondary: {
+          include: { primaryJob: { select: { id: true, jobNumber: true, jobDate: true, size: true } } },
+        },
       },
       orderBy: [{ jobDate: "asc" }, { createdAt: "asc" }],
     });

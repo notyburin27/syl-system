@@ -309,3 +309,128 @@ test('calculateDriverSummary: มีงานไม่ไปงานนับ�
   assert.equal(result.noShowDays, 2)
   assert.equal(result.repairDays, 1)
 })
+
+test('calculateDriverSummary: งานที่จับคู่แล้วนับเป็นเที่ยวเดียว แต่ยอดรวมครบ', () => {
+  const base = {
+    month: '2026-09',
+    driver: {
+      id: 'd1',
+      name: 'ประวิทย์ กันภัย',
+      vehicleNumber: 'SYL 50',
+      groupName: 'กลุ่ม 1',
+      startDate: '2025-08-25',
+      baseSalary: 9000,
+      isGasVehicle: false,
+    },
+    sickLeaveCount: 0,
+    personalLeaveCount: 0,
+    fuelPricePerLiter: 36,
+  }
+
+  const result = calculateDriverSummary({
+    ...base,
+    jobs: [
+      // ใบ primary ถือยอดอัตรา 2x20DC
+      { jobType: 'inbound', noJobReason: null, isCancelled: false, isCarry: false, toll: 50, liftFee: null, storageFee: null, tire: null, other: null, income: 5000, driverWage: 150, fuelOfficeLiters: 10, fuelCashLiters: 0, fuelCreditLiters: 0 },
+      // ใบ secondary ยอดถูกล้าง แต่ค่าใช้จ่าย/น้ำมันยังนับ
+      { jobType: 'inbound', noJobReason: null, isCancelled: false, isCarry: false, toll: 30, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: null, fuelOfficeLiters: 5, fuelCashLiters: 0, fuelCreditLiters: 0, isPairSecondary: true },
+    ],
+  })
+
+  assert.equal(result.jobTrips, 1)              // จับคู่แล้วนับเที่ยวเดียว
+  assert.equal(result.income, 5000)
+  assert.equal(result.driverWage, 150)
+  assert.equal(result.fuelLiters, 15)           // น้ำมันยังรวมทั้งสองใบ
+  assert.equal(result.otherExpensesPrefill, 80) // ค่าใช้จ่ายยังรวมทั้งสองใบ
+})
+
+test('calculateDriverSummary: ทอยตู้ที่จับคู่แล้วนับเป็นเที่ยวเดียว', () => {
+  const base = {
+    month: '2026-09',
+    driver: {
+      id: 'd1', name: 'ประวิทย์ กันภัย', vehicleNumber: 'SYL 50',
+      groupName: 'กลุ่ม 1', startDate: '2025-08-25', baseSalary: 9000, isGasVehicle: false,
+    },
+    sickLeaveCount: 0, personalLeaveCount: 0, fuelPricePerLiter: 36,
+  }
+
+  const result = calculateDriverSummary({
+    ...base,
+    jobs: [
+      { jobType: 'towing', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: 800, driverWage: 80, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+      { jobType: 'towing', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: null, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0, isPairSecondary: true },
+    ],
+  })
+
+  assert.equal(result.towingTrips, 1)
+  assert.equal(result.income, 800)
+})
+
+test('calculateDriverSummary: แบกนับเหมือนเที่ยว — จับคู่แล้วนับครั้งเดียว', () => {
+  const base = {
+    month: '2026-09',
+    driver: {
+      id: 'd1', name: 'ประวิทย์ กันภัย', vehicleNumber: 'SYL 50',
+      groupName: 'กลุ่ม 1', startDate: '2025-08-25', baseSalary: 9000, isGasVehicle: false,
+    },
+    sickLeaveCount: 0, personalLeaveCount: 0, fuelPricePerLiter: 36,
+  }
+
+  const result = calculateDriverSummary({
+    ...base,
+    jobs: [
+      { jobType: 'inbound', noJobReason: null, isCancelled: false, isCarry: true, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: 5000, driverWage: 150, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+      { jobType: 'inbound', noJobReason: null, isCancelled: false, isCarry: true, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: null, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0, isPairSecondary: true },
+    ],
+  })
+
+  assert.equal(result.jobTrips, 1)          // เที่ยวลดลง
+  assert.equal(result.carryTripsPrefill, 1) // แบกลดลงตามเที่ยว — วิ่งครั้งเดียว
+})
+
+test('calculateDriverSummary: ทอยตู้ที่ถูกดูดซับไม่นับเป็นเที่ยว แต่ทอยตู้ปกติยังนับ', () => {
+  const base = {
+    month: '2026-08',
+    driver: {
+      id: 'd1', name: 'ประวิทย์ กันภัย', vehicleNumber: 'SYL 50',
+      groupName: 'กลุ่ม 1', startDate: '2025-08-25', baseSalary: 9000, isGasVehicle: false,
+    },
+    sickLeaveCount: 0, personalLeaveCount: 0, fuelPricePerLiter: 36,
+  }
+
+  const result = calculateDriverSummary({
+    ...base,
+    jobs: [
+      // งานหลักที่รับตู้จากคาหาง
+      { jobType: 'outbound', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: 7000, driverWage: 650, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+      // ทอยตู้ที่ถูกดูดซับ — ค่าเที่ยวถูกล้างไปแล้ว
+      { jobType: 'towing', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: null, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0, isTowingAbsorbed: true },
+      // ทอยตู้ปกติในเดือนเดียวกัน — ยังนับ
+      { jobType: 'towing', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: 150, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0 },
+    ],
+  })
+
+  assert.equal(result.towingTrips, 1)   // นับเฉพาะใบที่ไม่ถูกดูดซับ
+  assert.equal(result.jobTrips, 1)      // งานหลักยังนับปกติ
+  assert.equal(result.driverWage, 800)  // 650 + 150 (ใบที่ถูกดูดซับเป็น null)
+})
+
+test('calculateDriverSummary: ทอยตู้หนักที่ถูกดูดซับก็ไม่นับ', () => {
+  const base = {
+    month: '2026-08',
+    driver: {
+      id: 'd1', name: 'ประวิทย์ กันภัย', vehicleNumber: 'SYL 50',
+      groupName: 'กลุ่ม 1', startDate: '2025-08-25', baseSalary: 9000, isGasVehicle: false,
+    },
+    sickLeaveCount: 0, personalLeaveCount: 0, fuelPricePerLiter: 36,
+  }
+
+  const result = calculateDriverSummary({
+    ...base,
+    jobs: [
+      { jobType: 'towingHeavy', noJobReason: null, isCancelled: false, isCarry: false, toll: null, liftFee: null, storageFee: null, tire: null, other: null, income: null, driverWage: null, fuelOfficeLiters: 0, fuelCashLiters: 0, fuelCreditLiters: 0, isTowingAbsorbed: true },
+    ],
+  })
+
+  assert.equal(result.towingTrips, 0)
+})

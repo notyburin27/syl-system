@@ -771,10 +771,12 @@ export async function POST(
       const created = await tx.jobPairLink.create({
         data: { primaryJobId: primary.id, secondaryJobId: secondary.id },
       });
-      // ล้างยอดฝั่ง secondary — ยอดทั้งคู่ไปรวมที่ primary ในอัตราคู่
+      // ล้างยอดทั้งสองใบ — ยอดเดิมเป็นอัตราตู้เดียว ใช้กับคู่ไม่ได้
+      // primary ต้องว่างด้วย ไม่งั้นปุ่ม "ดึงข้อมูล" จะข้ามมัน (เติมเฉพาะช่องที่ null)
+      // แล้วทริปนี้จะค้างอยู่ที่ราคาตู้เดียวตลอดไป
       // (update ตรงนี้ไม่ผ่าน PATCH endpoint จึงไม่ติด guard ของตัวเอง)
-      await tx.job.update({
-        where: { id: secondary.id },
+      await tx.job.updateMany({
+        where: { id: { in: [primary.id, secondary.id] } },
         data: { income: null, driverWage: null },
       });
       return created;
@@ -935,7 +937,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     }
 ```
 
-> **ระวัง:** guard นี้ต้องอยู่**หลัง**บล็อก `if (data.isCancelled === true) { data.income = null; ... }` (บรรทัด ~156-159) ไม่งั้นการยกเลิกงาน secondary จะถูกปฏิเสธ เพราะบล็อกนั้น set `data.income` ขึ้นมาเอง
+> **ระวัง:** guard นี้ต้องอยู่**ก่อน**บล็อก `if (data.isCancelled === true) { data.income = null; ... }` (บรรทัด ~156-159) ไม่งั้นการยกเลิกงาน secondary จะถูกปฏิเสธ เพราะบล็อกนั้น set `data.income = null` ขึ้นมาเอง ทำให้ `data.income !== undefined` เป็น true แล้ว guard จะเข้าใจผิดว่าผู้ใช้พยายามแก้ยอด
+>
+> ไล่เคสยืนยัน: ผู้ใช้ยกเลิกงาน secondary → client ส่งแค่ `{ isCancelled: true }` → ตอน guard ทำงาน `data.income` ยังเป็น `undefined` → guard ข้าม → บล็อก isCancelled ทำงานต่อ → ยกเลิกสำเร็จ ✅
 
 และเพิ่ม include เดียวกับ Step 1 เข้าไปใน `prisma.job.update({ ..., include: {...} })` (บรรทัด ~163-180)
 
@@ -1479,11 +1483,6 @@ export default function PairJobModal({
       ? { income: job?.income ?? null, driverWage: job?.driverWage ?? null }
       : { income: selected.income ?? null, driverWage: selected.driverWage ?? null }
     : null
-  const primaryHasRate = selected
-    ? selected.willBePrimary
-      ? selected.income != null || selected.driverWage != null
-      : (job?.income ?? null) != null || (job?.driverWage ?? null) != null
-    : false
 
   return (
     <Modal
@@ -1537,22 +1536,22 @@ export default function PairJobModal({
               }}
             >
               <div style={{ fontWeight: 500, marginBottom: 4 }}>ผลลัพธ์:</div>
-              <div>ยอดจะไปรวมที่ → <b>{primaryLabel}</b> (สร้างทีหลัง)</div>
+              <div>ใบที่จะถือยอด → <b>{primaryLabel}</b> (สร้างทีหลัง)</div>
               <div>
                 {isAdmin && clearedAmounts
-                  ? `ยอดที่จะถูกล้าง → ${clearedLabel}: ค่าขนส่ง ${fmt(clearedAmounts.income)} · ค่าเที่ยว ${fmt(clearedAmounts.driverWage)}`
-                  : `ยอดของ ${clearedLabel} จะถูกล้าง`}
+                  ? `ยอดที่จะถูกล้างทั้งคู่ → ค่าขนส่ง ${fmt(clearedAmounts.income)} · ค่าเที่ยว ${fmt(clearedAmounts.driverWage)}`
+                  : `ยอดของทั้งสองใบจะถูกล้าง`}
               </div>
               <div>อัตราที่จะใช้ → <b>{pairedSize ?? '—'}</b></div>
             </div>
           )}
 
-          {isAdmin && selected && primaryHasRate && (
+          {selected && (
             <Alert
-              type="warning"
+              type="info"
               showIcon
               style={{ marginTop: 12 }}
-              message={`${primaryLabel} มียอดอยู่แล้ว — ปุ่ม "ดึงข้อมูล" จะไม่ทับ ต้องล้างยอดเองก่อน`}
+              message={`ยอดของทั้งสองใบจะถูกล้าง — กด "ดึงข้อมูล" เพื่อเติมอัตรา ${pairedSize ?? ''}`}
             />
           )}
         </>

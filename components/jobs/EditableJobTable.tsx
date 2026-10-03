@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Table, Button, App, DatePicker, Checkbox } from 'antd'
+import { Table, Button, App, DatePicker, Checkbox, Tag, Tooltip } from 'antd'
 import {
   FormOutlined,
   PlusOutlined,
@@ -13,13 +13,22 @@ import {
   CheckOutlined,
   CheckCircleOutlined,
   CalendarOutlined,
+  LinkOutlined,
+  DisconnectOutlined,
 } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import JobTableCell from './JobTableCell'
 import JobFormModal from './JobFormModal'
 import LeaveManagerModal from './LeaveManagerModal'
+import PairJobModal from './PairJobModal'
 import type { Job, Customer, Location } from '@/types/job'
-import { JOB_TYPES, SIZE_OPTIONS, getNoJobReasonLabel } from '@/types/job'
+import {
+  JOB_TYPES,
+  SIZE_OPTIONS,
+  getNoJobReasonLabel,
+  isPairableJobType,
+  isPairableSize,
+} from '@/types/job'
 import type { DriverLeave, CompanyHoliday } from '@/types/leave'
 import { LEAVE_TYPE_LABELS } from '@/types/leave'
 import dayjs from 'dayjs'
@@ -33,6 +42,8 @@ interface EditableJobTableProps {
   vehicleNumber?: string | null
   month: string // format: YYYY-MM
   isAdmin: boolean
+  /** ADMIN | SENIOR_STAFF — แยกจาก isAdmin ที่คุมการมองเห็นคอลัมน์การเงิน */
+  canPairJobs: boolean
 }
 
 interface BannerRow {
@@ -58,6 +69,7 @@ export default function EditableJobTable({
   vehicleNumber,
   month,
   isAdmin,
+  canPairJobs,
 }: EditableJobTableProps) {
   const { message, modal } = App.useApp()
   const router = useRouter()
@@ -74,6 +86,10 @@ export default function EditableJobTable({
 
   const [clearingId, setClearingId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+
+  // Job pairing state
+  const [pairModalJob, setPairModalJob] = useState<Job | null>(null)
+  const [unpairingId, setUnpairingId] = useState<string | null>(null)
 
   // งานที่ถูกส่งมาจากโมดัลค้นหา (?highlight=jobId) — scroll ไปหาแล้วเรืองแสงชั่วคราว
   const highlightId = searchParams.get('highlight')
@@ -469,6 +485,50 @@ export default function EditableJobTable({
     !isBanner(row) && (row.jobType === 'advance' || row.jobType === 'noJob')
 
   // record ไม่มีงาน: แสดงเหตุผล/หมายเหตุแทนเลข JOB และพาดคอลัมน์เหมือน banner
+  // ── จับคู่งาน (2 ตู้ 20 ฟุตในเที่ยวเดียว) ──
+  const pairInfo = (row: RowData) => {
+    const j = row as Job
+    const asPrimary = isBanner(row) ? null : j.pairLinkAsPrimary
+    const asSecondary = isBanner(row) ? null : j.pairLinkAsSecondary
+    return {
+      isPrimary: !!asPrimary,
+      isSecondary: !!asSecondary,
+      isPaired: !!asPrimary || !!asSecondary,
+      otherJobNumber:
+        asPrimary?.secondaryJob?.jobNumber ?? asSecondary?.primaryJob?.jobNumber ?? '',
+    }
+  }
+
+  const canPairRow = (row: RowData) => {
+    if (isBanner(row)) return false
+    const j = row as Job
+    return (
+      isPairableJobType(j.jobType) &&
+      isPairableSize(j.size) &&
+      !j.clearStatus &&
+      !j.isCancelled &&
+      !pairInfo(row).isPaired
+    )
+  }
+
+  const handleUnpair = async (row: Job) => {
+    setUnpairingId(row.id)
+    try {
+      const res = await fetch(`/api/jobs/${row.id}/pair-link`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        message.error(data.error || 'ปลดคู่ไม่สำเร็จ')
+        return
+      }
+      message.success('ปลดคู่เรียบร้อย')
+      await fetchJobs()
+    } catch {
+      message.error('เกิดข้อผิดพลาดในการปลดคู่')
+    } finally {
+      setUnpairingId(null)
+    }
+  }
+
   const isNoJobRecord = (row: RowData): row is Job =>
     !isBanner(row) && row.jobType === 'noJob'
 
@@ -591,12 +651,42 @@ export default function EditableJobTable({
           title: 'SIZE',
           dataIndex: 'size',
           key: 'size',
-          width: 70,
+          // เผื่อ Tag "2x" ของงานที่จับคู่แล้ว
+          width: 100,
           onCell: (row: RowData) => (isMergedInfoRow(row) ? { colSpan: 0 } : {}),
-          render: (_: unknown, row: RowData) =>
-            renderCell(row, 'size', 'select', sizeOptions, {
+          render: (_: unknown, row: RowData) => {
+            const p = pairInfo(row)
+            const cell = renderCell(row, 'size', 'select', sizeOptions, {
               disabled: isAdvanceType(row),
-            }),
+            })
+            const absorbed = !isBanner(row) && (row as Job).isTowingAbsorbed
+            if (!p.isPaired && !absorbed) return cell
+            // จับคู่แล้ว — size ใน DB ยังเป็น 20DC อยู่ Tag "2x" บอกว่าคิดอัตราคู่
+            return (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {cell}
+                {p.isPaired && (
+                  <Tooltip
+                    title={p.isPrimary ? `จับคู่กับ ${p.otherJobNumber}` : `ยอดรวมอยู่ที่ ${p.otherJobNumber}`}
+                  >
+                    <Tag
+                      color={p.isPrimary ? 'blue' : undefined}
+                      style={{ margin: 0, fontSize: 11 }}
+                    >
+                      2x
+                    </Tag>
+                  </Tooltip>
+                )}
+                {absorbed && (
+                  <Tooltip title="ค่าเที่ยวรวมอยู่กับงานหลักที่รับตู้จากคาหาง/รับเช้าเดินทาง">
+                    <Tag color="orange" style={{ margin: 0, fontSize: 11 }}>
+                      รวม
+                    </Tag>
+                  </Tooltip>
+                )}
+              </span>
+            )
+          },
         },
       ],
     },
@@ -646,7 +736,7 @@ export default function EditableJobTable({
               width: 110,
               render: (_: unknown, row: RowData) =>
                 renderCell(row, 'income', 'number', undefined, {
-                  disabled: isAdvanceType(row),
+                  disabled: isAdvanceType(row) || pairInfo(row).isSecondary,
                 }),
             },
             {
@@ -656,7 +746,7 @@ export default function EditableJobTable({
               width: 120,
               render: (_: unknown, row: RowData) =>
                 renderCell(row, 'driverWage', 'number', undefined, {
-                  disabled: isAdvanceType(row),
+                  disabled: isAdvanceType(row) || pairInfo(row).isSecondary,
                 }),
             },
           ],
@@ -783,7 +873,7 @@ export default function EditableJobTable({
     {
       title: 'สถานะ',
       fixed: 'right' as const,
-      width: isAdmin ? 124 : 84,
+      width: (isAdmin ? 124 : 84) + (canPairJobs ? 40 : 0),
       children: [
         {
           title: 'แบก',
@@ -793,8 +883,11 @@ export default function EditableJobTable({
           align: 'center' as const,
           render: (_: unknown, row: RowData) => {
             if (isBanner(row)) return null
-            // เบิกล่วงหน้า/ไม่มีงาน ไม่มีการแบก และงานที่เคลียร์แล้วล็อกไม่ให้แก้
+            // เบิกล่วงหน้า/ไม่มีงาน/งานที่ยกเลิก ไม่มีการแบก และงานที่เคลียร์แล้วล็อกไม่ให้แก้
             if (row.jobType === 'advance' || row.jobType === 'noJob') return null
+            if ((row as Job).isCancelled) return null
+            // จับคู่แล้ว = วิ่งครั้งเดียว แบกจึงติ๊กได้ใบเดียว (ใบที่ถือยอด)
+            if (pairInfo(row).isSecondary) return null
             return (
               <Checkbox
                 data-testid={`job-carry-checkbox-${row.id}`}
@@ -806,6 +899,61 @@ export default function EditableJobTable({
             )
           },
         },
+        ...(canPairJobs
+          ? [{
+              title: '',
+              key: 'pairLink',
+              width: 40,
+              fixed: 'right' as const,
+              align: 'center' as const,
+              render: (_: unknown, row: RowData) => {
+                if (isBanner(row)) return null
+                if (row.jobType === 'advance' || row.jobType === 'noJob') return null
+                const p = pairInfo(row)
+
+                if (p.isPaired) {
+                  const busy = unpairingId === row.id
+                  return (
+                    <Button
+                      data-testid={`job-unpair-btn-${row.id}`}
+                      type="link"
+                      size="small"
+                      icon={busy ? <LoadingOutlined /> : <DisconnectOutlined style={{ color: '#fa8c16' }} />}
+                      disabled={busy || row.clearStatus}
+                      title={`ปลดคู่กับ ${p.otherJobNumber}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        modal.confirm({
+                          title: `ปลดคู่ ${(row as Job).jobNumber} + ${p.otherJobNumber}?`,
+                          content: p.isPrimary
+                            ? `ยอดของ ${p.otherJobNumber} จะยังเป็นค่าว่าง — ต้องกรอกหรือกด "ดึงข้อมูล" เอง และยอดของใบนี้จะยังเป็นอัตราคู่`
+                            : `ยอดของใบนี้จะยังเป็นค่าว่าง — ต้องกรอกหรือกด "ดึงข้อมูล" เอง และยอดของ ${p.otherJobNumber} จะยังเป็นอัตราคู่`,
+                          okText: 'ปลดคู่',
+                          cancelText: 'ยกเลิก',
+                          onOk: () => handleUnpair(row as Job),
+                        })
+                      }}
+                    />
+                  )
+                }
+
+                if (!canPairRow(row)) return null
+                return (
+                  <Button
+                    data-testid={`job-pair-btn-${row.id}`}
+                    type="link"
+                    size="small"
+                    icon={<LinkOutlined />}
+                    title="จับคู่งาน"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPairModalJob(row as Job)
+                    }}
+                  />
+                )
+              },
+            }]
+          : []),
         {
           title: '',
           key: 'clearStatus',
@@ -981,6 +1129,7 @@ export default function EditableJobTable({
           if (r.jobType === 'advance') return 'advance-row'
           if (r.clearStatus) return 'locked-row'
           if ((r as Job).isCancelled) return 'cancelled-row'
+          if (pairInfo(r).isPaired) return 'paired-row'
           if (modalEditMode) return 'clickable-row'
           return ''
         }}
@@ -1063,6 +1212,25 @@ export default function EditableJobTable({
         onRefreshReferenceData={fetchReferenceData}
       />
 
+      {/* Pair Job Modal */}
+      <PairJobModal
+        open={!!pairModalJob}
+        job={
+          pairModalJob
+            ? {
+                id: pairModalJob.id,
+                jobNumber: pairModalJob.jobNumber,
+                size: pairModalJob.size,
+                income: pairModalJob.income,
+                driverWage: pairModalJob.driverWage,
+              }
+            : null
+        }
+        isAdmin={isAdmin}
+        onClose={() => setPairModalJob(null)}
+        onSuccess={fetchJobs}
+      />
+
       <style jsx global>{`
         @keyframes highlight-fade {
           0%, 55% { background-color: #ffe58f; }
@@ -1101,6 +1269,20 @@ export default function EditableJobTable({
         .locked-row:hover td.ant-table-cell-fix-left,
         .locked-row:hover td.ant-table-cell-fix-right {
           background-color: #d9f7be !important;
+        }
+        .paired-row td {
+          background-color: #f0f7ff !important;
+        }
+        .paired-row:hover td {
+          background-color: #d6e9ff !important;
+        }
+        .paired-row td.ant-table-cell-fix-left,
+        .paired-row td.ant-table-cell-fix-right {
+          background-color: #f0f7ff !important;
+        }
+        .paired-row:hover td.ant-table-cell-fix-left,
+        .paired-row:hover td.ant-table-cell-fix-right {
+          background-color: #d6e9ff !important;
         }
         .ant-table-cell {
           padding: 4px 8px !important;
