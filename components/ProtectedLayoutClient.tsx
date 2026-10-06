@@ -12,6 +12,7 @@ import {
   TruckOutlined,
   DownOutlined,
   PictureOutlined,
+  CarOutlined,
 } from "@ant-design/icons";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -47,6 +48,10 @@ export default function ProtectedLayoutClient({
 
   // Get selected key based on current path
   const getSelectedKey = () => {
+    if (pathname?.startsWith("/renewals/vehicles")) return "renewals-vehicles";
+    if (pathname?.startsWith("/renewals/insurers")) return "renewals-insurers";
+    if (pathname?.startsWith("/renewals/import")) return "renewals-import";
+    if (pathname?.startsWith("/renewals")) return "renewals-dashboard";
     if (pathname?.startsWith("/admin/users")) return "users";
     if (pathname?.startsWith("/statement-converter"))
       return "statement-converter";
@@ -77,6 +82,7 @@ export default function ProtectedLayoutClient({
     // สรุปงานอยู่ใต้เมนูงานขนส่ง จึงต้องกาง "jobs" ด้วยเวลาอยู่หน้า /summary
     if (pathname?.startsWith("/jobs") || pathname?.startsWith("/summary")) keys.push("jobs");
     if (pathname?.startsWith("/jobs/settings")) keys.push("jobs-settings");
+    if (pathname?.startsWith("/renewals")) keys.push("renewals");
     return keys;
   };
 
@@ -167,14 +173,29 @@ export default function ProtectedLayoutClient({
     label: <Link href="/admin/users">จัดการผู้ใช้</Link>,
   };
 
+  const renewalsMenu = {
+    key: "renewals",
+    icon: <CarOutlined />,
+    label: "ต่ออายุรถ",
+    children: [
+      { key: "renewals-dashboard", label: <Link href="/renewals">ภาพรวม</Link> },
+      { key: "renewals-vehicles", label: <Link href="/renewals/vehicles">ทะเบียนรถ</Link> },
+      { key: "renewals-insurers", label: <Link href="/renewals/insurers">บริษัทประกัน</Link> },
+      { key: "renewals-import", label: <Link href="/renewals/import">นำเข้า Excel</Link> },
+    ],
+  };
+
   const menuItems = isAdmin
     ? [
         ...commonMenuItems,
+        renewalsMenu,
         stockMenu,
         usersMenu,
       ]
     : isManager
-    ? commonMenuItems
+    ? [...commonMenuItems, renewalsMenu]
+    : userRole === "INSURANCE"
+    ? [renewalsMenu]
     : isSeniorStaff
     ? [
         jobsMenu,
@@ -285,11 +306,13 @@ export default function ProtectedLayoutClient({
                     ? "purple"
                     : userRole === "SENIOR_STAFF"
                     ? "geekblue"
+                    : userRole === "INSURANCE"
+                    ? "gold"
                     : "blue"
                 }
                 style={{ marginLeft: 2, marginRight: 0 }}
               >
-                {userRole}
+                {userRole === "INSURANCE" ? "ฝ่ายประกัน" : userRole}
               </Tag>
               <DownOutlined style={{ fontSize: 10 }} />
             </Space>
