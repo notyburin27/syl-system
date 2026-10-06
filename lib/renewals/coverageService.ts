@@ -1,10 +1,17 @@
 import type { Prisma } from '@/app/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { planAutoClose, type AutoCloseRow } from './autoClose'
-import { OPEN_STATUSES } from './constants'
+import { OPEN_STATUSES, isOpenStatus, type CoverageTypeKey } from './constants'
 import { dateToYmd, ymdToDate } from './dateOnly'
-import { DUPLICATE_PERIOD_ERROR, badRequest, conflict, isUniqueViolation, notFound } from './http'
-import { sanitizeCoverageFields, type CoverageCreateInput, type CoverageFields } from './schemas'
+import { CLOSED_ERROR, DUPLICATE_PERIOD_ERROR, badRequest, conflict, isUniqueViolation, notFound } from './http'
+import { validateNewPeriod } from './renewalDefaults'
+import {
+  sanitizeCoverageFields,
+  type BulkRenewInput,
+  type BulkStatusInput,
+  type CoverageCreateInput,
+  type CoverageFields,
+} from './schemas'
 
 export type Tx = Prisma.TransactionClient
 
@@ -179,5 +186,133 @@ export async function deleteCoverage(id: string, userId: string): Promise<string
     await tx.vehicleCoverage.delete({ where: { id } })
     await enforceCoverageRules(tx, [row.vehicleId], userId)
     return row.attachments.map((a) => a.fileKey)
+  })
+}
+
+/** ปิดงวดเดิมแบบมีเงื่อนไข (กันกดซ้ำ/พร้อมกัน) แล้วสร้างงวดใหม่และผูก renewedToId */
+async function createNextPeriod(
+  tx: Tx,
+  old: { id: string; vehicleId: string; type: CoverageTypeKey },
+  fields: PeriodData,
+  userId: string,
+): Promise<string> {
+  const claimed = await tx.vehicleCoverage.updateMany({
+    where: { id: old.id, renewalStatus: OPEN_FILTER },
+    data: { renewalStatus: 'RENEWED', notRenewedReason: null, statusUpdatedAt: new Date(), statusUpdatedById: userId },
+  })
+  if (claimed.count !== 1) throw conflict(CLOSED_ERROR)
+  const created = await tx.vehicleCoverage.create({
+    data: { vehicleId: old.vehicleId, type: old.type, ...coverageData(fields), createdById: userId },
+  })
+  await tx.vehicleCoverage.update({ where: { id: old.id }, data: { renewedToId: created.id } })
+  return created.id
+}
+
+export async function renewCoverage(id: string, input: CoverageFields, userId: string): Promise<string> {
+  return withDuplicateGuard(() =>
+    prisma.$transaction(async (tx) => {
+      const old = await tx.vehicleCoverage.findUnique({
+        where: { id },
+        select: { id: true, vehicleId: true, type: true, endDate: true, renewalStatus: true },
+      })
+      if (!old) throw notFound('ไม่พบงวด')
+      if (!isOpenStatus(old.renewalStatus)) throw conflict(CLOSED_ERROR)
+      const periodError = validateNewPeriod(dateToYmd(old.endDate), input.startDate, input.endDate)
+      if (periodError) throw badRequest(periodError)
+      const fields = sanitizeCoverageFields(old.type, input)
+      await assertReferences(tx, fields, old.vehicleId)
+      return createNextPeriod(tx, old, fields, userId)
+    }),
+  )
+}
+
+/** ต่อแล้วหลายรายการ (ประเภทเดียวกัน) — ทั้งชุดสำเร็จหรือไม่สำเร็จพร้อมกัน; เบี้ย/ค่าบริการคัดลอกจากงวดเดิมรายคัน */
+export async function bulkRenew(input: BulkRenewInput, userId: string): Promise<number> {
+  const ids = [...new Set(input.ids)]
+  return withDuplicateGuard(() =>
+    prisma.$transaction(
+      async (tx) => {
+        const olds = await tx.vehicleCoverage.findMany({
+          where: { id: { in: ids } },
+          include: { vehicle: { select: { plate: true } } },
+        })
+        if (olds.length !== ids.length) throw notFound('ไม่พบบางรายการ — โหลดหน้าใหม่แล้วลองอีกครั้ง')
+        if (new Set(olds.map((o) => o.type)).size > 1) throw badRequest('ต่อแล้วแบบหลายรายการต้องเป็นประเภทเดียวกัน')
+        const plates = (rows: typeof olds) => rows.map((o) => o.vehicle.plate).join(', ')
+        const closed = olds.filter((o) => !isOpenStatus(o.renewalStatus))
+        if (closed.length > 0) throw conflict(`งวดถูกปิดไปแล้ว: ${plates(closed)}`)
+        const invalid = olds.filter(
+          (o) => validateNewPeriod(dateToYmd(o.endDate), input.startDate, input.endDate) !== null,
+        )
+        if (invalid.length > 0) throw badRequest(`วันสิ้นสุดใหม่ต้องหลังวันสิ้นสุดของงวดเดิม: ${plates(invalid)}`)
+        if (input.insurerId && !(await tx.insurer.findUnique({ where: { id: input.insurerId }, select: { id: true } }))) {
+          throw badRequest('ไม่พบบริษัทประกัน')
+        }
+        for (const old of olds) {
+          const fields = sanitizeCoverageFields(old.type, {
+            insurerId: input.insurerId ?? old.insurerId,
+            coverageClass: old.coverageClass,
+            policyNumber: null,
+            startDate: input.startDate,
+            endDate: input.endDate,
+            amount: old.amount === null ? null : Number(old.amount),
+            serviceFee: old.serviceFee === null ? null : Number(old.serviceFee),
+            pairedVehicleId: old.pairedVehicleId,
+            renewalNote: null,
+          })
+          await createNextPeriod(tx, old, fields, userId)
+        }
+        return olds.length
+      },
+      { timeout: 30_000 },
+    ),
+  )
+}
+
+/** รอต่อ ↔ กำลังดำเนินการ / ไม่ต่อ (หลายรายการ) — ทั้งชุดสำเร็จหรือไม่สำเร็จพร้อมกัน */
+export async function bulkSetStatus(input: BulkStatusInput, userId: string): Promise<number> {
+  const ids = [...new Set(input.ids)]
+  return prisma.$transaction(async (tx) => {
+    const olds = await tx.vehicleCoverage.findMany({
+      where: { id: { in: ids } },
+      select: { renewalStatus: true, vehicle: { select: { plate: true } } },
+    })
+    if (olds.length !== ids.length) throw notFound('ไม่พบบางรายการ — โหลดหน้าใหม่แล้วลองอีกครั้ง')
+    const closed = olds.filter((o) => !isOpenStatus(o.renewalStatus))
+    if (closed.length > 0) throw conflict(`งวดถูกปิดไปแล้ว: ${closed.map((o) => o.vehicle.plate).join(', ')}`)
+
+    const statusData =
+      input.status === 'NOT_RENEWED'
+        ? { renewalStatus: 'NOT_RENEWED' as const, notRenewedReason: input.reason, ...(input.note ? { renewalNote: input.note } : {}) }
+        : { renewalStatus: input.status, notRenewedReason: null }
+    const res = await tx.vehicleCoverage.updateMany({
+      where: { id: { in: ids }, renewalStatus: OPEN_FILTER },
+      data: { ...statusData, statusUpdatedAt: new Date(), statusUpdatedById: userId },
+    })
+    if (res.count !== ids.length) throw conflict(CLOSED_ERROR)
+    return res.count
+  })
+}
+
+/** ไม่ต่อ → รอต่อ (เช่น รถซ่อมเสร็จกลับมาใช้) */
+export async function reopenCoverage(id: string, userId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const row = await tx.vehicleCoverage.findUnique({
+      where: { id },
+      select: { vehicleId: true, type: true, endDate: true, renewalStatus: true, vehicle: { select: { status: true } } },
+    })
+    if (!row) throw notFound('ไม่พบงวด')
+    if (row.renewalStatus !== 'NOT_RENEWED') throw conflict('เปิดใหม่ได้เฉพาะงวดที่ไม่ต่อ')
+    if (row.vehicle.status === 'SOLD') throw conflict('รถคันนี้ขายแล้ว เปิดงวดใหม่ไม่ได้')
+    const newer = await tx.vehicleCoverage.findFirst({
+      where: { vehicleId: row.vehicleId, type: row.type, endDate: { gt: row.endDate } },
+      select: { id: true },
+    })
+    if (newer) throw conflict('เปิดใหม่ไม่ได้ เพราะมีงวดที่หมดช้ากว่าแล้ว')
+    const res = await tx.vehicleCoverage.updateMany({
+      where: { id, renewalStatus: 'NOT_RENEWED' },
+      data: { renewalStatus: 'PENDING', notRenewedReason: null, statusUpdatedAt: new Date(), statusUpdatedById: userId },
+    })
+    if (res.count !== 1) throw conflict(CLOSED_ERROR)
   })
 }
