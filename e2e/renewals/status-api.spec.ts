@@ -34,12 +34,15 @@ test.describe.serial('API สถานะการต่อ', () => {
   test('กดต่อแล้วพร้อมกัน 2 ครั้ง → สำเร็จ 1 ครั้ง อีกครั้ง 409 และมีงวดใหม่งวดเดียว', async ({ page }) => {
     const vid = await createVehicle(page, 'E2E-2002 กท')
     const cid = await createCoverage(page, vid, 'PRB', '2026-12-31')
-    const body = { data: { startDate: '2027-01-01', endDate: '2027-12-31' } }
+    // endDate ต่างกัน เพื่อไม่ให้ unique (vehicleId,type,endDate) บังเกิดผลแทน conditional claim
     const [a, b] = await Promise.all([
-      page.request.post(`/api/renewals/coverages/${cid}/renew`, body),
-      page.request.post(`/api/renewals/coverages/${cid}/renew`, body),
+      page.request.post(`/api/renewals/coverages/${cid}/renew`, { data: { startDate: '2027-01-01', endDate: '2027-12-30' } }),
+      page.request.post(`/api/renewals/coverages/${cid}/renew`, { data: { startDate: '2027-01-01', endDate: '2027-12-31' } }),
     ])
     expect([a.status(), b.status()].sort()).toEqual([201, 409])
+    const loser = a.status() === 409 ? a : b
+    // ข้อความเดียวกับ CLOSED_ERROR ใน lib/renewals/http.ts (inline: http.ts import next/server)
+    expect((await loser.json()).error).toBe('งวดนี้ถูกปิดไปแล้ว — โหลดหน้าใหม่แล้วลองอีกครั้ง')
     expect((await getVehicleDetail(page, vid)).coverages).toHaveLength(2)
   })
 
