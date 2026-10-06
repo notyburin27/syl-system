@@ -74,4 +74,45 @@ test.describe.serial('ไฟล์แนบ', () => {
     expect(res.status()).toBe(400)
     expect((await res.json()).error).toBe('x.exe: รองรับเฉพาะไฟล์ PDF, JPG, PNG')
   })
+
+  const BIG = { name: 'big.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(10 * 1024 * 1024 + 1) }
+
+  test('ไฟล์เกิน 10 MB ใน AttachmentsModal → แจ้งฝั่ง client ไม่ส่งไฟล์', async ({ page }) => {
+    await login(page, 'testinsurance', /\/renewals$/)
+    const vid = await createVehicle(page, 'E2E-7004 กท')
+    const cid = await createCoverage(page, vid, 'PRB', '2027-03-31')
+    await page.goto(`/renewals/vehicles/${vid}`)
+    await page.getByTestId(`attachments-btn-${cid}`).click()
+    await page.getByRole('dialog').locator('input[type=file]').setInputFiles(BIG)
+    await expect(page.getByText('big.pdf: ไฟล์ต้องไม่เกิน 10 MB')).toBeVisible()
+    expect(await expectJson<AttachmentDto[]>(await page.request.get(`/api/renewals/coverages/${cid}/attachments`))).toEqual([])
+  })
+
+  test('ไฟล์เกิน 10 MB ใน RenewModal → ไม่เข้ารายการ และต่ออายุได้โดยไม่มีไฟล์', async ({ page }) => {
+    await login(page, 'testinsurance', /\/renewals$/)
+    const vid = await createVehicle(page, 'E2E-7005 กท')
+    const cid = await createCoverage(page, vid, 'TAX', todayInBangkok())
+    await page.reload()
+    await page.getByTestId(`renew-btn-${cid}`).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.locator('input[type=file]').setInputFiles(BIG)
+    await expect(page.getByText('big.pdf: ไฟล์ต้องไม่เกิน 10 MB')).toBeVisible()
+    await expect(dialog.getByText('big.pdf')).toHaveCount(0)
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+    await expect(page.locator(`tr[data-row-key="${cid}"]`)).toHaveCount(0)
+    await expect
+      .poll(async () => (await getVehicleDetail(page, vid)).coverages.find((c) => c.id !== cid)?.attachmentCount)
+      .toBe(0)
+  })
+
+  test('multipart อ่านไม่ได้ → 400 ข้อความชัดเจน', async ({ page }) => {
+    await login(page, 'testinsurance', /\/renewals$/)
+    const cid = await createCoverage(page, await createVehicle(page, 'E2E-7006 กท'), 'PRB', '2027-03-31')
+    const res = await page.request.post(`/api/renewals/coverages/${cid}/attachments`, {
+      headers: { 'content-type': 'multipart/form-data; boundary=x' },
+      data: Buffer.from('--x\r\nbroken'),
+    })
+    expect(res.status()).toBe(400)
+    expect((await res.json()).error).toBe('อ่านไฟล์ไม่สำเร็จ — ไฟล์อาจใหญ่เกิน 10 MB')
+  })
 })

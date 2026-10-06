@@ -1,8 +1,14 @@
-/** อัปโหลดทีละไฟล์ — middleware จำกัด body ต่อ request (ตั้งไว้ 12mb ใน next.config.js) */
+import { validateAttachment } from '@/lib/renewals/attachmentRules'
+
+/** ตรวจทุกไฟล์ก่อนส่ง (ไม่ส่งสักไฟล์ถ้ามีไฟล์ไม่ผ่าน) แล้วอัปโหลดทีละไฟล์ — middleware จำกัด body ต่อ request (ตั้งไว้ 12mb ใน next.config.js) */
 export async function uploadAttachments(
   coverageId: string,
   files: File[],
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  for (const file of files) {
+    const checked = validateAttachment(file.name, file.type, file.size)
+    if ('error' in checked) return { ok: false, error: checked.error }
+  }
   for (const file of files) {
     const form = new FormData()
     form.append('files', file)

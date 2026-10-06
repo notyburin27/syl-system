@@ -27,7 +27,8 @@ export async function POST(req: Request, { params }: Params) {
   try {
     const { id } = await params
     const form = await req.formData().catch(() => null)
-    const files = (form?.getAll('files') ?? []).filter((f): f is File => f instanceof File)
+    if (!form) throw badRequest('อ่านไฟล์ไม่สำเร็จ — ไฟล์อาจใหญ่เกิน 10 MB')
+    const files = form.getAll('files').filter((f): f is File => f instanceof File)
     if (files.length === 0) throw badRequest('กรุณาเลือกไฟล์')
     if (files.length > MAX_FILES_PER_UPLOAD) throw badRequest(`อัปโหลดได้ครั้งละไม่เกิน ${MAX_FILES_PER_UPLOAD} ไฟล์`)
 

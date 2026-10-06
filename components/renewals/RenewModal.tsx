@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import { App, Button, Form, Modal, Upload } from 'antd'
 import { UploadOutlined } from '@ant-design/icons'
 import { COVERAGE_TYPE_LABELS } from '@/lib/renewals/constants'
+import { validateAttachment } from '@/lib/renewals/attachmentRules'
 import { nextPeriodDefaults } from '@/lib/renewals/renewalDefaults'
 import type { CoverageDto, InsurerDto, VehicleListItemDto } from '@/types/renewals'
 import { sendJson } from './api'
@@ -95,6 +96,11 @@ export default function RenewModal({ item, insurers, vehicles, onClose, onDone }
               multiple
               fileList={files.map((f, i) => ({ uid: String(i), name: f.name, status: 'done' as const }))}
               beforeUpload={(file) => {
+                const checked = validateAttachment(file.name, file.type, file.size)
+                if ('error' in checked) {
+                  message.error(checked.error)
+                  return Upload.LIST_IGNORE
+                }
                 setFiles((prev) => [...prev, file])
                 return false
               }}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { App, Button, Image, Modal, Space, Table, Upload, type TableColumnsType } from 'antd'
 import { DeleteOutlined, UploadOutlined } from '@ant-design/icons'
+import { validateAttachment } from '@/lib/renewals/attachmentRules'
 import { todayInBangkok } from '@/lib/renewals/dateOnly'
 import { toThaiShortDate } from '@/lib/utils/thaiDate'
 import type { AttachmentDto, CoverageDto } from '@/types/renewals'
@@ -124,7 +125,9 @@ export default function AttachmentsModal({ coverage, onClose, onChanged }: Props
         multiple
         showUploadList={false}
         beforeUpload={(file) => {
-          handleUpload(file)
+          const checked = validateAttachment(file.name, file.type, file.size)
+          if ('error' in checked) message.error(checked.error)
+          else handleUpload(file)
           return Upload.LIST_IGNORE
         }}
       >
