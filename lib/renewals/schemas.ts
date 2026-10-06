@@ -11,8 +11,26 @@ import {
 import { isValidYmd } from './dateOnly'
 import { normalizePlate } from './plate'
 
+/** issue code ที่ข้อความ default ของ zod เป็นอังกฤษ — แทนด้วยข้อความไทย (code ที่เหลือใช้ข้อความไทยที่เรากำหนดเอง) */
+const ENGLISH_DEFAULT_CODES = new Set<string>([
+  'invalid_type',
+  'invalid_enum_value',
+  'invalid_literal',
+  'invalid_union',
+  'invalid_union_discriminator',
+  'unrecognized_keys',
+  'invalid_date',
+  'invalid_string',
+  'not_multiple_of',
+])
+
 export function firstZodError(error: z.ZodError): string {
-  return error.issues[0]?.message ?? 'ข้อมูลไม่ถูกต้อง'
+  const issue = error.issues[0]
+  if (!issue) return 'ข้อมูลไม่ถูกต้อง'
+  if (!ENGLISH_DEFAULT_CODES.has(issue.code)) return issue.message
+  const field = issue.path.join('.') || 'body'
+  if (issue.code === 'invalid_type' && issue.received === 'undefined') return `กรุณากรอก ${field}`
+  return `ข้อมูลไม่ถูกต้อง: ${field}`
 }
 
 /** ข้อความว่าง / null / undefined → null */

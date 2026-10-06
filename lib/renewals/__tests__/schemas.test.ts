@@ -6,6 +6,7 @@ import {
   coverageFieldsSchema,
   firstZodError,
   insurerCreateSchema,
+  insurerUpdateSchema,
   sanitizeCoverageFields,
   vehicleInputSchema,
 } from '../schemas'
@@ -69,4 +70,11 @@ test('sanitizeCoverageFields: ล้างฟิลด์ที่ไม่ใ�
   assert.deepEqual(sanitizeCoverageFields('CARGO_INSURANCE', f), { ...f, coverageClass: null, pairedVehicleId: null })
   assert.deepEqual(sanitizeCoverageFields('PRB', f), { ...f, coverageClass: null, pairedVehicleId: null })
   assert.deepEqual(sanitizeCoverageFields('MOTOR_INSURANCE', f), f)
+})
+
+test('firstZodError: type/enum error ของ zod เป็นข้อความไทยที่ระบุฟิลด์', () => {
+  assert.equal(errorOf(insurerUpdateSchema.safeParse({ isActive: 'x' })), 'ข้อมูลไม่ถูกต้อง: isActive')
+  assert.equal(errorOf(insurerCreateSchema.safeParse({ name: 123 })), 'ข้อมูลไม่ถูกต้อง: name')
+  assert.equal(errorOf(bulkStatusSchema.safeParse({ ids: ['a'], status: 'WRONG' })), 'ข้อมูลไม่ถูกต้อง: status')
+  assert.equal(errorOf(bulkRenewSchema.safeParse({ ids: ['a'] })), 'กรุณากรอก endDate')
 })
