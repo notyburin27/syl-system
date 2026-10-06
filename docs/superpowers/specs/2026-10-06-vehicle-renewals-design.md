@@ -179,10 +179,14 @@ model CoverageAttachment {
   (`"64-5598 กท."` → `"64-5598 กท"`, `"64-0329  กท"` → `"64-0329 กท"`) — ใช้ทุกจุดที่รับทะเบียน (form, import, ค้นหา)
 - **รถไม่มี soft delete แยก** — `status` ทำหน้าที่แทน; ลบรถได้เฉพาะเมื่อไม่มีงวด (ทั้งที่เป็นเจ้าของและที่เป็นหางคู่) มิฉะนั้น 409
 - **เปลี่ยนสถานะรถเป็น SOLD** → ใน transaction เดียวกัน ปิดทุกงวดที่เปิดอยู่ของรถคันนั้นเป็น `NOT_RENEWED` / `SOLD`
+  กติกาเต็ม: **รถสถานะ SOLD ไม่มีงวดเปิดเลย** — ทุกจุดที่แก้งวด/รถ (เพิ่ม/แก้/ลบงวด, แก้รถ, import) เรียก `enforceCoverageRules` ตัวเดียว
+  (เพิ่มงวดให้รถที่ขายแล้ว → ปิดทันที; เปิดใหม่งวดของรถที่ขายแล้ว → 409)
   เปลี่ยนเป็น `SUSPENDED` → ไม่แตะงวด (บางคันงดใช้แต่ยังต่อประกัน) แค่แสดงป้าย "งดใช้" บน dashboard
   เปลี่ยนกลับเป็น `ACTIVE` → ไม่เปิดงวดคืนอัตโนมัติ
 - **Insurer** ลบแบบ soft (`isActive=false`) — ซ่อนจากตัวเลือก แต่งวดเดิมยังอ้างถึงได้
 - **งวด** ลบแบบ hard (ใช้แก้กรณีบันทึกผิด) — attachments ลบตาม cascade
+- **เพิ่ม/แก้งวดเองจากหน้ารถ** ใช้กติกา "รถ 1 คัน 1 ประเภท มีงวดเปิดได้เฉพาะงวดที่ `endDate` มากที่สุด" เดียวกับ import (ดูหัวข้อ Upload Excel) — logic เดียวกัน (`planAutoClose`)
+- ประเภทที่ไม่ใช่ประกันรถยนต์ → server ล้าง `coverageClass` / `pairedVehicleId` เป็น null; ภาษี → ล้าง `insurerId` ด้วย
 
 ## สถานะการต่อ (State Transitions)
 
@@ -263,18 +267,27 @@ model CoverageAttachment {
 
 | Role | การเข้าถึง |
 |---|---|
-| `INSURANCE` | เฉพาะ `/renewals/**` (+ `/api/**`); login แล้วไป `/renewals`; path อื่น redirect ไป `/renewals` |
+| `INSURANCE` | เฉพาะ `/renewals/**` และ `/api/renewals/**`; path หน้าอื่น redirect ไป `/renewals` (รวม `/` หลัง login); API อื่น 403 |
 | `MANAGER`, `ADMIN` | เมนูเดิม + `/renewals/**` |
-| `SENIOR_STAFF`, `STAFF` | เข้า `/renewals/**` ไม่ได้ → redirect ไปหน้า default เดิม |
+| `SENIOR_STAFF`, `STAFF` | เข้า `/renewals/**` ไม่ได้ → redirect (`STAFF` → `/line-images`, อื่นๆ → `/jobs`); `/api/renewals/**` → 403 |
+
+> **พบระหว่างเขียนแผน**: `authorized()` ใน `lib/auth.ts` **ไม่ถูกเรียกใช้จริง** — `middleware.ts` เป็น middleware เขียนเองที่เช็กแค่ว่ามี session cookie
+> (การจำกัด path ของ STAFF/SENIOR_STAFF ใน `authorized()` จึงไม่มีผล) — การบังคับสิทธิ์ของฟีเจอร์นี้จึงทำใน `middleware.ts` แทน
+> และไม่แตะ `authorized()` (เปิดใช้ทั้งก้อนจะเปลี่ยนพฤติกรรม role เดิมทั้งหมด — นอกขอบเขต)
 
 ไฟล์ที่แก้:
 
-- `lib/auth.ts` — `authorized()`: defaultPage ของ INSURANCE = `/renewals`, allowlist ของ INSURANCE, block `/renewals` สำหรับ SENIOR_STAFF/STAFF
+- `lib/renewals/routeAccess.ts` (ใหม่, pure) — `renewalRouteDecision(role, pathname)` คืน allow / redirect / forbidden ตามตารางด้านบน
+- `middleware.ts` — หลังเช็ก cookie แล้ว ถอด JWT ด้วย `getToken` (`next-auth/jwt`, รันบน edge ได้) เอา `role` ไปเรียก `renewalRouteDecision`
+  - forbidden → `403 { error: "ไม่มีสิทธิ์เข้าถึงข้อมูลนี้" }`; redirect → `NextResponse.redirect`
+  - ถอด token ไม่ได้ → ทำงานแบบเดิม (ปล่อยผ่าน ให้ page/route เช็กเอง)
+- `app/(protected)/renewals/layout.tsx` — server guard ซ้ำอีกชั้น: role ไม่อยู่ใน `RENEWAL_ROLES` → `redirect('/jobs')`
 - `app/(protected)/layout.tsx` + `components/ProtectedLayoutClient.tsx` — เมนู "ต่ออายุรถ" (dashboard, ทะเบียนรถ, บริษัทประกัน, นำเข้า Excel) สำหรับ ADMIN/MANAGER/INSURANCE; INSURANCE เห็นเมนูนี้อย่างเดียว; label role "ฝ่ายประกัน"
 - `app/(protected)/admin/users/page.tsx`, `app/api/users/route.ts`, `app/api/users/[id]/route.ts` — เพิ่มตัวเลือก `INSURANCE` ("ฝ่ายประกัน")
-- `lib/renewals/access.ts` — `RENEWAL_ROLES = ['ADMIN', 'MANAGER', 'INSURANCE']` + `requireRenewalAccess()` คืน 401/403 response หรือ session; **ทุก** route ใต้ `/api/renewals/**` เรียกตัวนี้
+- `lib/renewals/access.ts` — `requireRenewalAccess()` คืน 401/403 response หรือ user; **ทุก** route ใต้ `/api/renewals/**` เรียกตัวนี้ (`RENEWAL_ROLES = ['ADMIN', 'MANAGER', 'INSURANCE']` อยู่ใน `lib/renewals/constants.ts` ซึ่ง edge-safe)
 
-> **ข้อจำกัดเดิม (ไม่แก้ในรอบนี้)**: API เดิม (เช่น `/api/jobs`) เช็กแค่ login ไม่เช็ก role — role ใหม่ยิงตรงได้เหมือน STAFF ในปัจจุบัน
+> **ข้อจำกัดเดิม (ไม่แก้ในรอบนี้)**: API และหน้าเดิม (เช่น `/jobs`, `/api/jobs`) ไม่เช็ก role สำหรับ STAFF/SENIOR_STAFF — คงเดิม
+> (role `INSURANCE` ใหม่ถูกกันด้วย middleware แล้ว)
 
 ## API
 
@@ -282,7 +295,7 @@ model CoverageAttachment {
 
 | Method | Path | หน้าที่ |
 |---|---|---|
-| GET | `/api/renewals/dashboard?type&owner&status&q` | รายการ + counts ต่อ bucket/แท็บ + ยอดรวม |
+| GET | `/api/renewals/dashboard` | `{ today, items }` — ทุกงวดเปิดที่ `endDate ≤ สิ้นเดือนหน้า` พร้อม bucket; ตัวกรอง/แท็บ/counts/ยอดรวมคำนวณฝั่ง client ด้วย pure function (ข้อมูลหลักร้อยแถว) |
 | POST | `/api/renewals/coverages/[id]/renew` | ต่อแล้ว (ทีละคัน) — body = งวดใหม่ |
 | POST | `/api/renewals/coverages/bulk-renew` | `{ ids, insurerId?, startDate, endDate }` |
 | POST | `/api/renewals/coverages/bulk-status` | `{ ids, status: PENDING\|IN_PROGRESS\|NOT_RENEWED, reason?, note? }` |
@@ -295,7 +308,7 @@ model CoverageAttachment {
 | PATCH | `/api/renewals/insurers/[id]` | แก้ชื่อ / isActive |
 | GET | `/api/renewals/import/template` | ดาวน์โหลด template |
 | POST | `/api/renewals/import` | multipart `file` + `mode=preview\|commit` |
-| POST | `/api/renewals/coverages/[id]/attachments` | multipart upload ไฟล์ (หลายไฟล์ได้) |
+| GET / POST | `/api/renewals/coverages/[id]/attachments` | รายการไฟล์ของงวด / multipart upload ไฟล์ (≤ 10 ไฟล์ต่อครั้ง) |
 | GET / DELETE | `/api/renewals/attachments/[id]` | stream ไฟล์ (inline) / ลบ |
 
 Status codes: 400 ข้อมูลไม่ถูกต้อง, 401 ไม่ได้ login, 403 role ไม่มีสิทธิ์, 404 ไม่พบ, 409 ชน (งวดถูกปิดแล้ว, ทะเบียนซ้ำ, งวดซ้ำ `vehicleId+type+endDate`, ลบรถที่มีงวด)
@@ -319,7 +332,7 @@ Workbook เดียว: ชีตข้อมูล 2 ชีต (แถวแ�
 1. ผู้ใช้เลือกไฟล์ (≤ 5 MB) → `mode=preview` → server parse + validate → ตอบ
    `{ valid, errors: [{ sheet, row, field, message }], summary: { vehiclesCreated, vehiclesUpdated, coveragesCreated, coveragesUpdated, coveragesAutoClosed }, unknownInsurers: string[] }`
 2. ถ้ามี `unknownInsurers` → ปุ่ม **"เพิ่มบริษัทประกันที่ยังไม่มี (N ราย)"** (confirm) → POST insurers → preview ใหม่
-3. ไม่มี error → ปุ่มยืนยัน → `mode=commit` (upload ไฟล์เดิมซ้ำ) → บันทึกทั้งไฟล์ใน transaction เดียว (`timeout: 30000`; โหลดข้อมูลเดิมครั้งเดียวก่อนเข้า transaction ตาม pattern `fuel-standard/import`)
+3. ไม่มี error → ปุ่มยืนยัน → `mode=commit` (upload ไฟล์เดิมซ้ำ) → บันทึกทั้งไฟล์ใน transaction เดียว (`timeout: 60000`; โหลดข้อมูลเดิมครั้งเดียวก่อนเข้า transaction ตาม pattern `fuel-standard/import`)
 
 ### กติกา upsert
 
@@ -328,6 +341,9 @@ Workbook เดียว: ชีตข้อมูล 2 ชีต (แถวแ�
 - ทะเบียนในชีตงวด / ทะเบียนหางคู่ ต้องมีในระบบหรือในชีต "รถ" ของไฟล์เดียวกัน
 - บริษัทประกันต้องตรงกับชื่อใน `insurers` (หลัง trim) — ไม่ตรง = error + อยู่ใน `unknownInsurers` (ไม่สร้างเงียบๆ กันชื่อพิมพ์ผิดกลายเป็นบริษัทซ้ำ)
 - key ซ้ำในไฟล์เดียวกัน = error ทุกแถวที่ซ้ำ
+- ภาษีที่กรอกบริษัทประกัน / ประเภทที่ไม่ใช่ประกันรถยนต์แต่กรอกชั้นหรือหางคู่ = error (ในไฟล์ถือว่าผู้ใช้ตั้งใจกรอก จึงแจ้งแทนการล้างทิ้งเงียบๆ)
+- รถใหม่ต้องมี บริษัท + ลักษณะ; รถที่มีอยู่แล้วเว้นว่างได้ (คงค่าเดิม)
+- "ไม่ต่อ" ต้องมีเหตุผล; เหตุผล "อื่นๆ" ต้องมีหมายเหตุ
 - **ปิดงวดเก่าอัตโนมัติ**: หลังรวมข้อมูลไฟล์กับของเดิม รถ 1 คัน 1 ประเภท ให้มีงวดเปิดได้เฉพาะงวดที่ `endDate` มากที่สุด
   งวดเปิดที่เก่ากว่า → `RENEWED` + `renewedToId` = งวดถัดไปตาม `endDate` (ถ้างวดถัดไปยังไม่มีงวดก่อนหน้าชี้อยู่ มิฉะนั้นปิดโดยไม่ผูก)
   งวดที่ปิดแล้ว (RENEWED/NOT_RENEWED) ไม่แตะ
@@ -351,7 +367,7 @@ script ใน scratchpad อ่าน `พรบ. +ประกัน+สิน�
 - **Storage interface** `lib/renewals/storage.ts`: `putObject(key, body, contentType)`, `getObject(key)` (stream + contentType), `deleteObject(key)`
   - S3 (Spaces) — default; ใช้ `spacesClient` / `SPACES_BUCKET` จาก `lib/spaces.ts`; **ไม่ใส่ ACL** (private) ต่างจาก LINE images ที่ `public-read`
   - Local folder — เมื่อ `ATTACHMENT_STORAGE=local` เขียนที่ `.tmp/renewal-attachments/` (gitignore) ใช้ใน E2E ไม่ให้เทสต์เขียนลง bucket จริง (`.env.test` ชี้ Spaces จริง)
-- Key: `vehicle-coverages/YYYY-MM/<cuid>.<ext>`
+- Key: `vehicle-coverages/YYYY-MM/<uuid>.<ext>` (YYYY-MM ตามเวลา Asia/Bangkok)
 - รับ **PDF / JPG / PNG ≤ 10 MB ต่อไฟล์** — ตรวจทั้ง MIME และนามสกุล (`lib/renewals/attachmentRules.ts` pure)
 - **ดูไฟล์**: `GET /api/renewals/attachments/[id]` เช็ก role → stream จาก storage พร้อม `Content-Disposition: inline; filename*=UTF-8''<ชื่อเดิม>`
 - **Upload**: put object ก่อน แล้วค่อยสร้างแถว DB — ถ้าสร้างแถวไม่สำเร็จ ลบ object แบบ best-effort
