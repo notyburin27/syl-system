@@ -27,6 +27,7 @@ test('ข้ามแถวที่มีแค่สี และเก็บ�
   const ws = wb.getWorksheet('งวด')!
   ws.getCell('A2').value = '64-5598 กท'
   ws.getCell('B2').value = 'พรบ.'
+  ws.getCell('G2').numFmt = 'dd/mm/yyyy' // ผู้ใช้เปลี่ยนเป็นช่องวันที่เอง (template ตั้งเป็นข้อความ)
   ws.getCell('G2').value = new Date(Date.UTC(2027, 2, 31))
   ws.getCell('A3').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }
   ws.getCell('A4').value = '61-8550 กท'
@@ -70,4 +71,13 @@ test('ขาดคอลัมน์ / ขาดชีต / ไม่ใช่ x
   assert.deepEqual(await readRenewalWorkbook(toArrayBuffer(Buffer.from('not excel'))), {
     error: 'อ่านไฟล์ไม่ได้ — ต้องเป็นไฟล์ .xlsx',
   })
+})
+
+test('template ตั้งคอลัมน์วันที่เป็นข้อความ (numFmt @) และยังมี dropdown', async () => {
+  const wb = await loadTemplate()
+  const ws = wb.getWorksheet('งวด')!
+  assert.equal(ws.getCell('G2').numFmt, '@')
+  assert.equal(ws.getCell('F2').numFmt, '@')
+  assert.equal(wb.getWorksheet('รถ')!.getCell('J2').numFmt, '@')
+  assert.equal(ws.getCell('B2').dataValidation?.type, 'list')
 })

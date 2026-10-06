@@ -23,6 +23,7 @@ function addDataSheet<K extends string>(
   name: string,
   columns: Record<K, string>,
   lists: Partial<Record<K, readonly string[]>>,
+  textKeys: readonly NoInfer<K>[] = [],
 ) {
   const ws = wb.addWorksheet(name, { views: [{ state: 'frozen', ySplit: 1 }] })
   const keys = Object.keys(columns) as K[]
@@ -30,6 +31,10 @@ function addDataSheet<K extends string>(
   ws.getRow(1).font = { bold: true }
   keys.forEach((key, i) => {
     ws.getColumn(i + 1).width = 18
+    // คอลัมน์วันที่เป็นข้อความ — กัน Excel แปลง 31/03/2570 เป็นวันที่ปี 2570 / 31/03/70 เป็น 1970
+    if (textKeys.includes(key)) {
+      for (let row = 2; row <= TEMPLATE_ROWS; row++) ws.getCell(row, i + 1).numFmt = '@'
+    }
     const list = lists[key]
     if (!list) return
     for (let row = 2; row <= TEMPLATE_ROWS; row++) {
@@ -40,13 +45,13 @@ function addDataSheet<K extends string>(
 
 export async function buildRenewalTemplate(): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
-  addDataSheet(wb, VEHICLE_SHEET, VEHICLE_COLUMNS, { status: Object.values(VEHICLE_STATUS_LABELS) })
+  addDataSheet(wb, VEHICLE_SHEET, VEHICLE_COLUMNS, { status: Object.values(VEHICLE_STATUS_LABELS) }, ['statusDate'])
   addDataSheet(wb, COVERAGE_SHEET, COVERAGE_COLUMNS, {
     type: Object.values(COVERAGE_TYPE_LABELS),
     coverageClass: COVERAGE_CLASSES,
     renewalStatus: Object.values(IMPORT_STATUS_LABELS),
     notRenewedReason: Object.values(NOT_RENEWED_REASON_LABELS),
-  })
+  }, ['startDate', 'endDate'])
   const guide = wb.addWorksheet(GUIDE_SHEET)
   guide.columns = [{ width: 24 }, { width: 100 }]
   for (const row of GUIDE_ROWS) guide.addRow(row)

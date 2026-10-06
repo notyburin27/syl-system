@@ -41,3 +41,11 @@ test('lookupLabel: ไม่สนจุด/ช่องว่าง; ว่า�
   assert.equal(lookupLabel(COVERAGE_TYPE_LABELS, ''), null)
   assert.equal(lookupLabel(COVERAGE_TYPE_LABELS, 'ประกันภัย'), undefined)
 })
+
+test('parseImportDate: ปี พ.ศ. จาก date cell / ISO text แปลงด้วย; ปีนอก 2000–2200 (เช่น 1970) ไม่รับ', () => {
+  assert.deepEqual(parseImportDate(new Date(Date.UTC(2570, 2, 31))), { value: '2027-03-31' })
+  assert.deepEqual(parseImportDate('2570-03-31'), { value: '2027-03-31' })
+  assert.deepEqual(parseImportDate(new Date(Date.UTC(1970, 2, 31))), {
+    error: 'วันที่ "1970-03-31" ปีไม่สมเหตุผล (1970) — ถ้าพิมพ์ปี 2 หลัก Excel อาจแปลงให้ผิด ให้ใช้ วว/ดด/ปปปป เช่น 31/03/2570',
+  })
+})

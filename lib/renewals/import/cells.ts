@@ -13,19 +13,33 @@ export function isBlank(value: unknown): boolean {
   return cellText(value) === ''
 }
 
-/** date cell ของ Excel หรือข้อความ วว/ดด/ปปปป (คั่น / หรือ -), ปี > 2400 = พ.ศ.; ปี 2 หลักไม่รับเพราะเดาศตวรรษผิดได้ */
+/** ปี > 2400 = พ.ศ. (−543) ใช้กับทุกรูปแบบ; ปีนอก 2000–2200 ไม่รับ (เช่น Excel แปลงปี 2 หลักเป็น 1970) */
+function normalizeYmdYear(ymd: string, shown: string): CellResult<string> {
+  const [y, m, d] = ymd.split('-')
+  const year = Number(y) > 2400 ? Number(y) - 543 : Number(y)
+  const result = `${String(year).padStart(4, '0')}-${m}-${d}`
+  if (!isValidYmd(result)) return { error: `วันที่ "${shown}" ไม่มีอยู่จริง` }
+  if (year < 2000 || year > 2200) {
+    return {
+      error: `วันที่ "${shown}" ปีไม่สมเหตุผล (${year}) — ถ้าพิมพ์ปี 2 หลัก Excel อาจแปลงให้ผิด ให้ใช้ วว/ดด/ปปปป เช่น 31/03/2570`,
+    }
+  }
+  return { value: result }
+}
+
+/** date cell ของ Excel หรือข้อความ วว/ดด/ปปปป (คั่น / หรือ -) หรือ YYYY-MM-DD; ปี > 2400 = พ.ศ.; ปี 2 หลักไม่รับเพราะเดาศตวรรษผิดได้ */
 export function parseImportDate(value: unknown): CellResult<string | null> {
   if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? { error: 'วันที่ไม่ถูกต้อง' } : { value: dateToYmd(value) }
+    if (Number.isNaN(value.getTime())) return { error: 'วันที่ไม่ถูกต้อง' }
+    const ymd = dateToYmd(value)
+    return normalizeYmdYear(ymd, ymd)
   }
   const text = cellText(value)
   if (!text) return { value: null }
-  if (isValidYmd(text)) return { value: text }
+  if (isValidYmd(text)) return normalizeYmdYear(text, text)
   const match = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(text)
   if (!match) return { error: `วันที่ "${text}" ไม่ถูกต้อง — ใช้ วว/ดด/ปปปป เช่น 31/03/2570` }
-  const year = Number(match[3]) > 2400 ? Number(match[3]) - 543 : Number(match[3])
-  const ymd = `${year}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
-  return isValidYmd(ymd) ? { value: ymd } : { error: `วันที่ "${text}" ไม่มีอยู่จริง` }
+  return normalizeYmdYear(`${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`, text)
 }
 
 function parseNumber(value: unknown): CellResult<number | null> {
