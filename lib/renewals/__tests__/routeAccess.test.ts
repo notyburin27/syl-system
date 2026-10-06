@@ -44,3 +44,9 @@ test('ไม่รู้ role (ถอด token ไม่ได้) → ปล่
   assert.deepEqual(renewalRouteDecision(undefined, '/renewals'), allow)
   assert.deepEqual(renewalRouteDecision(undefined, '/api/renewals/x'), allow)
 })
+
+test('role แปลก / ขอบเขต path', () => {
+  assert.deepEqual(renewalRouteDecision('USER', '/renewals'), redirect('/jobs'))
+  assert.deepEqual(renewalRouteDecision('SENIOR_STAFF', '/api/renewals/x'), forbidden)
+  assert.deepEqual(renewalRouteDecision('INSURANCE', '/api/renewalsx'), forbidden)
+})

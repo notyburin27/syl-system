@@ -1,21 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
 import { renewalRouteDecision } from "@/lib/renewals/routeAccess"
-
-/** role จาก JWT — ถอดไม่ได้ (secret หาย/ token เสีย) คืน undefined ให้ทำงานแบบเดิม */
-async function readRole(request: NextRequest): Promise<string | undefined> {
-  try {
-    const token = await getToken({
-      req: request,
-      secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
-      secureCookie: request.cookies.has("__Secure-authjs.session-token"),
-    })
-    return typeof token?.role === "string" ? token.role : undefined
-  } catch {
-    return undefined
-  }
-}
+import { readSessionRole } from "@/lib/renewals/sessionRole"
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -41,7 +27,11 @@ export async function middleware(request: NextRequest) {
 
   // สิทธิ์ของฟีเจอร์ต่ออายุรถ — ฝ่ายประกันเห็นเฉพาะ /renewals
   // (authorized() ใน lib/auth.ts ไม่ถูกเรียกเพราะ middleware นี้เขียนเอง จึงต้องเช็กที่นี่)
-  const decision = renewalRouteDecision(await readRole(request), pathname)
+  const decision = renewalRouteDecision(await readSessionRole(
+      request,
+      request.cookies.getAll().map((c) => c.name),
+      process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+    ), pathname)
   if (decision.kind === "forbidden") {
     return NextResponse.json({ error: "ไม่มีสิทธิ์เข้าถึงข้อมูลนี้" }, { status: 403 })
   }
