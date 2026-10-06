@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { App, Button, Descriptions, Space, Spin, Table, Tabs, Tag, type TableColumnsType } from 'antd'
-import { DeleteOutlined, EditOutlined, PlusOutlined, RollbackOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from '@ant-design/icons'
 import {
   COVERAGE_TYPES,
   COVERAGE_TYPE_LABELS,
@@ -18,6 +18,7 @@ import {
 import { toThaiShortDate } from '@/lib/utils/thaiDate'
 import type { CoverageDto, VehicleDetailResponse } from '@/types/renewals'
 import { getJson, sendJson } from './api'
+import AttachmentsModal from './AttachmentsModal'
 import CoverageFormModal from './CoverageFormModal'
 import { useRenewalLookups } from './useRenewalLookups'
 import VehicleFormModal from './VehicleFormModal'
@@ -34,6 +35,7 @@ export default function VehicleDetail({ id }: { id: string }) {
   const [activeType, setActiveType] = useState<CoverageTypeKey>('PRB')
   const [editingVehicle, setEditingVehicle] = useState(false)
   const [coverageForm, setCoverageForm] = useState<{ coverage: CoverageDto | null } | null>(null)
+  const [attachmentsFor, setAttachmentsFor] = useState<CoverageDto | null>(null)
 
   const fetchDetail = useCallback(async () => {
     setLoading(true)
@@ -113,6 +115,16 @@ export default function VehicleDetail({ id }: { id: string }) {
       ),
     },
     { title: 'หมายเหตุ', key: 'note', ellipsis: true, render: (_, c) => c.renewalNote },
+    {
+      title: 'ไฟล์',
+      key: 'files',
+      width: 70,
+      render: (_, c) => (
+        <Button size="small" icon={<PaperClipOutlined />} onClick={() => setAttachmentsFor(c)} data-testid={`attachments-btn-${c.id}`}>
+          {c.attachmentCount}
+        </Button>
+      ),
+    },
     {
       title: 'จัดการ',
       key: 'actions',
@@ -213,6 +225,7 @@ export default function VehicleDetail({ id }: { id: string }) {
           fetchDetail()
         }}
       />
+      <AttachmentsModal coverage={attachmentsFor} onClose={() => setAttachmentsFor(null)} onChanged={fetchDetail} />
     </>
   )
 }
