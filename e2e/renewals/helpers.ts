@@ -50,3 +50,14 @@ export async function createCoverage(
 export async function getVehicleDetail(page: Page, vehicleId: string): Promise<VehicleDetailResponse> {
   return expectJson<VehicleDetailResponse>(await page.request.get(`/api/renewals/vehicles/${vehicleId}`))
 }
+
+/** 'YYYY-MM-DD' → 'DD/MM/YYYY' ตาม format ของ DatePicker */
+export function toPickerText(ymd: string): string {
+  const [y, m, d] = ymd.split('-')
+  return `${d}/${m}/${y}`
+}
+
+export async function fillDate(page: Page, selector: string, ymd: string) {
+  await page.locator(selector).fill(toPickerText(ymd))
+  await page.locator(selector).press('Tab')
+}
