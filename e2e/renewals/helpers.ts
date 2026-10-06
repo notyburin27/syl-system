@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type APIResponse, type Page } from '@playwright/test'
 import { execSync } from 'child_process'
 import path from 'path'
 
@@ -16,4 +16,13 @@ export function cleanupRenewals() {
     env: { ...process.env },
     cwd: path.resolve(__dirname, '../..'),
   })
+}
+
+export async function expectJson<T>(res: APIResponse): Promise<T> {
+  if (!res.ok()) throw new Error(`${res.url()} → ${res.status()} ${await res.text()}`)
+  return (await res.json()) as T
+}
+
+export async function createInsurer(page: Page, name: string): Promise<string> {
+  return (await expectJson<{ id: string }>(await page.request.post('/api/renewals/insurers', { data: { name } }))).id
 }
