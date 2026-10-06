@@ -77,4 +77,31 @@ test.describe.serial('API รถและงวด', () => {
     const del = await page.request.delete(`/api/renewals/vehicles/${vid}`)
     expect(del.status()).toBe(409)
   })
+
+  test('แก้วันสิ้นสุดข้ามงวดที่ผูกกัน → 400; แก้ในช่วงที่ถูกต้อง → 200 และสถานะผูกยังคงเดิม', async ({ page }) => {
+    const vid = await createVehicle(page, 'E2E-1006 กท')
+    const oldId = await createCoverage(page, vid, 'PRB', '2026-03-31')
+    const newId = await createCoverage(page, vid, 'PRB', '2027-03-31')
+
+    const early = await page.request.patch(`/api/renewals/coverages/${newId}`, { data: { endDate: '2025-03-31' } })
+    expect(early.status()).toBe(400)
+    expect((await early.json()).error).toBe('วันสิ้นสุดต้องหลังวันสิ้นสุดของงวดก่อนหน้า')
+
+    const late = await page.request.patch(`/api/renewals/coverages/${oldId}`, { data: { endDate: '2028-03-31' } })
+    expect(late.status()).toBe(400)
+    expect((await late.json()).error).toBe('วันสิ้นสุดต้องก่อนวันสิ้นสุดของงวดถัดไป')
+
+    const ok = await page.request.patch(`/api/renewals/coverages/${newId}`, {
+      data: { endDate: '2027-06-30', policyNumber: 'E2E-POL-1' },
+    })
+    expect(ok.status()).toBe(200)
+
+    const detail = await getVehicleDetail(page, vid)
+    expect(detail.coverages.find((c) => c.id === newId)).toMatchObject({
+      endDate: '2027-06-30',
+      policyNumber: 'E2E-POL-1',
+      renewalStatus: 'PENDING',
+    })
+    expect(detail.coverages.find((c) => c.id === oldId)).toMatchObject({ renewalStatus: 'RENEWED', renewedToId: newId })
+  })
 })

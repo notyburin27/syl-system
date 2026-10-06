@@ -132,10 +132,23 @@ export async function createCoverage(input: CoverageCreateInput, userId: string)
 export async function updateCoverage(id: string, input: CoverageFields, userId: string): Promise<void> {
   await withDuplicateGuard(() =>
     prisma.$transaction(async (tx) => {
-      const row = await tx.vehicleCoverage.findUnique({ where: { id }, select: { vehicleId: true, type: true } })
+      const row = await tx.vehicleCoverage.findUnique({ where: { id }, select: { vehicleId: true, type: true, renewedToId: true } })
       if (!row) throw notFound('ไม่พบงวด')
       const fields = sanitizeCoverageFields(row.type, input)
       await assertReferences(tx, fields, row.vehicleId)
+      // กันย้ายวันสิ้นสุดข้ามงวดที่ผูกกัน (จะเกิดวงวน renewedTo)
+      const [prev, next] = await Promise.all([
+        tx.vehicleCoverage.findFirst({ where: { renewedToId: id }, select: { endDate: true } }),
+        row.renewedToId
+          ? tx.vehicleCoverage.findUnique({ where: { id: row.renewedToId }, select: { endDate: true } })
+          : null,
+      ])
+      if (prev && fields.endDate <= dateToYmd(prev.endDate)) {
+        throw badRequest('วันสิ้นสุดต้องหลังวันสิ้นสุดของงวดก่อนหน้า')
+      }
+      if (next && fields.endDate >= dateToYmd(next.endDate)) {
+        throw badRequest('วันสิ้นสุดต้องก่อนวันสิ้นสุดของงวดถัดไป')
+      }
       await tx.vehicleCoverage.update({ where: { id }, data: coverageData(fields) })
       await enforceCoverageRules(tx, [row.vehicleId], userId)
     }),
