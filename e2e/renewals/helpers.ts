@@ -1,6 +1,8 @@
 import { expect, type APIResponse, type Page } from '@playwright/test'
 import { execSync } from 'child_process'
 import path from 'path'
+import type { CoverageTypeKey } from '../../lib/renewals/constants'
+import type { VehicleDetailResponse } from '../../types/renewals'
 
 export async function login(page: Page, username: string, landing: RegExp) {
   await page.goto('/login')
@@ -25,4 +27,26 @@ export async function expectJson<T>(res: APIResponse): Promise<T> {
 
 export async function createInsurer(page: Page, name: string): Promise<string> {
   return (await expectJson<{ id: string }>(await page.request.post('/api/renewals/insurers', { data: { name } }))).id
+}
+
+export async function createVehicle(page: Page, plate: string, extra: Record<string, unknown> = {}): Promise<string> {
+  const res = await page.request.post('/api/renewals/vehicles', {
+    data: { plate, ownerName: 'E2E บริษัท', vehicleType: 'ลากจูง', ...extra },
+  })
+  return (await expectJson<{ id: string }>(res)).id
+}
+
+export async function createCoverage(
+  page: Page,
+  vehicleId: string,
+  type: CoverageTypeKey,
+  endDate: string,
+  extra: Record<string, unknown> = {},
+): Promise<string> {
+  const res = await page.request.post('/api/renewals/coverages', { data: { vehicleId, type, endDate, ...extra } })
+  return (await expectJson<{ id: string }>(res)).id
+}
+
+export async function getVehicleDetail(page: Page, vehicleId: string): Promise<VehicleDetailResponse> {
+  return expectJson<VehicleDetailResponse>(await page.request.get(`/api/renewals/vehicles/${vehicleId}`))
 }
