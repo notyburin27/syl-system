@@ -72,7 +72,7 @@ export default function BulkRenewModal({ open, items, insurers, onClose, onDone 
       destroyOnHidden
     >
       {open && (
-        <Form form={form} layout="vertical" initialValues={initialValues}>
+        <Form form={form} layout="vertical" initialValues={initialValues} preserve={false} clearOnDestroy>
           <Alert
             type="info"
             showIcon

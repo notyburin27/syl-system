@@ -101,4 +101,47 @@ test.describe.serial('Dashboard ต่ออายุรถ', () => {
     await dialog.getByRole('button', { name: 'บันทึก' }).click()
     for (const id of [c1, c2]) await expect(rowOf(page, id)).toHaveCount(0)
   })
+
+  test('หมายเหตุ: บันทึกแล้วแสดงในแถวและเก็บลง DB', async ({ page }) => {
+    const vid = await createVehicle(page, 'E2E-3201 กท')
+    const cid = await createCoverage(page, vid, 'TAX', todayInBangkok())
+
+    await page.reload()
+    await page.getByTestId(`note-btn-${cid}`).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByTestId('note-input').fill('รอเอกสารจากลูกค้า')
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+
+    await expect(rowOf(page, cid)).toContainText('รอเอกสารจากลูกค้า')
+    expect((await getVehicleDetail(page, vid)).coverages[0].renewalNote).toBe('รอเอกสารจากลูกค้า')
+  })
+
+  test('เปิด modal ซ้ำต้องไม่ค้างค่าจากครั้งก่อน', async ({ page }) => {
+    const today = todayInBangkok()
+    const c1 = await createCoverage(page, await createVehicle(page, 'E2E-3211 กท'), 'TAX', today, { amount: 1111 })
+    const c2 = await createCoverage(page, await createVehicle(page, 'E2E-3212 กท'), 'TAX', today, { amount: 2222 })
+
+    await page.reload()
+    await page.getByPlaceholder('ค้นหาทะเบียน/เบอร์รถ').fill('E2E-321')
+    await page.getByTestId(`renew-btn-${c1}`).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.locator('#coverage-amount')).toHaveValue('1111.00')
+    await dialog.getByRole('button', { name: 'ยกเลิก' }).click()
+    await expect(dialog).toHaveCount(0)
+    await page.getByTestId(`renew-btn-${c2}`).click()
+    await expect(dialog.locator('#coverage-amount')).toHaveValue('2222.00')
+    await dialog.getByRole('button', { name: 'ยกเลิก' }).click()
+    await expect(dialog).toHaveCount(0)
+
+    // ไม่ต่อ: เลือกเหตุผลแล้วยกเลิก เปิดใหม่ต้องไม่มีเหตุผลที่เลือกไว้ (ไม่มี .ant-select-selection-item ใน dialog)
+    await page.getByTestId(`not-renew-btn-${c1}`).click()
+    await page.locator('#not-renew-reason').click()
+    await page.locator('.ant-select-item-option', { hasText: 'รถซ่อม' }).click()
+    await expect(dialog.locator('.ant-select-selection-item')).toHaveText('รถซ่อม')
+    await dialog.getByRole('button', { name: 'ยกเลิก' }).click()
+    await expect(dialog).toHaveCount(0)
+    await page.getByTestId(`not-renew-btn-${c1}`).click()
+    await expect(dialog).toBeVisible()
+    await expect(dialog.locator('.ant-select-selection-item')).toHaveCount(0)
+  })
 })

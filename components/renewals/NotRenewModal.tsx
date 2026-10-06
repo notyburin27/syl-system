@@ -59,7 +59,7 @@ export default function NotRenewModal({ ids, onClose, onDone }: Props) {
       destroyOnHidden
     >
       {ids && (
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" preserve={false} clearOnDestroy>
           <Form.Item name="reason" label="เหตุผล" rules={[{ required: true, message: 'กรุณาเลือกเหตุผล' }]}>
             <Select
               id="not-renew-reason"

@@ -67,7 +67,7 @@ export default function RenewModal({ item, insurers, vehicles, onClose, onDone }
       destroyOnHidden
     >
       {item && (
-        <Form key={item.id} form={form} layout="vertical" initialValues={initialValues}>
+        <Form key={item.id} form={form} layout="vertical" initialValues={initialValues} preserve={false} clearOnDestroy>
           <CoveragePeriodFields
             type={item.type}
             insurers={insurers}

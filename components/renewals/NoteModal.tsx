@@ -52,7 +52,7 @@ export default function NoteModal({ item, onClose, onDone }: Props) {
       destroyOnHidden
     >
       {item && (
-        <Form key={item.id} form={form} layout="vertical" initialValues={{ renewalNote: item.renewalNote ?? '' }}>
+        <Form key={item.id} form={form} layout="vertical" initialValues={{ renewalNote: item.renewalNote ?? '' }} preserve={false} clearOnDestroy>
           <Form.Item name="renewalNote" label="หมายเหตุ">
             <Input.TextArea data-testid="note-input" rows={3} maxLength={500} />
           </Form.Item>
