@@ -47,6 +47,7 @@ test('รถใหม่ + งวดใหม่ (ทะเบียนต่า
     type: 'MOTOR_INSURANCE',
     endDate: '2027-01-09',
     existingId: null,
+    existingStatus: null,
     data: { insurerId: 'ins-1', coverageClass: 'ป.3', pairedPlate: '61-8550 กท', amount: 19900 },
   })
   assert.deepEqual(r.summary, {

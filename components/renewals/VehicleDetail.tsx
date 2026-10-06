@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { App, Button, Descriptions, Space, Spin, Table, Tabs, Tag, type TableColumnsType } from 'antd'
+import { App, Button, Descriptions, Result, Space, Spin, Table, Tabs, Tag, type TableColumnsType } from 'antd'
 import { DeleteOutlined, EditOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from '@ant-design/icons'
 import {
   COVERAGE_TYPES,
@@ -31,7 +31,8 @@ export default function VehicleDetail({ id }: { id: string }) {
   const router = useRouter()
   const { insurers, vehicles } = useRenewalLookups()
   const [detail, setDetail] = useState<VehicleDetailResponse | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [activeType, setActiveType] = useState<CoverageTypeKey>('PRB')
   const [editingVehicle, setEditingVehicle] = useState(false)
   const [coverageForm, setCoverageForm] = useState<{ coverage: CoverageDto | null } | null>(null)
@@ -40,8 +41,13 @@ export default function VehicleDetail({ id }: { id: string }) {
   const fetchDetail = useCallback(async () => {
     setLoading(true)
     const res = await getJson<VehicleDetailResponse>(`/api/renewals/vehicles/${id}`)
-    if (res.ok) setDetail(res.data)
-    else message.error(res.error)
+    if (res.ok) {
+      setDetail(res.data)
+      setLoadError(null)
+    } else {
+      setLoadError(res.error)
+      message.error(res.error)
+    }
     setLoading(false)
   }, [id, message])
 
@@ -79,7 +85,7 @@ export default function VehicleDetail({ id }: { id: string }) {
   const handleDeleteCoverage = (c: CoverageDto) =>
     confirmAction(
       'ลบงวด',
-      `${COVERAGE_TYPE_LABELS[c.type]} หมด ${toThaiShortDate(c.endDate)} — ถ้างวดนี้ต่อมาจากงวดก่อนหน้า งวดก่อนหน้าจะกลับเป็น "รอต่อ"`,
+      `${COVERAGE_TYPE_LABELS[c.type]} หมด ${toThaiShortDate(c.endDate)} — ถ้างวดนี้ต่อมาจากงวดก่อนหน้า งวดก่อนหน้าจะกลับเป็น "รอต่อ"${c.attachmentCount > 0 ? ` และไฟล์แนบ ${c.attachmentCount} ไฟล์จะถูกลบถาวร` : ''}`,
       'ลบ',
       () => sendJson(`/api/renewals/coverages/${c.id}`, undefined, 'DELETE'),
       fetchDetail,
@@ -141,7 +147,20 @@ export default function VehicleDetail({ id }: { id: string }) {
     },
   ]
 
-  if (!detail) return <Spin spinning={loading} />
+  if (!detail) {
+    if (loading) return <Spin spinning />
+    return (
+      <Result
+        status="warning"
+        title={loadError ?? 'ไม่พบข้อมูลรถ'}
+        extra={
+          <Link href="/renewals/vehicles">
+            <Button type="primary">กลับไปรายการรถ</Button>
+          </Link>
+        }
+      />
+    )
+  }
 
   const { vehicle, coverages } = detail
   return (

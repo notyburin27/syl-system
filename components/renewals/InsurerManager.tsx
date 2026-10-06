@@ -27,7 +27,12 @@ export default function InsurerManager() {
   }, [fetchRows])
 
   const handleSave = async () => {
-    const { name } = await form.validateFields()
+    let name: string
+    try {
+      ;({ name } = await form.validateFields())
+    } catch {
+      return
+    }
     setSaving(true)
     const res =
       editing === 'new'
@@ -118,7 +123,10 @@ export default function InsurerManager() {
         cancelText="ยกเลิก"
         confirmLoading={saving}
         onOk={handleSave}
-        onCancel={() => setEditing(null)}
+        onCancel={() => {
+          setEditing(null)
+          form.resetFields()
+        }}
         forceRender
       >
         <Form form={form} layout="vertical">

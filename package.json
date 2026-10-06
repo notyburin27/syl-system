@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "check-rates": "tsx scripts/check-job-rates.ts",
+    "test:unit": "tsx --test lib/renewals/__tests__/*.test.ts lib/renewals/import/__tests__/*.test.ts lib/utils/__tests__/*.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",

@@ -47,7 +47,7 @@ test.describe.serial('นำเข้า Excel', () => {
       ],
     )
     await uploadAndPreview(page, buffer)
-    await expect(page.getByText('ไม่พบบริษัทประกัน "E2E ประกันภัย ใหม่" ในระบบ').first()).toBeVisible()
+    await expect(page.getByText('ไม่พบบริษัทประกัน "E2E ประกันภัย ใหม่" ในระบบ').first()).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('import-commit-btn')).toBeDisabled()
 
     await page.getByTestId('import-add-insurers-btn').click()

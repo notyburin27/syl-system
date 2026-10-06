@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Alert, App, Button, Descriptions, Space, Table, Upload, type TableColumnsType } from 'antd'
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons'
 import type { ImportCommitResponse, ImportErrorDto, ImportPreviewResponse, ImportSummaryDto } from '@/types/renewals'
-import { sendJson } from './api'
+import { SESSION_EXPIRED_ERROR, handleSessionExpired, sendJson } from './api'
 
 const SUMMARY_LABELS: [keyof ImportSummaryDto, string][] = [
   ['vehiclesCreated', 'รถใหม่'],
@@ -38,7 +38,16 @@ export default function RenewalImport() {
     form.append('mode', mode)
     try {
       const res = await fetch('/api/renewals/import', { method: 'POST', body: form })
-      return { status: res.status, body: (await res.json().catch(() => ({}))) as ImportResponseBody }
+      let isJson = true
+      const body = (await res.json().catch(() => {
+        isJson = false
+        return {}
+      })) as ImportResponseBody
+      if (handleSessionExpired(res, isJson)) {
+        message.error(SESSION_EXPIRED_ERROR)
+        return null
+      }
+      return { status: res.status, body }
     } catch {
       message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
       return null

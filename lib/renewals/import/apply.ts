@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import type { ImportSummaryDto } from '@/types/renewals'
+import { OPEN_STATUSES, isOpenStatus } from '../constants'
 import { enforceCoverageRules } from '../coverageService'
 import { dateToYmd, ymdToDate } from '../dateOnly'
+import { conflict, isPrismaNotFound, isUniqueViolation } from '../http'
 import type { ExistingSnapshot, ImportPlan } from './validate'
 
 /** โหลดข้อมูลเดิมครั้งเดียว (นอก transaction) สำหรับ validateRenewalImport */
@@ -20,7 +22,18 @@ export async function loadImportSnapshot(): Promise<ExistingSnapshot> {
  * บันทึกแผนจาก validateRenewalImport (ต้องไม่มี error) ใน transaction เดียว
  * แล้วบังคับกติกางวด (ปิดงวดเก่า / รถขาย) กับรถที่ไฟล์แตะ
  */
+export const IMPORT_CONFLICT_ERROR = 'ข้อมูลเปลี่ยนระหว่างนำเข้า — ตรวจสอบไฟล์อีกครั้ง'
+
 export async function applyRenewalImport(plan: ImportPlan, userId: string): Promise<ImportSummaryDto> {
+  try {
+    return await applyPlan(plan, userId)
+  } catch (error) {
+    if (isUniqueViolation(error) || isPrismaNotFound(error)) throw conflict(IMPORT_CONFLICT_ERROR)
+    throw error
+  }
+}
+
+async function applyPlan(plan: ImportPlan, userId: string): Promise<ImportSummaryDto> {
   return prisma.$transaction(
     async (tx) => {
       const summary: ImportSummaryDto = {
@@ -78,7 +91,17 @@ export async function applyRenewalImport(plan: ImportPlan, userId: string): Prom
             : {}),
         }
         if (c.existingId) {
-          await tx.vehicleCoverage.update({ where: { id: c.existingId }, data })
+          if (renewalStatus && c.existingStatus) {
+            // เปลี่ยนสถานะงวดเดิม: งวดที่เปิดอยู่ต้องยังเปิดอยู่ / งวดที่ปิดแล้ว (ค่าเดิมเท่านั้น) ต้องยังเป็นสถานะเดิม
+            const guard = isOpenStatus(c.existingStatus) ? { in: [...OPEN_STATUSES] } : c.existingStatus
+            const { count } = await tx.vehicleCoverage.updateMany({
+              where: { id: c.existingId, renewalStatus: guard },
+              data,
+            })
+            if (count === 0) throw conflict(IMPORT_CONFLICT_ERROR)
+          } else {
+            await tx.vehicleCoverage.update({ where: { id: c.existingId }, data })
+          }
           summary.coveragesUpdated++
         } else {
           await tx.vehicleCoverage.create({

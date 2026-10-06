@@ -62,6 +62,8 @@ export interface CoverageUpsert {
   type: CoverageTypeKey
   endDate: string
   existingId: string | null
+  /** สถานะของงวดเดิมตอน snapshot (null = งวดใหม่) — apply ใช้เป็นเงื่อนไขกันชนกับการแก้จากหน้าจอ */
+  existingStatus: RenewalStatusKey | null
   data: {
     insurerId?: string
     coverageClass?: string
@@ -242,7 +244,7 @@ function validateCoverages(
     if (current && status && !isOpenStatus(current.renewalStatus) && current.renewalStatus !== status) {
       err('renewalStatus', 'งวดนี้ปิดแล้ว — เปลี่ยนสถานะผ่านหน้าจอ')
     }
-    result.push({ plate, type, endDate: end, existingId: current?.id ?? null, data })
+    result.push({ plate, type, endDate: end, existingId: current?.id ?? null, existingStatus: current?.renewalStatus ?? null, data })
   }
 
   pushDuplicates(seen, COVERAGE_SHEET, COVERAGE_COLUMNS.endDate, (key) => {

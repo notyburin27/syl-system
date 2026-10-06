@@ -234,6 +234,7 @@ export async function bulkRenew(input: BulkRenewInput, userId: string): Promise<
       async (tx) => {
         const olds = await tx.vehicleCoverage.findMany({
           where: { id: { in: ids } },
+          orderBy: { id: 'asc' },
           include: { vehicle: { select: { plate: true } } },
         })
         if (olds.length !== ids.length) throw notFound('ไม่พบบางรายการ — โหลดหน้าใหม่แล้วลองอีกครั้ง')
