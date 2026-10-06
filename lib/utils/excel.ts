@@ -7,7 +7,7 @@ import ExcelJS from "exceljs";
  * ต่างจาก primitive ที่โค้ดเรียกใช้คาดหวัง — normalizeCellValue จึงแปลงกลับเป็น
  * string | number | boolean | Date | "" ให้เทียบเท่ากับ `defval: ""` ของเดิม
  */
-function normalizeCellValue(value: ExcelJS.CellValue): unknown {
+export function normalizeCellValue(value: ExcelJS.CellValue): unknown {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value;
   if (typeof value === "object") {

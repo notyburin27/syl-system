@@ -14,6 +14,7 @@ enum Role {
   MANAGER
   SENIOR_STAFF
   STAFF
+  INSURANCE // ฝ่ายประกัน — เห็นเฉพาะเมนูต่ออายุรถ
 }
 
 model AuthUser {
@@ -31,6 +32,9 @@ model AuthUser {
   driverLeaves    DriverLeave[]
   companyHolidays CompanyHoliday[]
   monthlyEntries  DriverMonthlyEntry[]
+  coveragesCreated      VehicleCoverage[]    @relation("CoverageCreatedBy")
+  coverageStatusUpdates VehicleCoverage[]    @relation("CoverageStatusUpdatedBy")
+  coverageAttachments   CoverageAttachment[] @relation("AttachmentUploadedBy")
 
   @@index([username])
   @@map("auth_users")
@@ -539,4 +543,129 @@ model LineImage {
   @@index([senderId])
   @@index([groupId])
   @@map("line_images")
+}
+
+// ============================================
+// ต่ออายุรถ (พรบ. / ภาษี / ประกัน)
+// ============================================
+
+enum VehicleStatus {
+  ACTIVE // ใช้งาน
+  SUSPENDED // งดใช้ (แจ้ง ม.89)
+  SOLD // ขาย / เลิกใช้ (แจ้ง ม.79)
+}
+
+enum CoverageType {
+  PRB // พรบ.
+  TAX // ภาษี
+  MOTOR_INSURANCE // ประกันรถยนต์
+  CARGO_INSURANCE // ประกันสินค้า (ความรับผิดผู้ขนส่ง)
+}
+
+enum RenewalStatus {
+  PENDING
+  IN_PROGRESS
+  RENEWED
+  NOT_RENEWED
+}
+
+enum NotRenewedReason {
+  SOLD
+  SUSPENDED
+  ACCIDENT
+  REPAIR
+  OTHER
+}
+
+model Vehicle {
+  id            String        @id @default(cuid())
+  /// normalize แล้ว (lib/renewals/plate.ts)
+  plate         String        @unique
+  /// เบอร์รถ — free text ไม่ unique (หัวกับหางใช้เลขซ้ำกันได้)
+  fleetNumber   String?
+  ownerName     String
+  vehicleType   String
+  brand         String?
+  chassisNumber String?
+  fuelType      String?
+  weightKg      Int?
+  status        VehicleStatus @default(ACTIVE)
+  statusDate    DateTime?     @db.Date
+  note          String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  coverages       VehicleCoverage[] @relation("CoverageVehicle")
+  pairedCoverages VehicleCoverage[] @relation("CoveragePairedVehicle")
+
+  @@index([ownerName])
+  @@map("vehicles")
+}
+
+model Insurer {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  coverages VehicleCoverage[]
+
+  @@map("insurers")
+}
+
+/// 1 แถว = 1 งวดของรถ 1 คัน 1 ประเภท; สถานะการต่ออยู่บนงวดที่กำลังจะหมด
+model VehicleCoverage {
+  id                String            @id @default(cuid())
+  vehicleId         String
+  vehicle           Vehicle           @relation("CoverageVehicle", fields: [vehicleId], references: [id])
+  type              CoverageType
+  insurerId         String?
+  insurer           Insurer?          @relation(fields: [insurerId], references: [id])
+  coverageClass     String?
+  policyNumber      String?
+  startDate         DateTime?         @db.Date
+  /// วันสุดท้ายที่คุ้มครอง (inclusive)
+  endDate           DateTime          @db.Date
+  amount            Decimal?          @db.Decimal(10, 2)
+  serviceFee        Decimal?          @db.Decimal(10, 2)
+  pairedVehicleId   String?
+  pairedVehicle     Vehicle?          @relation("CoveragePairedVehicle", fields: [pairedVehicleId], references: [id])
+
+  renewalStatus     RenewalStatus     @default(PENDING)
+  notRenewedReason  NotRenewedReason?
+  renewalNote       String?
+  renewedToId       String?           @unique
+  renewedTo         VehicleCoverage?  @relation("CoverageRenewal", fields: [renewedToId], references: [id])
+  renewedFrom       VehicleCoverage?  @relation("CoverageRenewal")
+  statusUpdatedAt   DateTime?
+  statusUpdatedById String?
+  statusUpdatedBy   AuthUser?         @relation("CoverageStatusUpdatedBy", fields: [statusUpdatedById], references: [id])
+  createdById       String
+  createdBy         AuthUser          @relation("CoverageCreatedBy", fields: [createdById], references: [id])
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  attachments CoverageAttachment[]
+
+  @@unique([vehicleId, type, endDate])
+  @@index([renewalStatus, endDate])
+  @@index([vehicleId, type])
+  @@map("vehicle_coverages")
+}
+
+model CoverageAttachment {
+  id           String          @id @default(cuid())
+  coverageId   String
+  coverage     VehicleCoverage @relation(fields: [coverageId], references: [id], onDelete: Cascade)
+  fileKey      String
+  fileName     String
+  contentType  String
+  sizeBytes    Int
+  uploadedById String
+  uploadedBy   AuthUser        @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime        @default(now())
+
+  @@index([coverageId])
+  @@map("coverage_attachments")
 }
