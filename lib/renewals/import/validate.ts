@@ -12,7 +12,7 @@ import {
   type VehicleStatusKey,
 } from '../constants'
 import { normalizePlate } from '../plate'
-import { cellText, lookupLabel, parseImportDate, parseImportInt, parseImportMoney } from './cells'
+import { cellText, lookupLabel, parseImportDate, parseImportInt, parseImportMoney, parseImportProvince } from './cells'
 import {
   COVERAGE_COLUMNS,
   COVERAGE_SHEET,
@@ -44,13 +44,22 @@ export interface VehicleUpsert {
   existingId: string | null
   /** เฉพาะช่องที่กรอก — ช่องว่างไม่อยู่ใน data (คงค่าเดิม) */
   data: {
+    plateProvince?: string
+    registrationDate?: string
     fleetNumber?: string
     ownerName?: string
     vehicleType?: string
     brand?: string
+    modelName?: string
+    color?: string
     chassisNumber?: string
+    chassisPosition?: string
+    engineNumber?: string
     fuelType?: string
     note?: string
+    engineCylinders?: number
+    engineHorsepower?: number
+    axleCount?: number
     weightKg?: number
     status?: VehicleStatusKey
     statusDate?: string
@@ -90,7 +99,23 @@ export interface ImportValidation {
   summary: ImportSummaryDto
 }
 
-const VEHICLE_TEXT_FIELDS = ['fleetNumber', 'ownerName', 'vehicleType', 'brand', 'chassisNumber', 'fuelType', 'note'] as const
+const VEHICLE_TEXT_FIELDS = [
+  'fleetNumber',
+  'ownerName',
+  'vehicleType',
+  'brand',
+  'modelName',
+  'color',
+  'chassisNumber',
+  'chassisPosition',
+  'engineNumber',
+  'fuelType',
+  'note',
+] as const
+
+/** ค่าสูงสุดเท่ากับ vehicleInputSchema */
+const VEHICLE_INT_MAX = { engineCylinders: 100, engineHorsepower: 10_000, axleCount: 20, weightKg: 100_000 } as const
+const VEHICLE_DATE_FIELDS = ['registrationDate', 'statusDate'] as const
 
 const choices = (labels: Record<string, string>) => `ต้องเป็น ${Object.values(labels).join(' / ')}`
 
@@ -129,15 +154,22 @@ function validateVehicles(
       const text = cellText(r.values[field])
       if (text) data[field] = text
     }
-    const weight = parseImportInt(r.values.weightKg)
-    if ('error' in weight) err('weightKg', weight.error)
-    else if (weight.value !== null) data.weightKg = weight.value
+    for (const field of Object.keys(VEHICLE_INT_MAX) as (keyof typeof VEHICLE_INT_MAX)[]) {
+      const n = parseImportInt(r.values[field], VEHICLE_INT_MAX[field])
+      if ('error' in n) err(field, n.error)
+      else if (n.value !== null) data[field] = n.value
+    }
+    const province = parseImportProvince(r.values.plateProvince)
+    if ('error' in province) err('plateProvince', province.error)
+    else if (province.value) data.plateProvince = province.value
     const status = lookupLabel(VEHICLE_STATUS_LABELS, r.values.status)
     if (status === undefined) err('status', choices(VEHICLE_STATUS_LABELS))
     else if (status) data.status = status
-    const statusDate = parseImportDate(r.values.statusDate)
-    if ('error' in statusDate) err('statusDate', statusDate.error)
-    else if (statusDate.value) data.statusDate = statusDate.value
+    for (const field of VEHICLE_DATE_FIELDS) {
+      const date = parseImportDate(r.values[field])
+      if ('error' in date) err(field, date.error)
+      else if (date.value) data[field] = date.value
+    }
 
     const current = vehicleByPlate.get(plate)
     if (!current) {

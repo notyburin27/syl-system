@@ -8,7 +8,9 @@ import {
   GUIDE_ROWS,
   GUIDE_SHEET,
   IMPORT_STATUS_LABELS,
+  OPTIONAL_VEHICLE_COLUMNS,
   VEHICLE_COLUMNS,
+  VEHICLE_COLUMN_ALIASES,
   VEHICLE_SHEET,
   type CoverageColumnKey,
   type RawRow,
@@ -45,7 +47,10 @@ function addDataSheet<K extends string>(
 
 export async function buildRenewalTemplate(): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
-  addDataSheet(wb, VEHICLE_SHEET, VEHICLE_COLUMNS, { status: Object.values(VEHICLE_STATUS_LABELS) }, ['statusDate'])
+  addDataSheet(wb, VEHICLE_SHEET, VEHICLE_COLUMNS, { status: Object.values(VEHICLE_STATUS_LABELS) }, [
+    'registrationDate',
+    'statusDate',
+  ])
   addDataSheet(wb, COVERAGE_SHEET, COVERAGE_COLUMNS, {
     type: Object.values(COVERAGE_TYPE_LABELS),
     coverageClass: COVERAGE_CLASSES,
@@ -53,24 +58,29 @@ export async function buildRenewalTemplate(): Promise<Buffer> {
     notRenewedReason: Object.values(NOT_RENEWED_REASON_LABELS),
   }, ['startDate', 'endDate'])
   const guide = wb.addWorksheet(GUIDE_SHEET)
-  guide.columns = [{ width: 24 }, { width: 100 }]
+  guide.columns = [{ width: 32 }, { width: 100 }]
   for (const row of GUIDE_ROWS) guide.addRow(row)
   guide.getRow(1).font = { bold: true }
   return Buffer.from(await wb.xlsx.writeBuffer())
 }
 
+/** จับคู่หัวคอลัมน์โดยไม่สนช่องว่าง ("น้ำหนักตัวรถ(กก.)" = "น้ำหนักตัวรถ (กก.)") */
+const headerKey = (label: string) => label.replace(/\s/g, '')
+
 function readSheet<K extends string>(
   ws: ExcelJS.Worksheet,
   columns: Record<K, string>,
+  { aliases = {}, optional = [] }: { aliases?: Partial<Record<K, readonly string[]>>; optional?: readonly K[] } = {},
 ): { rows: RawRow<K>[] } | { error: string } {
   const keys = Object.keys(columns) as K[]
+  const keyByHeader = new Map<string, K>()
+  for (const k of keys) for (const label of [columns[k], ...(aliases[k] ?? [])]) keyByHeader.set(headerKey(label), k)
   const colOf = new Map<K, number>()
   ws.getRow(1).eachCell((cell, col) => {
-    const label = cellText(normalizeCellValue(cell.value))
-    const key = keys.find((k) => columns[k] === label)
+    const key = keyByHeader.get(headerKey(cellText(normalizeCellValue(cell.value))))
     if (key && !colOf.has(key)) colOf.set(key, col)
   })
-  const missing = keys.filter((k) => !colOf.has(k)).map((k) => columns[k])
+  const missing = keys.filter((k) => !colOf.has(k) && !optional.includes(k)).map((k) => columns[k])
   if (missing.length > 0) return { error: `ชีต "${ws.name}" ไม่มีคอลัมน์: ${missing.join(', ')} — ดาวน์โหลด template ใหม่` }
 
   const rows: RawRow<K>[] = []
@@ -99,7 +109,7 @@ export async function readRenewalWorkbook(
   if (!vehicleSheet || !coverageSheet) {
     return { error: `ไฟล์ต้องมีชีต "${VEHICLE_SHEET}" และ "${COVERAGE_SHEET}" — ดาวน์โหลด template` }
   }
-  const vehicles = readSheet(vehicleSheet, VEHICLE_COLUMNS)
+  const vehicles = readSheet(vehicleSheet, VEHICLE_COLUMNS, { aliases: VEHICLE_COLUMN_ALIASES, optional: OPTIONAL_VEHICLE_COLUMNS })
   if ('error' in vehicles) return vehicles
   const coverages = readSheet(coverageSheet, COVERAGE_COLUMNS)
   if ('error' in coverages) return coverages

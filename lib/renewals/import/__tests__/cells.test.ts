@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { COVERAGE_TYPE_LABELS } from '../../constants'
-import { lookupLabel, parseImportDate, parseImportInt, parseImportMoney } from '../cells'
+import { lookupLabel, parseImportDate, parseImportInt, parseImportMoney, parseImportProvince } from '../cells'
 
 test('parseImportDate: date cell, พ.ศ./ค.ศ. 4 หลัก, คั่นด้วย - ได้, YYYY-MM-DD, ว่าง', () => {
   assert.deepEqual(parseImportDate(new Date(Date.UTC(2027, 2, 31))), { value: '2027-03-31' })
@@ -33,6 +33,28 @@ test('parseImportInt: คอมมาได้ ทศนิยมไม่ได
   assert.deepEqual(parseImportInt('7,900'), { value: 7900 })
   assert.deepEqual(parseImportInt('7.5'), { error: 'ต้องเป็นจำนวนเต็ม' })
   assert.deepEqual(parseImportInt(null), { value: null })
+})
+
+test('parseImportInt: ค่าสูงสุดกำหนดได้ (default 100,000)', () => {
+  assert.deepEqual(parseImportInt('100,001'), { error: 'ต้องอยู่ระหว่าง 0 ถึง 100,000' })
+  assert.deepEqual(parseImportInt(20, 20), { value: 20 })
+  assert.deepEqual(parseImportInt(21, 20), { error: 'ต้องอยู่ระหว่าง 0 ถึง 20' })
+  assert.deepEqual(parseImportInt('10001', 10_000), { error: 'ต้องอยู่ระหว่าง 0 ถึง 10,000' })
+  assert.deepEqual(parseImportInt('-1', 100), { error: 'ต้องอยู่ระหว่าง 0 ถึง 100' })
+})
+
+test('parseImportProvince: ชื่อเต็ม, ช่องว่าง, จ./จังหวัด นำหน้า, ํา → ำ, กรุงเทพฯ / กทม.; ไม่รู้จัก → error', () => {
+  assert.deepEqual(parseImportProvince(' ชลบุรี '), { value: 'ชลบุรี' })
+  assert.deepEqual(parseImportProvince('นคร ราชสีมา'), { value: 'นครราชสีมา' })
+  assert.deepEqual(parseImportProvince('จ.ระยอง'), { value: 'ระยอง' })
+  assert.deepEqual(parseImportProvince('จังหวัด สมุทรปราการ'), { value: 'สมุทรปราการ' })
+  assert.deepEqual(parseImportProvince('ล\u0E4D\u0E32ปาง'), { value: 'ลำปาง' })
+  for (const bkk of ['กรุงเทพมหานคร', 'กรุงเทพฯ', 'กรุงเทพ', 'กทม', 'กทม.']) {
+    assert.deepEqual(parseImportProvince(bkk), { value: 'กรุงเทพมหานคร' })
+  }
+  assert.deepEqual(parseImportProvince(''), { value: null })
+  assert.deepEqual(parseImportProvince(null), { value: null })
+  assert.deepEqual(parseImportProvince('ชบ'), { error: 'ไม่พบจังหวัด "ชบ" — กรอกชื่อจังหวัดเต็ม เช่น กรุงเทพมหานคร, ชลบุรี' })
 })
 
 test('lookupLabel: ไม่สนจุด/ช่องว่าง; ว่าง = null; ไม่ตรงตัวเลือก = undefined', () => {

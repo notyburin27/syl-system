@@ -186,3 +186,66 @@ test('งวดที่ปิดแล้วเปลี่ยนสถาน�
   const reopen = validateRenewalImport({ vehicles: [], coverages: [c(2, { ...row, renewalStatus: 'รอต่อ' })] }, existing)
   assert.deepEqual(messages(reopen), ['งวด:2:สถานะการต่อ:งวดนี้ปิดแล้ว — เปลี่ยนสถานะผ่านหน้าจอ'])
 })
+
+test('ข้อมูลเล่มทะเบียน: จังหวัด / วันที่จดทะเบียน (พ.ศ.) / ข้อความ / สูบ-แรงม้า-เพลา เข้าแผน', () => {
+  const r = validateRenewalImport(
+    {
+      vehicles: [
+        v(2, {
+          plate: '61-8550 กท',
+          plateProvince: 'กทม.',
+          registrationDate: '15/08/2565',
+          modelName: 'FVZ34',
+          color: 'ขาว',
+          chassisPosition: 'โครงขวาหน้า',
+          engineNumber: '6HK1-123456',
+          engineCylinders: '6',
+          engineHorsepower: '300',
+          axleCount: 3,
+        }),
+      ],
+      coverages: [],
+    },
+    BASE,
+  )
+  assert.deepEqual(r.errors, [])
+  assert.deepEqual(r.plan.vehicles[0].data, {
+    modelName: 'FVZ34',
+    color: 'ขาว',
+    chassisPosition: 'โครงขวาหน้า',
+    engineNumber: '6HK1-123456',
+    engineCylinders: 6,
+    engineHorsepower: 300,
+    axleCount: 3,
+    plateProvince: 'กรุงเทพมหานคร',
+    registrationDate: '2022-08-15',
+  })
+})
+
+test('ข้อมูลเล่มทะเบียนผิด → error ระบุคอลัมน์; ช่องว่างไม่อยู่ในแผน (คงค่าเดิม)', () => {
+  const r = validateRenewalImport(
+    {
+      vehicles: [
+        v(2, {
+          plate: '61-8550 กท',
+          plateProvince: 'ชบ',
+          registrationDate: '15/08/65',
+          engineCylinders: '101',
+          engineHorsepower: '10,001',
+          axleCount: '2.5',
+        }),
+        v(3, { plate: '70-0001 กท', ownerName: 'แวลู ทรานสปอร์ต', vehicleType: 'หาง', plateProvince: '', registrationDate: '', axleCount: '' }),
+      ],
+      coverages: [],
+    },
+    BASE,
+  )
+  assert.deepEqual(messages(r), [
+    'รถ:2:จำนวนสูบ:ต้องอยู่ระหว่าง 0 ถึง 100',
+    'รถ:2:แรงม้า:ต้องอยู่ระหว่าง 0 ถึง 10,000',
+    'รถ:2:จำนวนเพลา:ต้องเป็นจำนวนเต็ม',
+    'รถ:2:จังหวัด (ทะเบียนรถ):ไม่พบจังหวัด "ชบ" — กรอกชื่อจังหวัดเต็ม เช่น กรุงเทพมหานคร, ชลบุรี',
+    'รถ:2:วันที่จดทะเบียน:วันที่ "15/08/65" ไม่ถูกต้อง — ใช้ วว/ดด/ปปปป เช่น 31/03/2570',
+  ])
+  assert.deepEqual(r.plan.vehicles[1].data, { ownerName: 'แวลู ทรานสปอร์ต', vehicleType: 'หาง' })
+})

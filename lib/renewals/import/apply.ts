@@ -55,8 +55,12 @@ async function applyPlan(plan: ImportPlan, userId: string): Promise<ImportSummar
       )
 
       for (const v of plan.vehicles) {
-        const { statusDate, ...rest } = v.data
-        const data = { ...rest, ...(statusDate ? { statusDate: ymdToDate(statusDate) } : {}) }
+        const { statusDate, registrationDate, ...rest } = v.data
+        const data = {
+          ...rest,
+          ...(statusDate ? { statusDate: ymdToDate(statusDate) } : {}),
+          ...(registrationDate ? { registrationDate: ymdToDate(registrationDate) } : {}),
+        }
         if (v.existingId) {
           await tx.vehicle.update({ where: { id: v.existingId }, data })
           summary.vehiclesUpdated++
