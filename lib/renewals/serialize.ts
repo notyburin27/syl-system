@@ -1,4 +1,4 @@
-import type { CoverageAttachment, Insurer, Prisma, Vehicle } from '@/app/generated/prisma/client'
+import type { CoverageAttachment, Insurer, Prisma, Vehicle, VehicleAttachment } from '@/app/generated/prisma/client'
 import type { AttachmentDto, CoverageDto, InsurerDto, VehicleDto } from '@/types/renewals'
 import { dateToYmd } from './dateOnly'
 
@@ -45,8 +45,17 @@ export function toVehicleDto(v: Vehicle): VehicleDto {
     ownerName: v.ownerName,
     vehicleType: v.vehicleType,
     status: v.status,
+    plateProvince: v.plateProvince,
+    registrationDate: v.registrationDate ? dateToYmd(v.registrationDate) : null,
     brand: v.brand,
+    modelName: v.modelName,
+    color: v.color,
     chassisNumber: v.chassisNumber,
+    chassisPosition: v.chassisPosition,
+    engineNumber: v.engineNumber,
+    engineCylinders: v.engineCylinders,
+    engineHorsepower: v.engineHorsepower,
+    axleCount: v.axleCount,
     fuelType: v.fuelType,
     weightKg: v.weightKg,
     statusDate: v.statusDate ? dateToYmd(v.statusDate) : null,
@@ -62,6 +71,16 @@ export function toAttachmentDto(a: CoverageAttachment): AttachmentDto {
   return {
     id: a.id,
     coverageId: a.coverageId,
+    fileName: a.fileName,
+    contentType: a.contentType,
+    sizeBytes: a.sizeBytes,
+    createdAt: a.createdAt.toISOString(),
+  }
+}
+
+export function toVehicleAttachmentDto(a: VehicleAttachment): AttachmentDto {
+  return {
+    id: a.id,
     fileName: a.fileName,
     contentType: a.contentType,
     sizeBytes: a.sizeBytes,

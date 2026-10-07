@@ -4,6 +4,7 @@ import { requireRenewalAccess } from '@/lib/renewals/access'
 import { parseJsonBody, renewalErrorResponse } from '@/lib/renewals/http'
 import { vehicleInputSchema } from '@/lib/renewals/schemas'
 import { COVERAGE_INCLUDE, toCoverageDto, toVehicleDto } from '@/lib/renewals/serialize'
+import { removeObjectsBestEffort } from '@/lib/renewals/storage'
 import { deleteVehicle, updateVehicle } from '@/lib/renewals/vehicleService'
 import type { VehicleDetailResponse } from '@/types/renewals'
 
@@ -43,7 +44,7 @@ export async function DELETE(_req: Request, { params }: Params) {
 
   try {
     const { id } = await params
-    await deleteVehicle(id)
+    await removeObjectsBestEffort(await deleteVehicle(id))
     return NextResponse.json({ success: true })
   } catch (error) {
     return renewalErrorResponse(error)

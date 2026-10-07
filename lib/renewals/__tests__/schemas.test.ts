@@ -28,6 +28,30 @@ test('vehicleInputSchema: ทะเบียนว่าง (มีแต่จ�
   assert.equal(errorOf(vehicleInputSchema.safeParse({ plate: ' . ', ownerName: 'a', vehicleType: 'b' })), 'กรุณากรอกทะเบียน')
 })
 
+test('vehicleInputSchema: ข้อมูลรถเพิ่มเติม — จังหวัดต้องอยู่ในรายชื่อ, วันที่จดทะเบียน, ขนาดเครื่องยนต์เป็นจำนวนเต็ม', () => {
+  const base = { plate: '64-0212', ownerName: 'a', vehicleType: 'b' }
+  const r = vehicleInputSchema.parse({
+    ...base,
+    plateProvince: 'ชลบุรี',
+    registrationDate: '2020-05-01',
+    modelName: ' R450 ',
+    engineCylinders: 6,
+    engineHorsepower: 450,
+    axleCount: 3,
+  })
+  assert.equal(r.plateProvince, 'ชลบุรี')
+  assert.equal(r.registrationDate, '2020-05-01')
+  assert.equal(r.modelName, 'R450')
+  assert.equal(r.chassisPosition, null)
+  assert.equal(r.engineCylinders, 6)
+  assert.equal(vehicleInputSchema.parse(base).plateProvince, null)
+
+  assert.equal(errorOf(vehicleInputSchema.safeParse({ ...base, plateProvince: 'กท' })), 'ข้อมูลไม่ถูกต้อง: plateProvince')
+  assert.equal(errorOf(vehicleInputSchema.safeParse({ ...base, registrationDate: '2021-02-29' })), 'วันที่ไม่ถูกต้อง')
+  assert.equal(errorOf(vehicleInputSchema.safeParse({ ...base, axleCount: 2.5 })), 'ข้อมูลไม่ถูกต้อง: axleCount')
+  assert.equal(errorOf(vehicleInputSchema.safeParse({ ...base, engineHorsepower: -1 })), 'แรงม้าต้องไม่ติดลบ')
+})
+
 test('coverageFieldsSchema: วันที่ไม่มีจริง / วันเริ่มหลังวันสิ้นสุด / เงินเกิน Decimal(10,2)', () => {
   assert.equal(errorOf(coverageFieldsSchema.safeParse({ endDate: '2027-02-29' })), 'วันที่ไม่ถูกต้อง')
   assert.equal(

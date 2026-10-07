@@ -1,9 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { App, Button, Col, Input, Row, Select, Table, Tag, type TableColumnsType } from 'antd'
-import { EditOutlined, PlusOutlined } from '@ant-design/icons'
+import { useRouter } from 'next/navigation'
+import { App, Button, Col, Input, Row, Select, Space, Table, Tag, type TableColumnsType } from 'antd'
+import { EditOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   COVERAGE_TYPES,
   COVERAGE_TYPE_LABELS,
@@ -22,6 +22,7 @@ const uniqueSorted = (values: string[]) => [...new Set(values)].sort((a, b) => a
 
 export default function VehicleList() {
   const { message } = App.useApp()
+  const router = useRouter()
   const [rows, setRows] = useState<VehicleListItemDto[]>([])
   const [loading, setLoading] = useState(false)
   const [owner, setOwner] = useState<string>()
@@ -55,16 +56,7 @@ export default function VehicleList() {
 
   const columns: TableColumnsType<VehicleListItemDto> = [
     { title: 'เบอร์รถ', key: 'fleetNumber', width: 100, render: (_, r) => r.fleetNumber ?? '-' },
-    {
-      title: 'ทะเบียน',
-      key: 'plate',
-      width: 140,
-      render: (_, r) => (
-        <Link href={`/renewals/vehicles/${r.id}`} data-testid={`vehicle-link-${r.id}`}>
-          {r.plate}
-        </Link>
-      ),
-    },
+    { title: 'ทะเบียน', dataIndex: 'plate', key: 'plate', width: 140 },
     { title: 'บริษัท', dataIndex: 'ownerName', key: 'ownerName', width: 160 },
     { title: 'ลักษณะ', dataIndex: 'vehicleType', key: 'vehicleType', width: 120 },
     { title: 'ยี่ห้อ', key: 'brand', width: 100, render: (_, r) => r.brand ?? '-' },
@@ -81,11 +73,24 @@ export default function VehicleList() {
       render: (_: unknown, r: VehicleListItemDto) => toThaiShortDate(r.latestEndDates[t]) || '-',
     })),
     {
-      title: '',
+      title: 'จัดการ',
       key: 'actions',
-      width: 60,
+      width: 210,
+      fixed: 'right',
       render: (_, r) => (
-        <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditing(r)} data-testid={`vehicle-edit-btn-${r.id}`} />
+        <Space size={4}>
+          <Button size="small" icon={<EditOutlined />} onClick={() => setEditing(r)} data-testid={`vehicle-edit-btn-${r.id}`}>
+            แก้ไขข้อมูล
+          </Button>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => router.push(`/renewals/vehicles/${r.id}`)}
+            data-testid={`vehicle-view-btn-${r.id}`}
+          >
+            ดูรายละเอียด
+          </Button>
+        </Space>
       ),
     },
   ]
@@ -131,7 +136,7 @@ export default function VehicleList() {
         loading={loading}
         dataSource={filtered}
         columns={columns}
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1350 }}
         pagination={{ pageSize: 50, showSizeChanger: true }}
       />
       <VehicleFormModal

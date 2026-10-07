@@ -25,6 +25,10 @@ test('buildAttachmentKey ใช้เดือนตามเวลาไทย'
     buildAttachmentKey(new Date('2026-10-31T18:00:00Z'), 'abc', 'pdf'),
     'vehicle-coverages/2026-11/abc.pdf',
   )
+  assert.equal(
+    buildAttachmentKey(new Date('2026-10-31T18:00:00Z'), 'abc', 'png', 'vehicle-documents'),
+    'vehicle-documents/2026-11/abc.png',
+  )
 })
 
 test('inlineContentDisposition: ชื่อไทยไม่ทำ header พัง (ASCII ล้วน + filename*)', () => {

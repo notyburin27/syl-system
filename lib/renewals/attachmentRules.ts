@@ -28,8 +28,11 @@ export function validateAttachment(
   return { ext: ext === 'jpeg' ? 'jpg' : (ext as AttachmentExt) }
 }
 
-export function buildAttachmentKey(now: Date, uuid: string, ext: AttachmentExt): string {
-  return `vehicle-coverages/${todayInBangkok(now).slice(0, 7)}/${uuid}.${ext}`
+/** โฟลเดอร์ใน bucket — ไฟล์แนบของงวด / เอกสารสำเนารถ */
+export type AttachmentFolder = 'vehicle-coverages' | 'vehicle-documents'
+
+export function buildAttachmentKey(now: Date, uuid: string, ext: AttachmentExt, folder: AttachmentFolder = 'vehicle-coverages'): string {
+  return `${folder}/${todayInBangkok(now).slice(0, 7)}/${uuid}.${ext}`
 }
 
 /** RFC 5987: encodeURIComponent ไม่ encode ' ( ) * ซึ่งใช้ใน filename* ไม่ได้ */

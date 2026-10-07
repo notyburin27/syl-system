@@ -2,11 +2,15 @@
 
 import { useMemo, useState } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { App, AutoComplete, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select } from 'antd'
+import { App, AutoComplete, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select, Upload } from 'antd'
+import { UploadOutlined } from '@ant-design/icons'
+import { validateAttachment } from '@/lib/renewals/attachmentRules'
 import { VEHICLE_STATUSES, VEHICLE_STATUS_LABELS, type VehicleStatusKey } from '@/lib/renewals/constants'
+import { THAI_PROVINCES } from '@/lib/renewals/provinces'
 import type { VehicleDto } from '@/types/renewals'
 import { sendJson } from './api'
 import { DATE_FORMAT } from './coverageForm'
+import { uploadAttachments } from './uploadAttachments'
 
 interface Props {
   vehicle: VehicleDto | 'new' | null
@@ -17,12 +21,21 @@ interface Props {
 }
 
 interface Values {
+  registrationDate?: Dayjs | null
   plate: string
+  plateProvince?: string
   fleetNumber?: string
   ownerName: string
   vehicleType: string
   brand?: string
+  modelName?: string
+  color?: string
   chassisNumber?: string
+  chassisPosition?: string
+  engineNumber?: string
+  engineCylinders?: number | null
+  engineHorsepower?: number | null
+  axleCount?: number | null
   fuelType?: string
   weightKg?: number | null
   status: VehicleStatusKey
@@ -33,22 +46,35 @@ interface Values {
 const orUndefined = (v: string | null) => v ?? undefined
 const autoOptions = (values: string[]) => values.map((value) => ({ value }))
 const containsFilter = (input: string, option?: { value?: unknown }) => String(option?.value ?? '').includes(input)
+const provinceOptions = THAI_PROVINCES.map((p) => ({ value: p, label: p }))
+const toYmd = (d?: Dayjs | null) => (d ? d.format('YYYY-MM-DD') : null)
 
 export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, onClose, onSaved }: Props) {
   const { message, modal } = App.useApp()
   const [form] = Form.useForm<Values>()
   const [saving, setSaving] = useState(false)
+  /** เอกสารสำเนารถที่เลือกไว้ — อัปโหลดหลังบันทึกรถสำเร็จ */
+  const [files, setFiles] = useState<File[]>([])
   const isNew = vehicle === 'new'
 
   const initialValues = useMemo<Partial<Values>>(() => {
     if (vehicle === null || vehicle === 'new') return { status: 'ACTIVE' }
     return {
+      registrationDate: vehicle.registrationDate ? dayjs(vehicle.registrationDate) : null,
       plate: vehicle.plate,
+      plateProvince: orUndefined(vehicle.plateProvince),
       fleetNumber: orUndefined(vehicle.fleetNumber),
       ownerName: vehicle.ownerName,
       vehicleType: vehicle.vehicleType,
       brand: orUndefined(vehicle.brand),
+      modelName: orUndefined(vehicle.modelName),
+      color: orUndefined(vehicle.color),
       chassisNumber: orUndefined(vehicle.chassisNumber),
+      chassisPosition: orUndefined(vehicle.chassisPosition),
+      engineNumber: orUndefined(vehicle.engineNumber),
+      engineCylinders: vehicle.engineCylinders,
+      engineHorsepower: vehicle.engineHorsepower,
+      axleCount: vehicle.axleCount,
       fuelType: orUndefined(vehicle.fuelType),
       weightKg: vehicle.weightKg,
       status: vehicle.status,
@@ -57,22 +83,38 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
     }
   }, [vehicle])
 
+  const close = () => {
+    setFiles([])
+    onClose()
+  }
+
   const save = async (values: Values) => {
     const body = {
       ...values,
+      plateProvince: values.plateProvince ?? null,
+      engineCylinders: values.engineCylinders ?? null,
+      engineHorsepower: values.engineHorsepower ?? null,
+      axleCount: values.axleCount ?? null,
       weightKg: values.weightKg ?? null,
-      statusDate: values.statusDate ? values.statusDate.format('YYYY-MM-DD') : null,
+      registrationDate: toYmd(values.registrationDate),
+      statusDate: toYmd(values.statusDate),
     }
     setSaving(true)
     const res =
       vehicle === 'new' || vehicle === null
         ? await sendJson<VehicleDto>('/api/renewals/vehicles', body)
         : await sendJson<VehicleDto>(`/api/renewals/vehicles/${vehicle.id}`, body, 'PATCH')
-    setSaving(false)
     if (!res.ok) {
+      setSaving(false)
       message.error(res.error)
       return
     }
+    if (files.length > 0) {
+      const uploaded = await uploadAttachments(`/api/renewals/vehicles/${res.data.id}/attachments`, files)
+      if (!uploaded.ok) message.warning(`บันทึกรถสำเร็จ แต่แนบเอกสารไม่สำเร็จ (แนบใหม่ที่หน้ารถ): ${uploaded.error}`)
+    }
+    setSaving(false)
+    setFiles([])
     message.success('บันทึกสำเร็จ')
     onSaved(res.data)
   }
@@ -106,8 +148,8 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
       cancelText="ยกเลิก"
       confirmLoading={saving}
       onOk={handleOk}
-      onCancel={onClose}
-      width={640}
+      onCancel={close}
+      width={720}
       destroyOnHidden
     >
       {vehicle !== null && (
@@ -121,8 +163,8 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
         >
           <Row gutter={12}>
             <Col span={12}>
-              <Form.Item name="plate" label="ทะเบียน" rules={[{ required: true, whitespace: true, message: 'กรุณากรอกทะเบียน' }]}>
-                <Input data-testid="vehicle-plate-input" maxLength={30} />
+              <Form.Item name="registrationDate" label="วันที่จดทะเบียน">
+                <DatePicker id="vehicle-registration-date" format={DATE_FORMAT} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -133,36 +175,91 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
           </Row>
           <Row gutter={12}>
             <Col span={12}>
+              <Form.Item name="plate" label="ทะเบียนรถ" rules={[{ required: true, whitespace: true, message: 'กรุณากรอกทะเบียน' }]}>
+                <Input data-testid="vehicle-plate-input" maxLength={30} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="plateProvince" label="จังหวัด (ทะเบียนรถ)">
+                <Select id="vehicle-plate-province" options={provinceOptions} showSearch allowClear placeholder="เลือกจังหวัด" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={12}>
               <Form.Item name="ownerName" label="บริษัท" rules={[{ required: true, whitespace: true, message: 'กรุณากรอกบริษัท' }]}>
                 <AutoComplete id="vehicle-owner" options={autoOptions(ownerOptions)} filterOption={containsFilter} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="vehicleType" label="ลักษณะ" rules={[{ required: true, whitespace: true, message: 'กรุณากรอกลักษณะรถ' }]}>
+              <Form.Item name="vehicleType" label="ลักษณะรถ" rules={[{ required: true, whitespace: true, message: 'กรุณากรอกลักษณะรถ' }]}>
                 <AutoComplete id="vehicle-type" options={autoOptions(typeOptions)} filterOption={containsFilter} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={12}>
             <Col span={8}>
-              <Form.Item name="brand" label="ยี่ห้อ">
+              <Form.Item name="brand" label="ยี่ห้อรถ">
                 <Input maxLength={100} />
               </Form.Item>
             </Col>
             <Col span={8}>
+              <Form.Item name="modelName" label="แบบ/รุ่น">
+                <Input data-testid="vehicle-model-input" maxLength={100} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="color" label="สีรถ">
+                <Input data-testid="vehicle-color-input" maxLength={50} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="chassisNumber" label="เลขตัวรถ (คัสซี)">
+                <Input data-testid="vehicle-chassis-input" maxLength={100} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="chassisPosition" label="ตำแหน่งคัสซี">
+                <Input data-testid="vehicle-chassis-position-input" maxLength={100} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="engineNumber" label="เลขเครื่องยนต์">
+            <Input data-testid="vehicle-engine-number-input" maxLength={100} />
+          </Form.Item>
+          <Form.Item label="ขนาดเครื่องยนต์" style={{ marginBottom: 0 }}>
+            <Row gutter={12}>
+              <Col span={8}>
+                <Form.Item name="engineCylinders">
+                  <InputNumber id="vehicle-engine-cylinders" min={0} max={100} precision={0} addonAfter="สูบ" style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="engineHorsepower">
+                  <InputNumber id="vehicle-engine-horsepower" min={0} max={10000} precision={0} addonAfter="แรงม้า" style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="axleCount">
+                  <InputNumber id="vehicle-axle-count" min={0} max={20} precision={0} addonAfter="เพลา" style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="weightKg" label="น้ำหนักตัวรถ (กก.)">
+                <InputNumber id="vehicle-weight" min={0} max={100000} precision={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
               <Form.Item name="fuelType" label="เชื้อเพลิง">
                 <Input maxLength={50} />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="weightKg" label="น้ำหนัก (กก.)">
-                <InputNumber id="vehicle-weight" min={0} max={100000} precision={0} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
           </Row>
-          <Form.Item name="chassisNumber" label="เลขตัวถัง">
-            <Input maxLength={100} />
-          </Form.Item>
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="status" label="สถานะ">
@@ -170,13 +267,37 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="statusDate" label="วันที่สถานะ (แจ้ง ม.79 / ม.89)">
+              <Form.Item name="statusDate" label="วันที่แจ้งสถานะ (แจ้ง ม.79 / ม.89)">
                 <DatePicker id="vehicle-status-date" format={DATE_FORMAT} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
           <Form.Item name="note" label="หมายเหตุ">
             <Input.TextArea rows={2} maxLength={500} />
+          </Form.Item>
+          <Form.Item
+            label="เอกสารสำเนารถ"
+            extra={isNew ? 'PDF/JPG/PNG ไม่เกิน 10 MB' : 'PDF/JPG/PNG ไม่เกิน 10 MB — ไฟล์ที่แนบไว้แล้ว ดู/ลบได้ที่หน้ารายละเอียดรถ'}
+          >
+            <Upload
+              accept=".pdf,.jpg,.jpeg,.png"
+              multiple
+              fileList={files.map((f, i) => ({ uid: String(i), name: f.name, status: 'done' as const }))}
+              beforeUpload={(file) => {
+                const checked = validateAttachment(file.name, file.type, file.size)
+                if ('error' in checked) {
+                  message.error(checked.error)
+                  return Upload.LIST_IGNORE
+                }
+                setFiles((prev) => [...prev, file])
+                return false
+              }}
+              onRemove={(removed) => setFiles((prev) => prev.filter((_, i) => String(i) !== removed.uid))}
+            >
+              <Button icon={<UploadOutlined />} data-testid="vehicle-doc-attach-btn">
+                เลือกไฟล์
+              </Button>
+            </Upload>
           </Form.Item>
         </Form>
       )}

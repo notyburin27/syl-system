@@ -18,8 +18,17 @@ export interface VehicleSummaryDto {
 }
 
 export interface VehicleDto extends VehicleSummaryDto {
+  plateProvince: string | null
+  registrationDate: string | null
   brand: string | null
+  modelName: string | null
+  color: string | null
   chassisNumber: string | null
+  chassisPosition: string | null
+  engineNumber: string | null
+  engineCylinders: number | null
+  engineHorsepower: number | null
+  axleCount: number | null
   fuelType: string | null
   weightKg: number | null
   statusDate: string | null
@@ -73,9 +82,10 @@ export interface DashboardResponse {
   items: DashboardItemDto[]
 }
 
+/** ไฟล์แนบของงวด หรือเอกสารสำเนารถ (ไม่มี coverageId) */
 export interface AttachmentDto {
   id: string
-  coverageId: string
+  coverageId?: string
   fileName: string
   contentType: string
   sizeBytes: number
