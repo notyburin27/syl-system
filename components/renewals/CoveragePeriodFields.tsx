@@ -1,7 +1,7 @@
 'use client'
 
 import { AutoComplete, Col, DatePicker, Form, Input, InputNumber, Row, Select } from 'antd'
-import { COVERAGE_CLASSES, MAX_MONEY, type CoverageTypeKey } from '@/lib/renewals/constants'
+import { COVERAGE_CLASSES, COVERAGE_TEXT_MAX, MAX_MONEY, type CoverageTypeKey } from '@/lib/renewals/constants'
 import type { InsurerDto, VehicleListItemDto } from '@/types/renewals'
 import { DATE_FORMAT } from './coverageForm'
 
@@ -37,7 +37,7 @@ export default function CoveragePeriodFields({ type, insurers, agents, vehicles,
         <Form.Item name="agentName" label="ตัวแทน">
           <AutoComplete
             id="coverage-agent"
-            maxLength={100}
+            maxLength={COVERAGE_TEXT_MAX.agentName}
             allowClear
             placeholder="ทำกับตัวแทนไหน"
             options={agents.map((value) => ({ value }))}
@@ -51,7 +51,7 @@ export default function CoveragePeriodFields({ type, insurers, agents, vehicles,
         </Form.Item>
       )}
       <Form.Item name="policyNumber" label={type === 'TAX' ? 'เลขที่อ้างอิง' : 'เลขกรมธรรม์'}>
-        <Input data-testid="coverage-policy-input" maxLength={100} />
+        <Input data-testid="coverage-policy-input" maxLength={COVERAGE_TEXT_MAX.policyNumber} />
       </Form.Item>
       <Row gutter={12}>
         <Col span={12}>
@@ -83,7 +83,7 @@ export default function CoveragePeriodFields({ type, insurers, agents, vehicles,
         </Form.Item>
       )}
       <Form.Item name="renewalNote" label="หมายเหตุ">
-        <Input.TextArea data-testid="coverage-note-input" rows={2} maxLength={500} />
+        <Input.TextArea data-testid="coverage-note-input" rows={2} maxLength={COVERAGE_TEXT_MAX.renewalNote} />
       </Form.Item>
     </>
   )
