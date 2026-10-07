@@ -20,6 +20,7 @@ export function toCoverageDto(r: CoverageWithRelations): CoverageDto {
     type: r.type,
     insurerId: r.insurerId,
     insurerName: r.insurer?.name ?? null,
+    agentName: r.agentName,
     coverageClass: r.coverageClass,
     policyNumber: r.policyNumber,
     startDate: r.startDate ? dateToYmd(r.startDate) : null,

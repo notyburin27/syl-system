@@ -2,14 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { App, AutoComplete, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select, Upload } from 'antd'
-import { UploadOutlined } from '@ant-design/icons'
-import { validateAttachment } from '@/lib/renewals/attachmentRules'
+import { App, AutoComplete, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select } from 'antd'
 import { VEHICLE_STATUSES, VEHICLE_STATUS_LABELS, type VehicleStatusKey } from '@/lib/renewals/constants'
 import { THAI_PROVINCES } from '@/lib/renewals/provinces'
 import type { VehicleDto } from '@/types/renewals'
 import { sendJson } from './api'
 import { DATE_FORMAT } from './coverageForm'
+import PendingFilesUpload from './PendingFilesUpload'
 import { uploadAttachments } from './uploadAttachments'
 
 interface Props {
@@ -279,25 +278,7 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
             label="เอกสารสำเนารถ"
             extra={isNew ? 'PDF/JPG/PNG ไม่เกิน 10 MB' : 'PDF/JPG/PNG ไม่เกิน 10 MB — ไฟล์ที่แนบไว้แล้ว ดู/ลบได้ที่หน้ารายละเอียดรถ'}
           >
-            <Upload
-              accept=".pdf,.jpg,.jpeg,.png"
-              multiple
-              fileList={files.map((f, i) => ({ uid: String(i), name: f.name, status: 'done' as const }))}
-              beforeUpload={(file) => {
-                const checked = validateAttachment(file.name, file.type, file.size)
-                if ('error' in checked) {
-                  message.error(checked.error)
-                  return Upload.LIST_IGNORE
-                }
-                setFiles((prev) => [...prev, file])
-                return false
-              }}
-              onRemove={(removed) => setFiles((prev) => prev.filter((_, i) => String(i) !== removed.uid))}
-            >
-              <Button icon={<UploadOutlined />} data-testid="vehicle-doc-attach-btn">
-                เลือกไฟล์
-              </Button>
-            </Upload>
+            <PendingFilesUpload files={files} onChange={setFiles} buttonTestId="vehicle-doc-attach-btn" />
           </Form.Item>
         </Form>
       )}

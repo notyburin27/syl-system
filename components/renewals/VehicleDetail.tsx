@@ -39,7 +39,7 @@ const money = (v: number | null) =>
 export default function VehicleDetail({ id }: { id: string }) {
   const { message, modal } = App.useApp()
   const router = useRouter()
-  const { insurers, vehicles } = useRenewalLookups()
+  const { insurers, vehicles, agents, reloadAgents } = useRenewalLookups()
   const [detail, setDetail] = useState<VehicleDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -111,7 +111,10 @@ export default function VehicleDetail({ id }: { id: string }) {
     { title: 'วันสิ้นสุด', key: 'endDate', width: 90, render: (_, c) => toThaiShortDate(c.endDate) },
     ...(activeType === 'TAX'
       ? []
-      : [{ title: 'บ.ประกัน', key: 'insurer', render: (_: unknown, c: CoverageDto) => c.insurerName ?? '-' }]),
+      : [
+          { title: 'บ.ประกัน', key: 'insurer', render: (_: unknown, c: CoverageDto) => c.insurerName ?? '-' },
+          { title: 'ตัวแทน', key: 'agent', render: (_: unknown, c: CoverageDto) => c.agentName ?? '-' },
+        ]),
     ...(activeType === 'MOTOR_INSURANCE'
       ? [
           { title: 'ชั้น', key: 'class', width: 70, render: (_: unknown, c: CoverageDto) => c.coverageClass ?? '-' },
@@ -280,11 +283,13 @@ export default function VehicleDetail({ id }: { id: string }) {
         type={activeType}
         coverage={coverageForm?.coverage ?? null}
         insurers={insurers}
+        agents={agents}
         vehicles={vehicles}
         onClose={() => setCoverageForm(null)}
         onSaved={() => {
           setCoverageForm(null)
           fetchDetail()
+          reloadAgents()
         }}
       />
       <AttachmentsModal coverage={attachmentsFor} onClose={() => setAttachmentsFor(null)} onChanged={fetchDetail} />

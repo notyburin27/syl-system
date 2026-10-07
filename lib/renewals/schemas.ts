@@ -90,6 +90,7 @@ export type VehicleInput = z.infer<typeof vehicleInputSchema>
 
 const coverageFieldsObject = z.object({
   insurerId: optionalId,
+  agentName: optionalText(100),
   coverageClass: z.enum(COVERAGE_CLASSES).nullish().transform((v) => v ?? null),
   policyNumber: optionalText(100),
   startDate: optionalYmd,
@@ -147,14 +148,15 @@ export const insurerCreateSchema = z
 
 export const insurerUpdateSchema = z.object({ name: insurerName.optional(), isActive: z.boolean().optional() })
 
-/** ฟิลด์ที่ไม่ใช้กับประเภทนั้นล้างเป็น null — ภาษีไม่มีบริษัทประกัน, ชั้น/หางคู่มีเฉพาะประกันรถยนต์ */
+/** ฟิลด์ที่ไม่ใช้กับประเภทนั้นล้างเป็น null — ภาษีไม่มีบริษัทประกัน/ตัวแทน, ชั้น/หางคู่มีเฉพาะประกันรถยนต์ */
 export function sanitizeCoverageFields<
-  T extends { insurerId: string | null; coverageClass: string | null; pairedVehicleId: string | null },
+  T extends { insurerId: string | null; agentName: string | null; coverageClass: string | null; pairedVehicleId: string | null },
 >(type: CoverageTypeKey, fields: T): T {
   const isMotor = type === 'MOTOR_INSURANCE'
   return {
     ...fields,
     insurerId: type === 'TAX' ? null : fields.insurerId,
+    agentName: type === 'TAX' ? null : fields.agentName,
     coverageClass: isMotor ? fields.coverageClass : null,
     pairedVehicleId: isMotor ? fields.pairedVehicleId : null,
   }

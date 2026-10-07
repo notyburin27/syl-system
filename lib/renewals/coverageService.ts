@@ -18,6 +18,7 @@ export type Tx = Prisma.TransactionClient
 /** ข้อมูลงวดที่บันทึกลง DB (CoverageFields ใช้ได้ตรงๆ; coverageClass จาก DB เป็น string) */
 export type PeriodData = {
   insurerId: string | null
+  agentName: string | null
   coverageClass: string | null
   policyNumber: string | null
   startDate: string | null
@@ -33,6 +34,7 @@ export const OPEN_FILTER = { in: [...OPEN_STATUSES] }
 export function coverageData(f: PeriodData) {
   return {
     insurerId: f.insurerId,
+    agentName: f.agentName,
     coverageClass: f.coverageClass,
     policyNumber: f.policyNumber,
     startDate: f.startDate ? ymdToDate(f.startDate) : null,
@@ -252,6 +254,7 @@ export async function bulkRenew(input: BulkRenewInput, userId: string): Promise<
         for (const old of olds) {
           const fields = sanitizeCoverageFields(old.type, {
             insurerId: input.insurerId ?? old.insurerId,
+            agentName: old.agentName,
             coverageClass: old.coverageClass,
             policyNumber: null,
             startDate: input.startDate,

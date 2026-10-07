@@ -6,6 +6,7 @@ export const DATE_FORMAT = 'DD/MM/YYYY'
 
 export interface CoverageFormValues {
   insurerId?: string | null
+  agentName?: string | null
   coverageClass?: string | null
   policyNumber?: string | null
   startDate?: Dayjs | null
@@ -18,6 +19,7 @@ export interface CoverageFormValues {
 
 export interface CoverageFieldsBody {
   insurerId: string | null
+  agentName: string | null
   coverageClass: string | null
   policyNumber: string | null
   startDate: string | null
@@ -34,6 +36,7 @@ const toYmd = (d: Dayjs | null | undefined) => (d ? d.format('YYYY-MM-DD') : nul
 export function formValuesToBody(v: CoverageFormValues): CoverageFieldsBody {
   return {
     insurerId: v.insurerId ?? null,
+    agentName: v.agentName?.trim() || null,
     coverageClass: v.coverageClass ?? null,
     policyNumber: v.policyNumber?.trim() || null,
     startDate: toYmd(v.startDate),
@@ -48,6 +51,7 @@ export function formValuesToBody(v: CoverageFormValues): CoverageFieldsBody {
 export function dtoToFormValues(dto: CoverageDto): CoverageFormValues {
   return {
     insurerId: dto.insurerId,
+    agentName: dto.agentName,
     coverageClass: dto.coverageClass,
     policyNumber: dto.policyNumber,
     startDate: dto.startDate ? dayjs(dto.startDate) : null,
@@ -63,6 +67,7 @@ export function dtoToFormValues(dto: CoverageDto): CoverageFormValues {
 export function dtoToBody(dto: CoverageDto): CoverageFieldsBody {
   return {
     insurerId: dto.insurerId,
+    agentName: dto.agentName,
     coverageClass: dto.coverageClass,
     policyNumber: dto.policyNumber,
     startDate: dto.startDate,
