@@ -553,6 +553,9 @@ enum VehicleStatus {
   ACTIVE // ใช้งาน
   SUSPENDED // งดใช้ (แจ้ง ม.89)
   SOLD // ขาย / เลิกใช้ (แจ้ง ม.79)
+  ADDED // เพิ่ม (รถเพิ่งเพิ่มเข้าระบบ)
+  PENDING_REVIEW // รอตรวจสอบ
+  OTHER // อื่นๆ
 }
 
 enum CoverageType {
@@ -603,6 +606,8 @@ model Vehicle {
   weightKg         Int?
   status           VehicleStatus @default(ACTIVE)
   statusDate       DateTime?     @db.Date
+  /// รถอยู่ไหน — ค่าจาก VEHICLE_LOCATIONS (lib/renewals/constants.ts), null = ไม่ระบุ
+  currentLocation  String?
   note             String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt

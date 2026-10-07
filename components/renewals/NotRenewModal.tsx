@@ -7,6 +7,7 @@ import { sendJson } from './api'
 
 interface Props {
   ids: string[] | null
+  defaultReason?: NotRenewedReasonKey
   onClose: () => void
   onDone: () => void
 }
@@ -17,7 +18,7 @@ interface Values {
 }
 
 /** ไม่ต่อ — ใช้ทั้งทีละแถวและหลายแถว */
-export default function NotRenewModal({ ids, onClose, onDone }: Props) {
+export default function NotRenewModal({ ids, defaultReason, onClose, onDone }: Props) {
   const { message } = App.useApp()
   const [form] = Form.useForm<Values>()
   const [saving, setSaving] = useState(false)
@@ -59,7 +60,7 @@ export default function NotRenewModal({ ids, onClose, onDone }: Props) {
       destroyOnHidden
     >
       {ids && (
-        <Form form={form} layout="vertical" preserve={false} clearOnDestroy>
+        <Form form={form} layout="vertical" initialValues={{ reason: defaultReason }} preserve={false} clearOnDestroy>
           <Form.Item name="reason" label="เหตุผล" rules={[{ required: true, message: 'กรุณาเลือกเหตุผล' }]}>
             <Select
               id="not-renew-reason"

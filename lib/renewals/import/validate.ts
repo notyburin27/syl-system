@@ -5,12 +5,14 @@ import {
   COVERAGE_TYPE_LABELS,
   COVERAGE_TEXT_MAX,
   NOT_RENEWED_REASON_LABELS,
+  VEHICLE_LOCATIONS,
   VEHICLE_STATUS_LABELS,
   VEHICLE_TEXT_MAX,
   isOpenStatus,
   type CoverageTypeKey,
   type NotRenewedReasonKey,
   type RenewalStatusKey,
+  type VehicleLocation,
   type VehicleStatusKey,
 } from '../constants'
 import { normalizePlate } from '../plate'
@@ -66,6 +68,7 @@ export interface VehicleUpsert {
     chassisPosition?: string
     engineNumber?: string
     fuelType?: string
+    currentLocation?: VehicleLocation
     note?: string
     engineCylinders?: number
     engineHorsepower?: number
@@ -117,6 +120,7 @@ const VEHICLE_INT_MAX = { engineCylinders: 100, engineHorsepower: 10_000, axleCo
 const VEHICLE_DATE_FIELDS = ['registrationDate', 'statusDate'] as const
 
 const choices = (labels: Record<string, string>) => `ต้องเป็น ${Object.values(labels).join(' / ')}`
+const LOCATION_LABELS = Object.fromEntries(VEHICLE_LOCATIONS.map((l) => [l, l])) as Record<VehicleLocation, string>
 
 function pushDuplicates(
   seen: Map<string, number[]>,
@@ -169,6 +173,9 @@ function validateVehicles(
     const status = lookupLabel(VEHICLE_STATUS_LABELS, r.values.status)
     if (status === undefined) err('status', choices(VEHICLE_STATUS_LABELS))
     else if (status) data.status = status
+    const location = lookupLabel(LOCATION_LABELS, r.values.currentLocation)
+    if (location === undefined) err('currentLocation', choices(LOCATION_LABELS))
+    else if (location) data.currentLocation = location
     for (const field of VEHICLE_DATE_FIELDS) {
       const date = parseImportDate(r.values[field])
       if ('error' in date) err(field, date.error)

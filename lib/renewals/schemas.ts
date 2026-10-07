@@ -6,6 +6,7 @@ import {
   COVERAGE_TYPES,
   MAX_MONEY,
   NOT_RENEWED_REASONS,
+  VEHICLE_LOCATIONS,
   VEHICLE_STATUSES,
   VEHICLE_TEXT_MAX,
   type CoverageTypeKey,
@@ -99,6 +100,10 @@ export const vehicleInputSchema = z.object({
   weightKg: optionalCount('น้ำหนัก', 100_000),
   status: z.enum(VEHICLE_STATUSES).default('ACTIVE'),
   statusDate: optionalYmd,
+  currentLocation: z
+    .enum(VEHICLE_LOCATIONS)
+    .nullish()
+    .transform((v) => v ?? null),
   note: optionalText(VEHICLE_TEXT_MAX.note),
 })
 export type VehicleInput = z.infer<typeof vehicleInputSchema>

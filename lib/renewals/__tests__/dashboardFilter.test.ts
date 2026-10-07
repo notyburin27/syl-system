@@ -23,7 +23,7 @@ function item(overrides: Partial<DashboardItemDto> & { id: string }): DashboardI
     renewalNote: null,
     renewedToId: null,
     attachmentCount: 0,
-    vehicle: { id: 'v1', plate: '64-5598 กท', fleetNumber: '62', ownerName: 'แวลู ทรานสปอร์ต', vehicleType: 'ลากจูง', status: 'ACTIVE' },
+    vehicle: { id: 'v1', plate: '64-5598 กท', fleetNumber: '62', ownerName: 'แวลู ทรานสปอร์ต', vehicleType: 'ลากจูง', status: 'ACTIVE', statusDate: null },
     bucket: 'THIS_MONTH',
     ...overrides,
   }
@@ -36,7 +36,7 @@ const items = [
     id: 'c',
     type: 'TAX',
     bucket: 'THIS_MONTH',
-    vehicle: { id: 'v2', plate: '76-1119 กท', fleetNumber: '18', ownerName: 'ทรงยุทธ โลจิสติคส์', vehicleType: 'ลากจูง', status: 'ACTIVE' },
+    vehicle: { id: 'v2', plate: '76-1119 กท', fleetNumber: '18', ownerName: 'ทรงยุทธ โลจิสติคส์', vehicleType: 'ลากจูง', status: 'ACTIVE', statusDate: null },
   }),
 ]
 

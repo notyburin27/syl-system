@@ -1,6 +1,12 @@
 import ExcelJS from 'exceljs'
 import { normalizeCellValue } from '@/lib/utils/excel'
-import { COVERAGE_CLASSES, COVERAGE_TYPE_LABELS, NOT_RENEWED_REASON_LABELS, VEHICLE_STATUS_LABELS } from '../constants'
+import {
+  COVERAGE_CLASSES,
+  COVERAGE_TYPE_LABELS,
+  NOT_RENEWED_REASON_LABELS,
+  VEHICLE_LOCATIONS,
+  VEHICLE_STATUS_LABELS,
+} from '../constants'
 import { THAI_PROVINCES } from '../provinces'
 import { cellText, isBlank } from './cells'
 import {
@@ -61,6 +67,7 @@ export async function buildRenewalTemplate(): Promise<Buffer> {
     {
       status: Object.values(VEHICLE_STATUS_LABELS),
       plateProvince: { range: `'${PROVINCE_SHEET}'!$A$1:$A$${THAI_PROVINCES.length}` },
+      currentLocation: VEHICLE_LOCATIONS,
     },
     ['statusDate', 'registrationDate'],
   )

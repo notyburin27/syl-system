@@ -28,6 +28,7 @@ import {
 } from '@/lib/renewals/constants'
 import { filterDashboardItems, summarizeDashboard, type DashboardFilters } from '@/lib/renewals/dashboardFilter'
 import { DUE_BUCKET_COLORS, DUE_BUCKET_LABELS, endOfNextMonth } from '@/lib/renewals/dueWindow'
+import { isTaxWaivedBySuspension } from '@/lib/renewals/suspension'
 import { toThaiShortDate } from '@/lib/utils/thaiDate'
 import type { DashboardItemDto, DashboardResponse } from '@/types/renewals'
 import { getJson, sendJson } from './api'
@@ -87,6 +88,9 @@ export default function RenewalDashboard() {
   )
   const selectedItems = useMemo(() => items.filter((i) => selectedIds.includes(i.id)), [items, selectedIds])
   const canBulkRenew = selectedItems.length > 0 && new Set(selectedItems.map((i) => i.type)).size === 1
+  /** ไม่ต่อเฉพาะงวดของรถงดใช้ → เลือกเหตุผล "งดใช้" ไว้ให้ */
+  const allSuspended = (ids: string[]) =>
+    ids.every((id) => items.find((i) => i.id === id)?.vehicle.status === 'SUSPENDED')
 
   const afterChange = () => {
     setSelectedIds([])
@@ -152,9 +156,18 @@ export default function RenewalDashboard() {
       key: 'status',
       width: 130,
       render: (_, r) => (
-        <Tag color={RENEWAL_STATUS_COLORS[r.renewalStatus]} data-testid={`status-tag-${r.id}`}>
-          {RENEWAL_STATUS_LABELS[r.renewalStatus]}
-        </Tag>
+        <Space size={4} wrap>
+          <Tag color={RENEWAL_STATUS_COLORS[r.renewalStatus]} data-testid={`status-tag-${r.id}`}>
+            {RENEWAL_STATUS_LABELS[r.renewalStatus]}
+          </Tag>
+          {isTaxWaivedBySuspension(r.vehicle, r) && (
+            <Tooltip title="แจ้งงดใช้ (ม.89) ก่อนวันครบกำหนดภาษี">
+              <Tag color="gold" data-testid={`tax-waived-${r.id}`}>
+                ไม่ต้องต่อ (แจ้ง ม.89)
+              </Tag>
+            </Tooltip>
+          )}
+        </Space>
       ),
     },
     {
@@ -316,7 +329,12 @@ export default function RenewalDashboard() {
           reloadAgents()
         }}
       />
-      <NotRenewModal ids={notRenewIds} onClose={() => setNotRenewIds(null)} onDone={afterChange} />
+      <NotRenewModal
+        ids={notRenewIds}
+        defaultReason={notRenewIds && allSuspended(notRenewIds) ? 'SUSPENDED' : undefined}
+        onClose={() => setNotRenewIds(null)}
+        onDone={afterChange}
+      />
       <NoteModal item={noteItem} onClose={() => setNoteItem(null)} onDone={afterChange} />
       <BulkRenewModal
         open={bulkRenewOpen}

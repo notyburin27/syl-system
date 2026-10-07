@@ -217,6 +217,7 @@ export default function VehicleDetail({ id }: { id: string }) {
           { key: 'weight', label: 'น้ำหนักตัวรถ (กก.)', children: vehicle.weightKg?.toLocaleString('th-TH') ?? '-' },
           { key: 'fuel', label: 'เชื้อเพลิง', children: orDash(vehicle.fuelType) },
           { key: 'statusDate', label: 'วันที่แจ้งสถานะ', children: toThaiShortDate(vehicle.statusDate) || '-' },
+          { key: 'currentLocation', label: 'รถอยู่ไหน', children: orDash(vehicle.currentLocation) },
           { key: 'note', label: 'หมายเหตุ', children: orDash(vehicle.note) },
         ]}
       />

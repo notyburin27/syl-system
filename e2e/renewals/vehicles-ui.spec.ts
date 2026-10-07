@@ -25,6 +25,8 @@ test.describe.serial('หน้าทะเบียนรถ', () => {
 
     const row = page.getByRole('row', { name: /E2E-5001 กท/ })
     await expect(row).toBeVisible()
+    await expect(row.locator('.ant-tag')).toHaveText('เพิ่ม') // รถใหม่เริ่มที่สถานะ "เพิ่ม"
+    for (const name of ['ลักษณะ', 'ยี่ห้อ']) await expect(page.getByRole('columnheader', { name, exact: true })).toHaveCount(0)
     await row.getByRole('button', { name: 'แก้ไขข้อมูล' }).click()
     await expect(dialog.getByTestId('vehicle-plate-input')).toHaveValue('E2E-5001 กท')
     await dialog.getByRole('button', { name: 'ยกเลิก' }).click()
@@ -51,11 +53,20 @@ test.describe.serial('หน้าทะเบียนรถ', () => {
     await page.locator('#vehicle-engine-cylinders').fill('6')
     await page.locator('#vehicle-engine-horsepower').fill('450')
     await page.locator('#vehicle-axle-count').fill('3')
+    await page.locator('#vehicle-location').click()
+    await page.locator('.ant-select-item-option', { hasText: 'โรงสี' }).click()
     await dialog.locator('input[type=file]').setInputFiles({ name: 'สำเนาเล่มทะเบียน.png', mimeType: 'image/png', buffer: PNG })
     await expect(dialog.getByText('สำเนาเล่มทะเบียน.png')).toBeVisible()
     await dialog.getByRole('button', { name: 'บันทึก' }).click()
 
-    await page.getByRole('row', { name: /E2E-5005/ }).getByRole('button', { name: 'ดูรายละเอียด' }).click()
+    const listRow = page.getByRole('row', { name: /E2E-5005/ })
+    await expect(listRow).toContainText('โรงสี')
+    // กรองรถอยู่ไหน = โรงสี → เหลือเฉพาะรถที่อยู่โรงสี (E2E-5001 จาก test ก่อนหน้าไม่ได้ระบุ)
+    await page.locator('#vehicle-location-filter').click()
+    await page.locator('.ant-select-item-option', { hasText: 'โรงสี' }).click()
+    await expect(listRow).toBeVisible()
+    await expect(page.getByRole('row', { name: /E2E-5001/ })).toHaveCount(0)
+    await listRow.getByRole('button', { name: 'ดูรายละเอียด' }).click()
     await expect(page.getByRole('heading', { name: 'E2E-5005' })).toBeVisible()
     const vid = page.url().split('/').pop()!
     const { vehicle } = await getVehicleDetail(page, vid)
@@ -70,8 +81,19 @@ test.describe.serial('หน้าทะเบียนรถ', () => {
       engineCylinders: 6,
       engineHorsepower: 450,
       axleCount: 3,
+      currentLocation: 'โรงสี',
     })
     await expect(page.getByText('6 สูบ 450 แรงม้า 3 เพลา')).toBeVisible()
+    await expect(page.getByText('โรงสี')).toBeVisible()
+
+    // ล้างรถอยู่ไหน → null
+    await page.getByTestId('vehicle-detail-edit-btn').click()
+    const locationSelect = dialog.locator('.ant-select', { has: page.locator('#vehicle-location') })
+    await locationSelect.hover()
+    await locationSelect.locator('.ant-select-clear').click()
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+    await expect(dialog).toBeHidden()
+    expect((await getVehicleDetail(page, vid)).vehicle.currentLocation).toBeNull()
 
     const docs = page.getByTestId('vehicle-docs')
     await expect(docs.getByRole('link', { name: 'สำเนาเล่มทะเบียน.png' })).toBeVisible()
@@ -176,6 +198,28 @@ test.describe.serial('หน้าทะเบียนรถ', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'บันทึก' }).click()
     await page.getByRole('button', { name: 'ยืนยัน' }).click()
     await expect(page.getByTestId(`coverage-status-${cid}`)).toHaveText('ไม่ต่อ (ขายรถ)')
+  })
+
+  test('เปลี่ยนรถเป็นงดใช้ + แจ้ง ม.89 ก่อนครบภาษี → ภาษีติ๊กไว้ให้ → ปิดเป็นไม่ต่อ (งดใช้); พรบ. ยังรอต่อ', async ({ page }) => {
+    const vid = await createVehicle(page, 'E2E-5009 กท')
+    const tax = await createCoverage(page, vid, 'TAX', '2027-03-31')
+    const prb = await createCoverage(page, vid, 'PRB', '2027-03-31')
+    await page.goto(`/renewals/vehicles/${vid}`)
+
+    await page.getByTestId('vehicle-detail-edit-btn').click()
+    await page.locator('.ant-select', { has: page.locator('#vehicle-status') }).click()
+    await page.locator('.ant-select-item-option', { hasText: 'งดใช้' }).click()
+    await fillDate(page, '#vehicle-status-date', '2027-01-15')
+    await page.getByRole('dialog').getByRole('button', { name: 'บันทึก' }).click()
+
+    const confirm = page.locator('.ant-modal-confirm')
+    await expect(confirm.getByRole('checkbox', { name: /^ภาษี/ })).toBeChecked()
+    await expect(confirm.getByRole('checkbox', { name: /^พรบ/ })).not.toBeChecked()
+    await confirm.getByRole('button', { name: 'ยืนยัน' }).click()
+
+    const statuses = async () =>
+      Object.fromEntries((await getVehicleDetail(page, vid)).coverages.map((c) => [c.id, `${c.renewalStatus}/${c.notRenewedReason}`]))
+    await expect.poll(statuses).toEqual({ [tax]: 'NOT_RENEWED/SUSPENDED', [prb]: 'PENDING/null' })
   })
 
   test('งวดไม่ต่อของรถที่ใช้งาน → เปิดใหม่ได้', async ({ page }) => {

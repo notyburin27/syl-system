@@ -158,6 +158,7 @@ test('template: คอลัมน์เดิมอยู่ตำแหน่�
     'จำนวนสูบ',
     'แรงม้า',
     'จำนวนเพลา',
+    'รถอยู่ไหน',
   ])
   assert.deepEqual(headers('งวด'), [...OLD_COVERAGE_HEADERS, 'ตัวแทน'])
 })

@@ -144,4 +144,23 @@ test.describe.serial('Dashboard ต่ออายุรถ', () => {
     await expect(dialog).toBeVisible()
     await expect(dialog.locator('.ant-select-selection-item')).toHaveCount(0)
   })
+
+  test('รถงดใช้ที่แจ้ง ม.89 ก่อนครบภาษี → tag ไม่ต้องต่อ; ไม่ต่อเลือกเหตุผลงดใช้ไว้ให้', async ({ page }) => {
+    const today = todayInBangkok()
+    const vid = await createVehicle(page, 'E2E-3009 กท', { status: 'SUSPENDED', statusDate: today })
+    const tax = await createCoverage(page, vid, 'TAX', endOfNextMonth(today))
+    const prb = await createCoverage(page, vid, 'PRB', endOfNextMonth(today))
+
+    await page.reload()
+    await page.getByPlaceholder('ค้นหาทะเบียน/เบอร์รถ').fill('E2E-3009')
+    await expect(page.getByTestId(`tax-waived-${tax}`)).toBeVisible()
+    await expect(page.getByTestId(`tax-waived-${prb}`)).toHaveCount(0)
+
+    await page.getByTestId(`not-renew-btn-${tax}`).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.locator('.ant-select-selection-item')).toHaveText('งดใช้')
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+    await expect(rowOf(page, tax)).toHaveCount(0)
+    await expect(rowOf(page, prb)).toBeVisible()
+  })
 })
