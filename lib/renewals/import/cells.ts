@@ -14,6 +14,13 @@ export function isBlank(value: unknown): boolean {
   return cellText(value) === ''
 }
 
+/** ข้อความ trim แล้ว ความยาวไม่เกิน max (เหมือน optionalText ของ schema) — ว่าง = null */
+export function parseImportText(value: unknown, max: number): CellResult<string | null> {
+  const text = cellText(value)
+  if (text.length > max) return { error: `ข้อความยาวเกิน ${max} ตัวอักษร` }
+  return { value: text || null }
+}
+
 /** ปี > 2400 = พ.ศ. (−543) ใช้กับทุกรูปแบบ; ปีนอก 2000–2200 ไม่รับ (เช่น Excel แปลงปี 2 หลักเป็น 1970) */
 function normalizeYmdYear(ymd: string, shown: string): CellResult<string> {
   const [y, m, d] = ymd.split('-')

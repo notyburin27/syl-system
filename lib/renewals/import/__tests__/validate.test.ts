@@ -249,3 +249,44 @@ test('ข้อมูลเล่มทะเบียนผิด → error ร
   ])
   assert.deepEqual(r.plan.vehicles[1].data, { ownerName: 'แวลู ทรานสปอร์ต', vehicleType: 'หาง' })
 })
+
+test('ความยาวข้อความ: ใช้ค่าเดียวกับ schema — ยาวเกิน → error ระบุคอลัมน์', () => {
+  const r = validateRenewalImport(
+    {
+      vehicles: [
+        v(2, { plate: '61-8550 กท', fleetNumber: 'x'.repeat(51), color: 'ข'.repeat(50), note: 'n'.repeat(501) }),
+        v(3, { plate: `70-${'1'.repeat(30)} กท`, ownerName: 'a', vehicleType: 'b' }),
+      ],
+      coverages: [
+        c(2, { plate: '61-8550 กท', type: 'พรบ.', endDate: '31/03/2570', policyNumber: 'P'.repeat(101), renewalNote: 'r'.repeat(501) }),
+      ],
+    },
+    BASE,
+  )
+  assert.deepEqual(messages(r), [
+    'รถ:2:เบอร์รถ:ข้อความยาวเกิน 50 ตัวอักษร',
+    'รถ:2:หมายเหตุ:ข้อความยาวเกิน 500 ตัวอักษร',
+    'รถ:3:ทะเบียน:ข้อความยาวเกิน 30 ตัวอักษร',
+    'งวด:2:เลขกรมธรรม์:ข้อความยาวเกิน 100 ตัวอักษร',
+    'งวด:2:หมายเหตุ:ข้อความยาวเกิน 500 ตัวอักษร',
+  ])
+  assert.equal(r.plan.vehicles[0].data.color, 'ข'.repeat(50))
+})
+
+test('ตัวแทน: เข้าแผน; ภาษีห้ามกรอก (เหมือนบริษัทประกัน); ยาวเกิน 100 → error; ว่าง = คงค่าเดิม', () => {
+  const r = validateRenewalImport(
+    {
+      vehicles: [],
+      coverages: [
+        c(2, { plate: '61-8550 กท', type: 'พรบ.', endDate: '31/03/2570', agentName: ' คุณสมชาย ' }),
+        c(3, { plate: '61-8550 กท', type: 'ภาษี', endDate: '30/06/2570', agentName: 'คุณสมชาย' }),
+        c(4, { plate: '61-8550 กท', type: 'ประกันสินค้า', endDate: '11/01/2570', agentName: 'a'.repeat(101) }),
+        c(5, { plate: '61-8550 กท', type: 'ประกันรถยนต์', endDate: '09/01/2570', agentName: '' }),
+      ],
+    },
+    BASE,
+  )
+  assert.deepEqual(messages(r), ['งวด:3:ตัวแทน:ภาษีไม่ต้องกรอกตัวแทน', 'งวด:4:ตัวแทน:ข้อความยาวเกิน 100 ตัวอักษร'])
+  assert.deepEqual(r.plan.coverages[0].data, { agentName: 'คุณสมชาย' })
+  assert.deepEqual(r.plan.coverages[3].data, {})
+})

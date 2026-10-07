@@ -2,10 +2,12 @@ import { z } from 'zod'
 import {
   BULK_LIMIT,
   COVERAGE_CLASSES,
+  COVERAGE_TEXT_MAX,
   COVERAGE_TYPES,
   MAX_MONEY,
   NOT_RENEWED_REASONS,
   VEHICLE_STATUSES,
+  VEHICLE_TEXT_MAX,
   type CoverageTypeKey,
 } from './constants'
 import { isValidYmd } from './dateOnly'
@@ -62,43 +64,56 @@ export const vehicleInputSchema = z.object({
   plate: z
     .string()
     .transform(normalizePlate)
-    .pipe(z.string().min(1, 'กรุณากรอกทะเบียน').max(30, 'ทะเบียนยาวเกิน 30 ตัวอักษร')),
+    .pipe(
+      z
+        .string()
+        .min(1, 'กรุณากรอกทะเบียน')
+        .max(VEHICLE_TEXT_MAX.plate, `ทะเบียนยาวเกิน ${VEHICLE_TEXT_MAX.plate} ตัวอักษร`),
+    ),
   plateProvince: z
     .enum(THAI_PROVINCES)
     .nullish()
     .transform((v) => v ?? null),
   registrationDate: optionalYmd,
-  fleetNumber: optionalText(50),
-  ownerName: z.string().trim().min(1, 'กรุณากรอกบริษัท').max(100, 'ชื่อบริษัทยาวเกิน 100 ตัวอักษร'),
-  vehicleType: z.string().trim().min(1, 'กรุณากรอกลักษณะรถ').max(50, 'ลักษณะรถยาวเกิน 50 ตัวอักษร'),
-  brand: optionalText(100),
-  modelName: optionalText(100),
-  color: optionalText(50),
-  chassisNumber: optionalText(100),
-  chassisPosition: optionalText(100),
-  engineNumber: optionalText(100),
+  fleetNumber: optionalText(VEHICLE_TEXT_MAX.fleetNumber),
+  ownerName: z
+    .string()
+    .trim()
+    .min(1, 'กรุณากรอกบริษัท')
+    .max(VEHICLE_TEXT_MAX.ownerName, `ชื่อบริษัทยาวเกิน ${VEHICLE_TEXT_MAX.ownerName} ตัวอักษร`),
+  vehicleType: z
+    .string()
+    .trim()
+    .min(1, 'กรุณากรอกลักษณะรถ')
+    .max(VEHICLE_TEXT_MAX.vehicleType, `ลักษณะรถยาวเกิน ${VEHICLE_TEXT_MAX.vehicleType} ตัวอักษร`),
+  brand: optionalText(VEHICLE_TEXT_MAX.brand),
+  modelName: optionalText(VEHICLE_TEXT_MAX.modelName),
+  color: optionalText(VEHICLE_TEXT_MAX.color),
+  chassisNumber: optionalText(VEHICLE_TEXT_MAX.chassisNumber),
+  chassisPosition: optionalText(VEHICLE_TEXT_MAX.chassisPosition),
+  engineNumber: optionalText(VEHICLE_TEXT_MAX.engineNumber),
   engineCylinders: optionalCount('จำนวนสูบ', 100),
   engineHorsepower: optionalCount('แรงม้า', 10_000),
   axleCount: optionalCount('จำนวนเพลา', 20),
-  fuelType: optionalText(50),
+  fuelType: optionalText(VEHICLE_TEXT_MAX.fuelType),
   weightKg: optionalCount('น้ำหนัก', 100_000),
   status: z.enum(VEHICLE_STATUSES).default('ACTIVE'),
   statusDate: optionalYmd,
-  note: optionalText(500),
+  note: optionalText(VEHICLE_TEXT_MAX.note),
 })
 export type VehicleInput = z.infer<typeof vehicleInputSchema>
 
 const coverageFieldsObject = z.object({
   insurerId: optionalId,
-  agentName: optionalText(100),
+  agentName: optionalText(COVERAGE_TEXT_MAX.agentName),
   coverageClass: z.enum(COVERAGE_CLASSES).nullish().transform((v) => v ?? null),
-  policyNumber: optionalText(100),
+  policyNumber: optionalText(COVERAGE_TEXT_MAX.policyNumber),
   startDate: optionalYmd,
   endDate: ymdSchema,
   amount: money,
   serviceFee: money,
   pairedVehicleId: optionalId,
-  renewalNote: optionalText(500),
+  renewalNote: optionalText(COVERAGE_TEXT_MAX.renewalNote),
 })
 
 const startNotAfterEnd = (v: { startDate: string | null; endDate: string }) => !v.startDate || v.startDate <= v.endDate

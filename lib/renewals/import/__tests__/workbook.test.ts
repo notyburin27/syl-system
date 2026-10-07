@@ -6,6 +6,10 @@ import { buildRenewalTemplate, readRenewalWorkbook } from '../workbook'
 
 const toArrayBuffer = (b: Buffer): ArrayBuffer => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer
 
+/** หัวคอลัมน์ของ template ก่อนเพิ่มข้อมูลเล่มทะเบียน / ตัวแทน */
+const OLD_VEHICLE_HEADERS = ['ทะเบียน', 'เบอร์รถ', 'บริษัท', 'ลักษณะ', 'ยี่ห้อ', 'เลขตัวถัง', 'เชื้อเพลิง', 'น้ำหนัก(กก.)', 'สถานะ', 'วันที่สถานะ', 'หมายเหตุ']
+const OLD_COVERAGE_HEADERS = ['ทะเบียน', 'ประเภท', 'บริษัทประกัน', 'ชั้น', 'เลขกรมธรรม์', 'วันเริ่ม', 'วันสิ้นสุด', 'เบี้ย/ภาษี', 'ค่าบริการ', 'ทะเบียนหางคู่', 'สถานะการต่อ', 'เหตุผลไม่ต่อ', 'หมายเหตุ']
+
 async function loadTemplate() {
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.load(toArrayBuffer(await buildRenewalTemplate()))
@@ -18,7 +22,7 @@ async function toBuffer(wb: ExcelJS.Workbook) {
 
 test('template เปล่า → อ่านได้ 0 แถว (แถวที่มีแค่ dropdown ถูกข้าม) และมีชีตวิธีกรอก', async () => {
   const wb = await loadTemplate()
-  assert.deepEqual(wb.worksheets.map((w) => w.name), ['รถ', 'งวด', 'วิธีกรอก'])
+  assert.deepEqual(wb.worksheets.map((w) => w.name), ['รถ', 'งวด', 'วิธีกรอก', 'จังหวัด'])
   assert.deepEqual(await readRenewalWorkbook(await toBuffer(wb)), { vehicles: [], coverages: [] })
 })
 
@@ -57,9 +61,11 @@ test('จับคู่ด้วยชื่อหัวคอลัมน์ �
 test('ไฟล์ template เดิม: หัวคอลัมน์ชื่อเดิมยังอ่านได้ และไม่มีคอลัมน์ใหม่ก็ไม่ error', async () => {
   const wb = new ExcelJS.Workbook()
   const vehicles = wb.addWorksheet('รถ')
-  vehicles.addRow(['ทะเบียน', 'เบอร์รถ', 'บริษัท', 'ลักษณะ', 'ยี่ห้อ', 'เลขตัวถัง', 'เชื้อเพลิง', 'น้ำหนัก(กก.)', 'สถานะ', 'วันที่สถานะ', 'หมายเหตุ'])
+  vehicles.addRow(OLD_VEHICLE_HEADERS)
   vehicles.addRow(['73-4940 กท', '17', 'แวลู ทรานสปอร์ต', 'หาง', 'TIGER', 'TT123', 'ดีเซล', '7,900', 'ขาย', '06/07/2569', 'x'])
-  wb.addWorksheet('งวด').addRow(Object.values(COVERAGE_COLUMNS))
+  const coverages = wb.addWorksheet('งวด')
+  coverages.addRow(OLD_COVERAGE_HEADERS)
+  coverages.addRow(['73-4940 กท', 'พรบ.', '', '', '', '', '31/03/2570'])
 
   const result = await readRenewalWorkbook(await toBuffer(wb))
   assert.ok(!('error' in result))
@@ -76,6 +82,7 @@ test('ไฟล์ template เดิม: หัวคอลัมน์ชื�
     statusDate: '06/07/2569',
     note: 'x',
   })
+  assert.equal(result.coverages[0].values.agentName, undefined)
 })
 
 test('template ใหม่: คอลัมน์ข้อมูลเล่มทะเบียนอ่านได้; หัวคอลัมน์ไม่สนช่องว่าง', async () => {
@@ -103,6 +110,7 @@ test('ขาดคอลัมน์ / ขาดชีต / ไม่ใช่ x
   const missingColumns = await readRenewalWorkbook(await toBuffer(wb))
   assert.ok('error' in missingColumns)
   assert.match(missingColumns.error, /^ชีต "งวด" ไม่มีคอลัมน์: บริษัทประกัน, ชั้น, เลขกรมธรรม์/)
+  assert.doesNotMatch(missingColumns.error, /ตัวแทน/)
 
   const noBrand = new ExcelJS.Workbook()
   noBrand.addWorksheet('รถ').addRow(['ทะเบียน', 'เบอร์รถ', 'บริษัท', 'ลักษณะ', 'เลขตัวถัง', 'เชื้อเพลิง', 'น้ำหนัก(กก.)', 'สถานะ', 'วันที่สถานะ', 'หมายเหตุ'])
@@ -128,9 +136,46 @@ test('template ตั้งคอลัมน์วันที่เป็น�
   assert.equal(ws.getCell('G2').numFmt, '@')
   assert.equal(ws.getCell('F2').numFmt, '@')
   const vehicles = wb.getWorksheet('รถ')!
-  assert.equal(vehicles.getCell('C1').value, 'วันที่จดทะเบียน')
-  assert.equal(vehicles.getCell('C2').numFmt, '@')
-  assert.equal(vehicles.getCell('S1').value, 'วันที่แจ้งสถานะ')
-  assert.equal(vehicles.getCell('S2').numFmt, '@')
+  assert.equal(vehicles.getCell('J1').value, 'วันที่แจ้งสถานะ')
+  assert.equal(vehicles.getCell('J2').numFmt, '@')
+  assert.equal(vehicles.getCell('M1').value, 'วันที่จดทะเบียน')
+  assert.equal(vehicles.getCell('M2').numFmt, '@')
   assert.equal(ws.getCell('B2').dataValidation?.type, 'list')
+})
+
+test('template: คอลัมน์เดิมอยู่ตำแหน่งเดิม คอลัมน์ใหม่ต่อท้าย (วางบล็อกจากไฟล์เดิมแล้วตรงกัน)', async () => {
+  const wb = await loadTemplate()
+  const headers = (name: string) => (wb.getWorksheet(name)!.getRow(1).values as unknown[]).slice(1)
+  const renamed: Record<string, string> = { เลขตัวถัง: 'เลขตัวรถ (คัสซี)', 'น้ำหนัก(กก.)': 'น้ำหนักตัวรถ (กก.)', วันที่สถานะ: 'วันที่แจ้งสถานะ' }
+  assert.deepEqual(headers('รถ').slice(0, 11), OLD_VEHICLE_HEADERS.map((h) => renamed[h] ?? h))
+  assert.deepEqual(headers('รถ').slice(11), [
+    'จังหวัด (ทะเบียนรถ)',
+    'วันที่จดทะเบียน',
+    'แบบ/รุ่น',
+    'สีรถ',
+    'ตำแหน่งคัสซี',
+    'เลขเครื่องยนต์',
+    'จำนวนสูบ',
+    'แรงม้า',
+    'จำนวนเพลา',
+  ])
+  assert.deepEqual(headers('งวด'), [...OLD_COVERAGE_HEADERS, 'ตัวแทน'])
+})
+
+test('template: dropdown จังหวัดอ้างชีตรายชื่อ 77 จังหวัดที่ซ่อนไว้ และเว้นว่างได้', async () => {
+  const wb = await loadTemplate()
+  const provinces = wb.getWorksheet('จังหวัด')!
+  assert.equal(provinces.state, 'veryHidden')
+  assert.equal(provinces.rowCount, 77)
+  assert.equal(provinces.getCell('A1').value, 'กรุงเทพมหานคร')
+  assert.equal(provinces.getCell('A77').value, 'อุบลราชธานี')
+  const vehicles = wb.getWorksheet('รถ')!
+  assert.equal(vehicles.getCell('L1').value, 'จังหวัด (ทะเบียนรถ)')
+  for (const cell of ['L2', 'L1000']) {
+    assert.deepEqual(vehicles.getCell(cell).dataValidation, {
+      type: 'list',
+      allowBlank: true,
+      formulae: ["'จังหวัด'!$A$1:$A$77"],
+    })
+  }
 })

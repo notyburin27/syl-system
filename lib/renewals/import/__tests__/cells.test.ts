@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { COVERAGE_TYPE_LABELS } from '../../constants'
-import { lookupLabel, parseImportDate, parseImportInt, parseImportMoney, parseImportProvince } from '../cells'
+import { lookupLabel, parseImportDate, parseImportInt, parseImportMoney, parseImportProvince, parseImportText } from '../cells'
 
 test('parseImportDate: date cell, พ.ศ./ค.ศ. 4 หลัก, คั่นด้วย - ได้, YYYY-MM-DD, ว่าง', () => {
   assert.deepEqual(parseImportDate(new Date(Date.UTC(2027, 2, 31))), { value: '2027-03-31' })
@@ -70,4 +70,12 @@ test('parseImportDate: ปี พ.ศ. จาก date cell / ISO text แปล�
   assert.deepEqual(parseImportDate(new Date(Date.UTC(1970, 2, 31))), {
     error: 'วันที่ "1970-03-31" ปีไม่สมเหตุผล (1970) — ถ้าพิมพ์ปี 2 หลัก Excel อาจแปลงให้ผิด ให้ใช้ วว/ดด/ปปปป เช่น 31/03/2570',
   })
+})
+
+test('parseImportText: trim, ว่าง = null, ยาวเกิน → error (นับหลัง trim)', () => {
+  assert.deepEqual(parseImportText('  ISUZU ', 5), { value: 'ISUZU' })
+  assert.deepEqual(parseImportText('', 5), { value: null })
+  assert.deepEqual(parseImportText(null, 5), { value: null })
+  assert.deepEqual(parseImportText(12345, 5), { value: '12345' })
+  assert.deepEqual(parseImportText('123456', 5), { error: 'ข้อความยาวเกิน 5 ตัวอักษร' })
 })

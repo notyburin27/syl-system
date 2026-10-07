@@ -61,7 +61,7 @@ test.describe.serial('นำเข้า Excel', () => {
         { ทะเบียน: 'E2E-6003 กท', เบอร์รถ: '903', บริษัท: 'E2E บริษัท', ลักษณะ: 'ลากจูง', สถานะ: 'ขาย', วันที่แจ้งสถานะ: '06/07/2569' },
       ],
       [
-        ['E2E-6001 กท', 'ประกันรถยนต์', 'E2E ประกันภัย ใหม่', 'ป.3', 'POL-1', '09/01/2569', '09/01/2570', '19,900', '', 'E2E-6002  กท'],
+        ['E2E-6001 กท', 'ประกันรถยนต์', 'E2E ประกันภัย ใหม่', 'ป.3', 'POL-1', '09/01/2569', '09/01/2570', '19,900', '', 'E2E-6002  กท', '', '', '', 'E2E ตัวแทน'],
         ['E2E-6003 กท', 'พรบ.', 'E2E ประกันภัย ใหม่', '', '', '', '31/03/2570', '', '', '', 'รอต่อ'],
       ],
     )
@@ -107,6 +107,7 @@ test.describe.serial('นำเข้า Excel', () => {
       amount: 19900,
       pairedPlate: 'E2E-6002 กท',
       insurerName: 'E2E ประกันภัย ใหม่',
+      agentName: 'E2E ตัวแทน',
     })
     const sold = await getVehicleDetail(page, idOf('E2E-6003 กท'))
     expect(sold.vehicle).toMatchObject({ status: 'SOLD', statusDate: '2026-07-06' })
@@ -118,10 +119,13 @@ test.describe.serial('นำเข้า Excel', () => {
     const vehicles = wb.addWorksheet('รถ')
     vehicles.addRow(['ทะเบียน', 'เบอร์รถ', 'บริษัท', 'ลักษณะ', 'ยี่ห้อ', 'เลขตัวถัง', 'เชื้อเพลิง', 'น้ำหนัก(กก.)', 'สถานะ', 'วันที่สถานะ', 'หมายเหตุ'])
     vehicles.addRow(['E2E-6001 กท', '', '', '', 'ISUZU', 'CH-6001-NEW', '', '8,100', '', '', ''])
-    wb.addWorksheet('งวด').addRow(['ทะเบียน', 'ประเภท', 'บริษัทประกัน', 'ชั้น', 'เลขกรมธรรม์', 'วันเริ่ม', 'วันสิ้นสุด', 'เบี้ย/ภาษี', 'ค่าบริการ', 'ทะเบียนหางคู่', 'สถานะการต่อ', 'เหตุผลไม่ต่อ', 'หมายเหตุ'])
+    const coverages = wb.addWorksheet('งวด')
+    coverages.addRow(['ทะเบียน', 'ประเภท', 'บริษัทประกัน', 'ชั้น', 'เลขกรมธรรม์', 'วันเริ่ม', 'วันสิ้นสุด', 'เบี้ย/ภาษี', 'ค่าบริการ', 'ทะเบียนหางคู่', 'สถานะการต่อ', 'เหตุผลไม่ต่อ', 'หมายเหตุ'])
+    coverages.addRow(['E2E-6001 กท', 'ประกันรถยนต์', '', '', 'POL-1-NEW', '', '09/01/2570'])
     await uploadAndPreview(page, Buffer.from(await wb.xlsx.writeBuffer()))
     await expect(page.getByText('ไฟล์ถูกต้อง พร้อมนำเข้า')).toBeVisible({ timeout: 15_000 })
     await expect(summaryOf(page, 'vehiclesUpdated')).toHaveText('1')
+    await expect(summaryOf(page, 'coveragesUpdated')).toHaveText('1')
 
     await page.getByTestId('import-commit-btn').click()
     await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click()
@@ -129,7 +133,9 @@ test.describe.serial('นำเข้า Excel', () => {
 
     const list = await expectJson<VehicleListItemDto[]>(await page.request.get('/api/renewals/vehicles'))
     const id = list.find((v) => v.plate === 'E2E-6001 กท')!.id
-    expect((await getVehicleDetail(page, id)).vehicle).toMatchObject({
+    const detail = await getVehicleDetail(page, id)
+    expect(detail.coverages[0]).toMatchObject({ policyNumber: 'POL-1-NEW', agentName: 'E2E ตัวแทน' })
+    expect(detail.vehicle).toMatchObject({
       brand: 'ISUZU',
       chassisNumber: 'CH-6001-NEW',
       weightKg: 8100,

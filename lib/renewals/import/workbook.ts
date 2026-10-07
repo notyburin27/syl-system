@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs'
 import { normalizeCellValue } from '@/lib/utils/excel'
 import { COVERAGE_CLASSES, COVERAGE_TYPE_LABELS, NOT_RENEWED_REASON_LABELS, VEHICLE_STATUS_LABELS } from '../constants'
+import { THAI_PROVINCES } from '../provinces'
 import { cellText, isBlank } from './cells'
 import {
   COVERAGE_COLUMNS,
@@ -8,7 +9,9 @@ import {
   GUIDE_ROWS,
   GUIDE_SHEET,
   IMPORT_STATUS_LABELS,
+  OPTIONAL_COVERAGE_COLUMNS,
   OPTIONAL_VEHICLE_COLUMNS,
+  PROVINCE_SHEET,
   VEHICLE_COLUMNS,
   VEHICLE_COLUMN_ALIASES,
   VEHICLE_SHEET,
@@ -20,11 +23,14 @@ import {
 /** จำนวนแถวที่ใส่ dropdown ไว้ให้ */
 const TEMPLATE_ROWS = 1000
 
+/** dropdown: รายการตัวเลือก หรือช่วงเซลล์ในชีตอื่น (รายการยาวเกิน 255 ตัวอักษรใส่ตรงๆ ไม่ได้) */
+type DropdownSource = readonly string[] | { range: string }
+
 function addDataSheet<K extends string>(
   wb: ExcelJS.Workbook,
   name: string,
   columns: Record<K, string>,
-  lists: Partial<Record<K, readonly string[]>>,
+  lists: Partial<Record<K, DropdownSource>>,
   textKeys: readonly NoInfer<K>[] = [],
 ) {
   const ws = wb.addWorksheet(name, { views: [{ state: 'frozen', ySplit: 1 }] })
@@ -39,18 +45,25 @@ function addDataSheet<K extends string>(
     }
     const list = lists[key]
     if (!list) return
+    const formula = 'range' in list ? list.range : `"${list.join(',')}"`
     for (let row = 2; row <= TEMPLATE_ROWS; row++) {
-      ws.getCell(row, i + 1).dataValidation = { type: 'list', allowBlank: true, formulae: [`"${list.join(',')}"`] }
+      ws.getCell(row, i + 1).dataValidation = { type: 'list', allowBlank: true, formulae: [formula] }
     }
   })
 }
 
 export async function buildRenewalTemplate(): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
-  addDataSheet(wb, VEHICLE_SHEET, VEHICLE_COLUMNS, { status: Object.values(VEHICLE_STATUS_LABELS) }, [
-    'registrationDate',
-    'statusDate',
-  ])
+  addDataSheet(
+    wb,
+    VEHICLE_SHEET,
+    VEHICLE_COLUMNS,
+    {
+      status: Object.values(VEHICLE_STATUS_LABELS),
+      plateProvince: { range: `'${PROVINCE_SHEET}'!$A$1:$A$${THAI_PROVINCES.length}` },
+    },
+    ['statusDate', 'registrationDate'],
+  )
   addDataSheet(wb, COVERAGE_SHEET, COVERAGE_COLUMNS, {
     type: Object.values(COVERAGE_TYPE_LABELS),
     coverageClass: COVERAGE_CLASSES,
@@ -61,6 +74,9 @@ export async function buildRenewalTemplate(): Promise<Buffer> {
   guide.columns = [{ width: 32 }, { width: 100 }]
   for (const row of GUIDE_ROWS) guide.addRow(row)
   guide.getRow(1).font = { bold: true }
+  // veryHidden = ผู้ใช้ unhide จากเมนูไม่ได้ กันแก้รายชื่อโดยไม่ตั้งใจ
+  const provinces = wb.addWorksheet(PROVINCE_SHEET, { state: 'veryHidden' })
+  for (const province of THAI_PROVINCES) provinces.addRow([province])
   return Buffer.from(await wb.xlsx.writeBuffer())
 }
 
@@ -111,7 +127,7 @@ export async function readRenewalWorkbook(
   }
   const vehicles = readSheet(vehicleSheet, VEHICLE_COLUMNS, { aliases: VEHICLE_COLUMN_ALIASES, optional: OPTIONAL_VEHICLE_COLUMNS })
   if ('error' in vehicles) return vehicles
-  const coverages = readSheet(coverageSheet, COVERAGE_COLUMNS)
+  const coverages = readSheet(coverageSheet, COVERAGE_COLUMNS, { optional: OPTIONAL_COVERAGE_COLUMNS })
   if ('error' in coverages) return coverages
   return { vehicles: vehicles.rows, coverages: coverages.rows }
 }
