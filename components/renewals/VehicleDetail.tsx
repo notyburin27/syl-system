@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { App, Button, Descriptions, Result, Space, Spin, Table, Tabs, Tag, type TableColumnsType } from 'antd'
+import { App, Button, Card, Descriptions, Result, Space, Spin, Table, Tabs, Tag, type TableColumnsType } from 'antd'
 import { DeleteOutlined, EditOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from '@ant-design/icons'
 import {
   COVERAGE_TYPES,
@@ -18,10 +18,20 @@ import {
 import { toThaiShortDate } from '@/lib/utils/thaiDate'
 import type { CoverageDto, VehicleDetailResponse } from '@/types/renewals'
 import { getJson, sendJson } from './api'
+import AttachmentPanel from './AttachmentPanel'
 import AttachmentsModal from './AttachmentsModal'
 import CoverageFormModal from './CoverageFormModal'
 import { useRenewalLookups } from './useRenewalLookups'
 import VehicleFormModal from './VehicleFormModal'
+
+const orDash = (v: string | null) => v ?? '-'
+const countWithUnit = (v: number | null, unit: string) => (v === null ? null : `${v.toLocaleString('th-TH')} ${unit}`)
+
+/** "6 สูบ 360 แรงม้า 3 เพลา" — ข้ามส่วนที่ไม่ได้กรอก */
+function engineSize(v: { engineCylinders: number | null; engineHorsepower: number | null; axleCount: number | null }) {
+  const parts = [countWithUnit(v.engineCylinders, 'สูบ'), countWithUnit(v.engineHorsepower, 'แรงม้า'), countWithUnit(v.axleCount, 'เพลา')]
+  return parts.filter(Boolean).join(' ') || '-'
+}
 
 const money = (v: number | null) =>
   v === null ? '-' : v.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -37,6 +47,8 @@ export default function VehicleDetail({ id }: { id: string }) {
   const [editingVehicle, setEditingVehicle] = useState(false)
   const [coverageForm, setCoverageForm] = useState<{ coverage: CoverageDto | null } | null>(null)
   const [attachmentsFor, setAttachmentsFor] = useState<CoverageDto | null>(null)
+  /** เพิ่มทุกครั้งที่บันทึกฟอร์มรถ — ฟอร์มอาจอัปโหลดเอกสารสำเนารถมาด้วย */
+  const [docsVersion, setDocsVersion] = useState(0)
 
   const fetchDetail = useCallback(async () => {
     setLoading(true)
@@ -187,25 +199,55 @@ export default function VehicleDetail({ id }: { id: string }) {
         column={{ xs: 1, md: 3 }}
         style={{ marginBottom: 16 }}
         items={[
-          { key: 'fleet', label: 'เบอร์รถ', children: vehicle.fleetNumber ?? '-' },
+          { key: 'registrationDate', label: 'วันที่จดทะเบียน', children: toThaiShortDate(vehicle.registrationDate) || '-' },
+          { key: 'province', label: 'จังหวัด', children: orDash(vehicle.plateProvince) },
+          { key: 'fleet', label: 'เบอร์รถ', children: orDash(vehicle.fleetNumber) },
           { key: 'owner', label: 'บริษัท', children: vehicle.ownerName },
-          { key: 'type', label: 'ลักษณะ', children: vehicle.vehicleType },
-          { key: 'brand', label: 'ยี่ห้อ', children: vehicle.brand ?? '-' },
-          { key: 'chassis', label: 'เลขตัวถัง', children: vehicle.chassisNumber ?? '-' },
-          { key: 'fuel', label: 'เชื้อเพลิง', children: vehicle.fuelType ?? '-' },
-          { key: 'weight', label: 'น้ำหนัก (กก.)', children: vehicle.weightKg?.toLocaleString('th-TH') ?? '-' },
-          { key: 'statusDate', label: 'วันที่สถานะ', children: toThaiShortDate(vehicle.statusDate) || '-' },
-          { key: 'note', label: 'หมายเหตุ', children: vehicle.note ?? '-' },
+          { key: 'type', label: 'ลักษณะรถ', children: vehicle.vehicleType },
+          { key: 'brand', label: 'ยี่ห้อรถ', children: orDash(vehicle.brand) },
+          { key: 'model', label: 'แบบ/รุ่น', children: orDash(vehicle.modelName) },
+          { key: 'color', label: 'สีรถ', children: orDash(vehicle.color) },
+          { key: 'chassis', label: 'เลขตัวรถ (คัสซี)', children: orDash(vehicle.chassisNumber) },
+          { key: 'chassisPosition', label: 'ตำแหน่งคัสซี', children: orDash(vehicle.chassisPosition) },
+          { key: 'engineNumber', label: 'เลขเครื่องยนต์', children: orDash(vehicle.engineNumber) },
+          { key: 'engineSize', label: 'ขนาดเครื่องยนต์', children: engineSize(vehicle) },
+          { key: 'weight', label: 'น้ำหนักตัวรถ (กก.)', children: vehicle.weightKg?.toLocaleString('th-TH') ?? '-' },
+          { key: 'fuel', label: 'เชื้อเพลิง', children: orDash(vehicle.fuelType) },
+          { key: 'statusDate', label: 'วันที่แจ้งสถานะ', children: toThaiShortDate(vehicle.statusDate) || '-' },
+          { key: 'note', label: 'หมายเหตุ', children: orDash(vehicle.note) },
         ]}
       />
+
+      <Card size="small" title="เอกสารสำเนารถ" style={{ marginBottom: 16 }} data-testid="vehicle-docs">
+        <AttachmentPanel
+          listUrl={`/api/renewals/vehicles/${vehicle.id}/attachments`}
+          fileUrl={(a) => `/api/renewals/vehicle-attachments/${a.id}`}
+          reloadKey={docsVersion}
+        />
+      </Card>
 
       <Tabs
         activeKey={activeType}
         onChange={(key) => setActiveType(key as CoverageTypeKey)}
         tabBarExtraContent={
-          <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setCoverageForm({ coverage: null })} data-testid="coverage-add-btn">
-            เพิ่มงวด
-          </Button>
+          <Space size={4} wrap>
+            {COVERAGE_TYPES.map((t) => (
+              <Button
+                key={t}
+                type="primary"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  // สลับไปแท็บประเภทนั้นด้วย — ฟอร์มใช้ activeType และบันทึกแล้วเห็นงวดใหม่ทันที
+                  setActiveType(t)
+                  setCoverageForm({ coverage: null })
+                }}
+                data-testid={`coverage-add-btn-${t}`}
+              >
+                {COVERAGE_TYPE_LABELS[t]}
+              </Button>
+            ))}
+          </Space>
         }
         items={COVERAGE_TYPES.map((t) => ({
           key: t,
@@ -228,6 +270,7 @@ export default function VehicleDetail({ id }: { id: string }) {
         onClose={() => setEditingVehicle(false)}
         onSaved={() => {
           setEditingVehicle(false)
+          setDocsVersion((n) => n + 1)
           fetchDetail()
         }}
       />

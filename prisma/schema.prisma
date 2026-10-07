@@ -20,50 +20,51 @@ enum Role {
 model AuthUser {
   id        String   @id @default(cuid())
   username  String   @unique
-  password  String   // bcrypt hashed
+  password  String // bcrypt hashed
   role      Role     @default(STAFF)
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  documents       TransportDocument[]
-  jobs            Job[]
-  driverLeaves    DriverLeave[]
-  companyHolidays CompanyHoliday[]
-  monthlyEntries  DriverMonthlyEntry[]
+  documents             TransportDocument[]
+  jobs                  Job[]
+  driverLeaves          DriverLeave[]
+  companyHolidays       CompanyHoliday[]
+  monthlyEntries        DriverMonthlyEntry[]
   coveragesCreated      VehicleCoverage[]    @relation("CoverageCreatedBy")
   coverageStatusUpdates VehicleCoverage[]    @relation("CoverageStatusUpdatedBy")
   coverageAttachments   CoverageAttachment[] @relation("AttachmentUploadedBy")
+  vehicleAttachments    VehicleAttachment[]  @relation("VehicleAttachmentUploadedBy")
 
   @@index([username])
   @@map("auth_users")
 }
 
 model TransportDocument {
-  id          String   @id @default(cuid())
-  title       String
+  id    String @id @default(cuid())
+  title String
 
   // Form fields (19 fields)
-  date              DateTime?
-  customerName      String?
-  booking           String?
-  agent             String?
-  shipName          String?
-  invoice           String?
-  containerSize     String?
-  containerNumber   String?
-  sealNumber        String?
-  shipping          String?
-  pickupLocation    String?
-  returnLocation    String?
-  closingTime       DateTime?
-  factoryTime       String?
-  loadingSlot       String?
-  driverName        String?
+  date                DateTime?
+  customerName        String?
+  booking             String?
+  agent               String?
+  shipName            String?
+  invoice             String?
+  containerSize       String?
+  containerNumber     String?
+  sealNumber          String?
+  shipping            String?
+  pickupLocation      String?
+  returnLocation      String?
+  closingTime         DateTime?
+  factoryTime         String?
+  loadingSlot         String?
+  driverName          String?
   vehicleRegistration String?
-  phoneNumber       String?
-  remarks           String?
+  phoneNumber         String?
+  remarks             String?
 
   // Metadata
   createdById String
@@ -79,13 +80,13 @@ model TransportDocument {
 // ==================== Stock Module ====================
 
 model Product {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   name         String
   sellingPrice Float
   image        String?
-  isActive     Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   stockIns  StockIn[]
   stockOuts StockOut[]
@@ -95,11 +96,11 @@ model Product {
 }
 
 model Buyer {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
   phone     String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   stockOuts StockOut[]
   invoices  Invoice[]
@@ -180,19 +181,19 @@ model Customer {
 }
 
 model Driver {
-  id                  String              @id @default(cuid())
-  name                String              @unique
+  id                  String    @id @default(cuid())
+  name                String    @unique
   vehicleNumber       String?
   vehicleRegistration String?
   groupName           String?
-  baseSalary          Decimal?            @db.Decimal(10, 2)
-  startDate           DateTime?           @db.Date
+  baseSalary          Decimal?  @db.Decimal(10, 2)
+  startDate           DateTime? @db.Date
   /// รถก๊าซ — หน้าสรุปจะเว้นว่างบล็อกน้ำมันและยอดคงเหลือของบริษัท
-  isGasVehicle        Boolean             @default(false)
-  isActive            Boolean             @default(true)
-  resignedAt          DateTime?           @db.Date
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  isGasVehicle        Boolean   @default(false)
+  isActive            Boolean   @default(true)
+  resignedAt          DateTime? @db.Date
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   bankAccounts   DriverBankAccount[]
   jobs           Job[]
@@ -253,11 +254,11 @@ model Location {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  pickupJobs            Job[]           @relation("PickupLocation")
-  factoryJobs           Job[]           @relation("FactoryLocation")
-  returnJobs            Job[]           @relation("ReturnLocation")
-  rateTransfers         RateTransfer[]  @relation("RateTransferLocation")
-  rateIncomeFactory     RateIncome[]    @relation("RateIncomeFactory")
+  pickupJobs            Job[]            @relation("PickupLocation")
+  factoryJobs           Job[]            @relation("FactoryLocation")
+  returnJobs            Job[]            @relation("ReturnLocation")
+  rateTransfers         RateTransfer[]   @relation("RateTransferLocation")
+  rateIncomeFactory     RateIncome[]     @relation("RateIncomeFactory")
   rateDriverWageFactory RateDriverWage[] @relation("RateDriverWageFactory")
 
   @@index([name])
@@ -266,17 +267,17 @@ model Location {
 }
 
 model Job {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Core fields
-  jobDate           DateTime  @db.Date
-  jobType           String
-  customerId        String?
-  customer          Customer?  @relation(fields: [customerId], references: [id])
-  jobNumber         String    @unique
-  driverId          String?
-  driver            Driver?   @relation(fields: [driverId], references: [id])
-  size              String?
+  jobDate    DateTime  @db.Date
+  jobType    String
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  jobNumber  String    @unique
+  driverId   String?
+  driver     Driver?   @relation(fields: [driverId], references: [id])
+  size       String?
 
   // Location fields
   pickupLocationId  String?
@@ -287,52 +288,52 @@ model Job {
   returnLocation    Location? @relation("ReturnLocation", fields: [returnLocationId], references: [id])
 
   // Financial fields
-  income                Decimal?  @db.Decimal(10, 2)
-  driverWage            Decimal?  @db.Decimal(10, 2)
-  estimatedPickupFee    Decimal?  @db.Decimal(10, 2)
-  estimatedReturnFee    Decimal?  @db.Decimal(10, 2)
-  actualTransferPrev    Decimal?  @db.Decimal(10, 2)
-  advance               Decimal?  @db.Decimal(10, 2)
-  toll                  Decimal?  @db.Decimal(10, 2)
-  pickupFee             Decimal?  @db.Decimal(10, 2)
-  returnFee             Decimal?  @db.Decimal(10, 2)
-  liftFee           Decimal?  @db.Decimal(10, 2)
-  storageFee        Decimal?  @db.Decimal(10, 2)
-  tire              Decimal?  @db.Decimal(10, 2)
-  other             Decimal?  @db.Decimal(10, 2)
+  income             Decimal? @db.Decimal(10, 2)
+  driverWage         Decimal? @db.Decimal(10, 2)
+  estimatedPickupFee Decimal? @db.Decimal(10, 2)
+  estimatedReturnFee Decimal? @db.Decimal(10, 2)
+  actualTransferPrev Decimal? @db.Decimal(10, 2)
+  advance            Decimal? @db.Decimal(10, 2)
+  toll               Decimal? @db.Decimal(10, 2)
+  pickupFee          Decimal? @db.Decimal(10, 2)
+  returnFee          Decimal? @db.Decimal(10, 2)
+  liftFee            Decimal? @db.Decimal(10, 2)
+  storageFee         Decimal? @db.Decimal(10, 2)
+  tire               Decimal? @db.Decimal(10, 2)
+  other              Decimal? @db.Decimal(10, 2)
 
   // Mileage & Fuel
-  mileage           Int?
-  fuelOfficeLiters  Decimal?  @db.Decimal(10, 2)
-  fuelCashLiters    Decimal?  @db.Decimal(10, 2)
-  fuelCashAmount    Decimal?  @db.Decimal(10, 2)
-  fuelCreditLiters  Decimal?  @db.Decimal(10, 2)
-  fuelCreditAmount  Decimal?  @db.Decimal(10, 2)
+  mileage          Int?
+  fuelOfficeLiters Decimal? @db.Decimal(10, 2)
+  fuelCashLiters   Decimal? @db.Decimal(10, 2)
+  fuelCashAmount   Decimal? @db.Decimal(10, 2)
+  fuelCreditLiters Decimal? @db.Decimal(10, 2)
+  fuelCreditAmount Decimal? @db.Decimal(10, 2)
 
   // Status fields
-  clearStatus       Boolean   @default(false)
-  statementVerified Boolean   @default(false)
-  isCancelled       Boolean   @default(false)
+  clearStatus       Boolean @default(false)
+  statementVerified Boolean @default(false)
+  isCancelled       Boolean @default(false)
   /// แบก — นับเพิ่มควบคู่กับหมวดเดิมในหน้าสรุป ไม่ได้แทนที่
-  isCarry           Boolean   @default(false)
+  isCarry           Boolean @default(false)
   /// ทอยตู้ที่ถูกงานหลัก (รับตู้จากคาหาง/รับเช้าเดินทาง) ดูดซับ
   /// ค่าเที่ยวถูกล้างแล้ว และไม่นับเป็นเที่ยวในหน้าสรุป
-  isTowingAbsorbed  Boolean   @default(false)
+  isTowingAbsorbed  Boolean @default(false)
 
   // Remarks
-  remarks           String?
+  remarks String?
 
   // ไม่มีงาน (jobType = "noJob") — เหตุผลและหมายเหตุ
-  noJobReason       String?
+  noJobReason String?
 
   // Carry-over relation
-  carryOverToJobId  String?
-  carryOverToJob    Job?      @relation("CarryOver", fields: [carryOverToJobId], references: [id])
-  carryOverFromJob  Job[]     @relation("CarryOver")
+  carryOverToJobId String?
+  carryOverToJob   Job?    @relation("CarryOver", fields: [carryOverToJobId], references: [id])
+  carryOverFromJob Job[]   @relation("CarryOver")
 
   // Towing link relations
-  towingLinksAsMain   JobTowingLink[] @relation("TowingMainJob")
-  towingLinkAsTowing  JobTowingLink?  @relation("TowingJob")
+  towingLinksAsMain  JobTowingLink[] @relation("TowingMainJob")
+  towingLinkAsTowing JobTowingLink?  @relation("TowingJob")
 
   // Pair link relations — จับคู่งานที่วิ่งครั้งเดียวแต่แยกใบ
   pairLinkAsPrimary   JobPairLink? @relation("PairPrimary")
@@ -347,7 +348,6 @@ model Job {
   transfers JobTransfer[]
 
   @@index([carryOverToJobId])
-
   @@index([jobDate])
   @@index([jobType])
   @@index([customerId])
@@ -362,7 +362,7 @@ model JobTowingLink {
   mainJob     Job      @relation("TowingMainJob", fields: [mainJobId], references: [id], onDelete: Cascade)
   towingJobId String   @unique
   towingJob   Job      @relation("TowingJob", fields: [towingJobId], references: [id])
-  sequence    Int      // 1 = รับตู้ (xxx→SYL), 2 = คืนตู้ (SYL→xxx)
+  sequence    Int // 1 = รับตู้ (xxx→SYL), 2 = คืนตู้ (SYL→xxx)
   createdAt   DateTime @default(now())
 
   @@unique([mainJobId, sequence])
@@ -405,7 +405,7 @@ model DriverLeave {
   driverId    String
   driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
   leaveDate   DateTime @db.Date
-  leaveType   String   // "sick" | "personal" | "other"
+  leaveType   String // "sick" | "personal" | "other"
   note        String?
   createdById String
   createdBy   AuthUser @relation(fields: [createdById], references: [id])
@@ -459,9 +459,9 @@ model RateIncome {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  factoryLocation  Location                  @relation("RateIncomeFactory", fields: [factoryLocationId], references: [id])
-  customer         Customer                  @relation(fields: [customerId], references: [id])
-  fuelSurcharges   RateIncomeFuelSurcharge[]
+  factoryLocation Location                  @relation("RateIncomeFactory", fields: [factoryLocationId], references: [id])
+  customer        Customer                  @relation(fields: [customerId], references: [id])
+  fuelSurcharges  RateIncomeFuelSurcharge[]
 
   @@unique([jobType, size, factoryLocationId, customerId])
   @@map("rate_income")
@@ -485,12 +485,12 @@ model RateIncomeFuelSurcharge {
 
 // บันทึกราคาน้ำมัน รายวัน
 model FuelPriceLog {
-  id             String   @id @default(cuid())
-  effectiveDate  DateTime @db.Date // วันที่มีผล
-  pricePerLiter  Decimal  @db.Decimal(10, 2) // ราคา บาท/ลิตร
-  note           String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(cuid())
+  effectiveDate DateTime @db.Date // วันที่มีผล
+  pricePerLiter Decimal  @db.Decimal(10, 2) // ราคา บาท/ลิตร
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([effectiveDate])
   @@index([effectiveDate])
@@ -516,8 +516,8 @@ model RateDriverWage {
 
 model LineWebhookLog {
   id        String   @id @default(cuid())
-  level     String   // "error" | "alert" | "info"
-  source    String   // "line-webhook" | "watchdog"
+  level     String // "error" | "alert" | "info"
+  source    String // "line-webhook" | "watchdog"
   messageId String?
   groupId   String?
   detail    String
@@ -578,25 +578,38 @@ enum NotRenewedReason {
 }
 
 model Vehicle {
-  id            String        @id @default(cuid())
+  id               String        @id @default(cuid())
   /// normalize แล้ว (lib/renewals/plate.ts)
-  plate         String        @unique
+  plate            String        @unique
+  /// จังหวัดของป้ายทะเบียน (ชื่อเต็มตาม lib/renewals/provinces.ts)
+  plateProvince    String?
+  registrationDate DateTime?     @db.Date
   /// เบอร์รถ — free text ไม่ unique (หัวกับหางใช้เลขซ้ำกันได้)
-  fleetNumber   String?
-  ownerName     String
-  vehicleType   String
-  brand         String?
-  chassisNumber String?
-  fuelType      String?
-  weightKg      Int?
-  status        VehicleStatus @default(ACTIVE)
-  statusDate    DateTime?     @db.Date
-  note          String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  fleetNumber      String?
+  ownerName        String
+  vehicleType      String
+  brand            String?
+  /// แบบ/รุ่น
+  modelName        String?
+  color            String?
+  /// เลขตัวรถ (คัสซี)
+  chassisNumber    String?
+  chassisPosition  String?
+  engineNumber     String?
+  engineCylinders  Int?
+  engineHorsepower Int?
+  axleCount        Int?
+  fuelType         String?
+  weightKg         Int?
+  status           VehicleStatus @default(ACTIVE)
+  statusDate       DateTime?     @db.Date
+  note             String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  coverages       VehicleCoverage[] @relation("CoverageVehicle")
-  pairedCoverages VehicleCoverage[] @relation("CoveragePairedVehicle")
+  coverages       VehicleCoverage[]   @relation("CoverageVehicle")
+  pairedCoverages VehicleCoverage[]   @relation("CoveragePairedVehicle")
+  attachments     VehicleAttachment[]
 
   @@index([ownerName])
   @@map("vehicles")
@@ -616,21 +629,21 @@ model Insurer {
 
 /// 1 แถว = 1 งวดของรถ 1 คัน 1 ประเภท; สถานะการต่ออยู่บนงวดที่กำลังจะหมด
 model VehicleCoverage {
-  id                String            @id @default(cuid())
-  vehicleId         String
-  vehicle           Vehicle           @relation("CoverageVehicle", fields: [vehicleId], references: [id])
-  type              CoverageType
-  insurerId         String?
-  insurer           Insurer?          @relation(fields: [insurerId], references: [id])
-  coverageClass     String?
-  policyNumber      String?
-  startDate         DateTime?         @db.Date
+  id              String       @id @default(cuid())
+  vehicleId       String
+  vehicle         Vehicle      @relation("CoverageVehicle", fields: [vehicleId], references: [id])
+  type            CoverageType
+  insurerId       String?
+  insurer         Insurer?     @relation(fields: [insurerId], references: [id])
+  coverageClass   String?
+  policyNumber    String?
+  startDate       DateTime?    @db.Date
   /// วันสุดท้ายที่คุ้มครอง (inclusive)
-  endDate           DateTime          @db.Date
-  amount            Decimal?          @db.Decimal(10, 2)
-  serviceFee        Decimal?          @db.Decimal(10, 2)
-  pairedVehicleId   String?
-  pairedVehicle     Vehicle?          @relation("CoveragePairedVehicle", fields: [pairedVehicleId], references: [id])
+  endDate         DateTime     @db.Date
+  amount          Decimal?     @db.Decimal(10, 2)
+  serviceFee      Decimal?     @db.Decimal(10, 2)
+  pairedVehicleId String?
+  pairedVehicle   Vehicle?     @relation("CoveragePairedVehicle", fields: [pairedVehicleId], references: [id])
 
   renewalStatus     RenewalStatus     @default(PENDING)
   notRenewedReason  NotRenewedReason?
@@ -668,4 +681,21 @@ model CoverageAttachment {
 
   @@index([coverageId])
   @@map("coverage_attachments")
+}
+
+/// เอกสารสำเนารถ (เล่มทะเบียน ฯลฯ) — ผูกกับรถ ไม่ใช่งวด
+model VehicleAttachment {
+  id           String   @id @default(cuid())
+  vehicleId    String
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  fileKey      String
+  fileName     String
+  contentType  String
+  sizeBytes    Int
+  uploadedById String
+  uploadedBy   AuthUser @relation("VehicleAttachmentUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([vehicleId])
+  @@map("vehicle_attachments")
 }

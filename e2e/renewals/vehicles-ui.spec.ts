@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test'
-import { cleanupRenewals, createCoverage, createVehicle, fillDate, getVehicleDetail, login } from './helpers'
+import type { AttachmentDto } from '../../types/renewals'
+import { cleanupRenewals, createCoverage, createVehicle, expectJson, fillDate, getVehicleDetail, login } from './helpers'
+
+// PNG 1x1
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+)
 
 test.describe.serial('หน้าทะเบียนรถ', () => {
   test.beforeAll(() => cleanupRenewals())
@@ -16,24 +23,96 @@ test.describe.serial('หน้าทะเบียนรถ', () => {
     await dialog.locator('.ant-modal-title').click() // ปิด dropdown ของ AutoComplete
     await dialog.getByRole('button', { name: 'บันทึก' }).click()
 
-    const link = page.getByRole('link', { name: 'E2E-5001 กท', exact: true })
-    await expect(link).toBeVisible()
-    await link.click()
+    const row = page.getByRole('row', { name: /E2E-5001 กท/ })
+    await expect(row).toBeVisible()
+    await row.getByRole('button', { name: 'แก้ไขข้อมูล' }).click()
+    await expect(dialog.getByTestId('vehicle-plate-input')).toHaveValue('E2E-5001 กท')
+    await dialog.getByRole('button', { name: 'ยกเลิก' }).click()
+    await row.getByRole('button', { name: 'ดูรายละเอียด' }).click()
     await expect(page.getByRole('heading', { name: 'E2E-5001 กท' })).toBeVisible()
+  })
+
+  test('เพิ่มรถพร้อมข้อมูลเล่มทะเบียน + แนบเอกสารสำเนารถ → หน้ารถแสดงครบ → ลบเอกสาร → ลบรถได้', async ({ page }) => {
+    await page.goto('/renewals/vehicles')
+    await page.getByTestId('vehicle-add-btn').click()
+    const dialog = page.getByRole('dialog')
+    await fillDate(page, '#vehicle-registration-date', '2020-05-01')
+    await dialog.getByTestId('vehicle-plate-input').fill('E2E-5005')
+    await page.locator('#vehicle-plate-province').fill('ชลบุ')
+    await page.locator('.ant-select-item-option', { hasText: 'ชลบุรี' }).click()
+    await page.locator('#vehicle-owner').fill('E2E บริษัท')
+    await page.locator('#vehicle-type').fill('ลากจูง')
+    await dialog.locator('.ant-modal-title').click() // ปิด dropdown ของ AutoComplete
+    await dialog.getByTestId('vehicle-model-input').fill('R450')
+    await dialog.getByTestId('vehicle-color-input').fill('ขาว')
+    await dialog.getByTestId('vehicle-chassis-input').fill('YS2R4X20005412345')
+    await dialog.getByTestId('vehicle-chassis-position-input').fill('โครงคัสซีขวา')
+    await dialog.getByTestId('vehicle-engine-number-input').fill('DC13 148 L01')
+    await page.locator('#vehicle-engine-cylinders').fill('6')
+    await page.locator('#vehicle-engine-horsepower').fill('450')
+    await page.locator('#vehicle-axle-count').fill('3')
+    await dialog.locator('input[type=file]').setInputFiles({ name: 'สำเนาเล่มทะเบียน.png', mimeType: 'image/png', buffer: PNG })
+    await expect(dialog.getByText('สำเนาเล่มทะเบียน.png')).toBeVisible()
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+
+    await page.getByRole('row', { name: /E2E-5005/ }).getByRole('button', { name: 'ดูรายละเอียด' }).click()
+    await expect(page.getByRole('heading', { name: 'E2E-5005' })).toBeVisible()
+    const vid = page.url().split('/').pop()!
+    const { vehicle } = await getVehicleDetail(page, vid)
+    expect(vehicle).toMatchObject({
+      registrationDate: '2020-05-01',
+      plateProvince: 'ชลบุรี',
+      modelName: 'R450',
+      color: 'ขาว',
+      chassisNumber: 'YS2R4X20005412345',
+      chassisPosition: 'โครงคัสซีขวา',
+      engineNumber: 'DC13 148 L01',
+      engineCylinders: 6,
+      engineHorsepower: 450,
+      axleCount: 3,
+    })
+    await expect(page.getByText('6 สูบ 450 แรงม้า 3 เพลา')).toBeVisible()
+
+    const docs = page.getByTestId('vehicle-docs')
+    await expect(docs.getByRole('link', { name: 'สำเนาเล่มทะเบียน.png' })).toBeVisible()
+    const [doc] = await expectJson<AttachmentDto[]>(await page.request.get(`/api/renewals/vehicles/${vid}/attachments`))
+    const file = await page.request.get(`/api/renewals/vehicle-attachments/${doc.id}`)
+    expect(file.headers()['content-type']).toBe('image/png')
+    expect(Buffer.from(await file.body()).equals(PNG)).toBe(true)
+
+    await docs.getByTestId(`attachment-delete-btn-${doc.id}`).click()
+    await page.getByRole('button', { name: 'ยืนยัน' }).click()
+    await expect(docs.getByRole('link', { name: 'สำเนาเล่มทะเบียน.png' })).toHaveCount(0)
+
+    // อัปโหลดจากหน้ารถแล้วลบรถ → เอกสารลบตาม
+    await docs.locator('input[type=file]').setInputFiles({ name: 'เล่ม.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 e2e') })
+    await expect(docs.getByRole('link', { name: 'เล่ม.pdf' })).toBeVisible()
+    const [pdf] = await expectJson<AttachmentDto[]>(await page.request.get(`/api/renewals/vehicles/${vid}/attachments`))
+    await page.getByTestId('vehicle-detail-delete-btn').click()
+    await page.getByRole('button', { name: 'ลบ', exact: true }).click()
+    await expect(page).toHaveURL(/\/renewals\/vehicles$/)
+    expect((await page.request.get(`/api/renewals/vehicle-attachments/${pdf.id}`)).status()).toBe(404)
   })
 
   test('เพิ่มงวดจากหน้ารถ → งวดใหม่กว่าทำให้งวดเก่าเป็นต่อแล้ว → ลบงวดใหม่ → กลับเป็นรอต่อ', async ({ page }) => {
     const vid = await createVehicle(page, 'E2E-5002 กท')
     await page.goto(`/renewals/vehicles/${vid}`)
 
-    await page.getByTestId('coverage-add-btn').click() // แท็บเริ่มต้น = พรบ.
+    // ปุ่มแยกตามประเภท → สลับแท็บและเปิดฟอร์มของประเภทนั้น
+    await page.getByTestId('coverage-add-btn-TAX').click()
+    await expect(page.getByRole('dialog')).toContainText('เพิ่มงวดภาษี')
+    await expect(page.getByRole('tab', { name: /ภาษี/ })).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('dialog').getByRole('button', { name: 'ยกเลิก' }).click()
+
+    await page.getByTestId('coverage-add-btn-PRB').click()
+    await expect(page.getByRole('dialog')).toContainText('เพิ่มงวดพรบ.')
     await fillDate(page, '#coverage-end-date', '2026-03-31')
     await page.getByRole('dialog').getByRole('button', { name: 'บันทึก' }).click()
     await expect.poll(async () => (await getVehicleDetail(page, vid)).coverages.length).toBe(1)
     const oldId = (await getVehicleDetail(page, vid)).coverages[0].id
     await expect(page.getByTestId(`coverage-status-${oldId}`)).toHaveText('รอต่อ')
 
-    await page.getByTestId('coverage-add-btn').click()
+    await page.getByTestId('coverage-add-btn-PRB').click()
     await fillDate(page, '#coverage-end-date', '2027-03-31')
     await page.getByRole('dialog').getByRole('button', { name: 'บันทึก' }).click()
     await expect(page.getByTestId(`coverage-status-${oldId}`)).toHaveText('ต่อแล้ว')

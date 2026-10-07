@@ -10,6 +10,7 @@ import {
 } from './constants'
 import { isValidYmd } from './dateOnly'
 import { normalizePlate } from './plate'
+import { THAI_PROVINCES } from './provinces'
 
 /** issue code ที่ข้อความ default ของ zod เป็นอังกฤษ — แทนด้วยข้อความไทย (code ที่เหลือใช้ข้อความไทยที่เรากำหนดเอง) */
 const ENGLISH_DEFAULT_CODES = new Set<string>([
@@ -47,24 +48,40 @@ const money = z
   .nullish()
   .transform((v) => v ?? null)
 
+/** จำนวนเต็มไม่ติดลบ — ว่าง → null */
+const optionalCount = (label: string, max: number) =>
+  z
+    .number()
+    .int(`${label}ต้องเป็นจำนวนเต็ม`)
+    .min(0, `${label}ต้องไม่ติดลบ`)
+    .max(max, `${label}มากเกินไป`)
+    .nullish()
+    .transform((v) => v ?? null)
+
 export const vehicleInputSchema = z.object({
   plate: z
     .string()
     .transform(normalizePlate)
     .pipe(z.string().min(1, 'กรุณากรอกทะเบียน').max(30, 'ทะเบียนยาวเกิน 30 ตัวอักษร')),
+  plateProvince: z
+    .enum(THAI_PROVINCES)
+    .nullish()
+    .transform((v) => v ?? null),
+  registrationDate: optionalYmd,
   fleetNumber: optionalText(50),
   ownerName: z.string().trim().min(1, 'กรุณากรอกบริษัท').max(100, 'ชื่อบริษัทยาวเกิน 100 ตัวอักษร'),
   vehicleType: z.string().trim().min(1, 'กรุณากรอกลักษณะรถ').max(50, 'ลักษณะรถยาวเกิน 50 ตัวอักษร'),
   brand: optionalText(100),
+  modelName: optionalText(100),
+  color: optionalText(50),
   chassisNumber: optionalText(100),
+  chassisPosition: optionalText(100),
+  engineNumber: optionalText(100),
+  engineCylinders: optionalCount('จำนวนสูบ', 100),
+  engineHorsepower: optionalCount('แรงม้า', 10_000),
+  axleCount: optionalCount('จำนวนเพลา', 20),
   fuelType: optionalText(50),
-  weightKg: z
-    .number()
-    .int('น้ำหนักต้องเป็นจำนวนเต็ม')
-    .min(0, 'น้ำหนักต้องไม่ติดลบ')
-    .max(100_000, 'น้ำหนักมากเกินไป')
-    .nullish()
-    .transform((v) => v ?? null),
+  weightKg: optionalCount('น้ำหนัก', 100_000),
   status: z.enum(VEHICLE_STATUSES).default('ACTIVE'),
   statusDate: optionalYmd,
   note: optionalText(500),

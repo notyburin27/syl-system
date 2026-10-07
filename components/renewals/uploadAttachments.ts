@@ -3,7 +3,8 @@ import { SESSION_EXPIRED_ERROR, handleSessionExpired } from './api'
 
 /** ตรวจทุกไฟล์ก่อนส่ง (ไม่ส่งสักไฟล์ถ้ามีไฟล์ไม่ผ่าน) แล้วอัปโหลดทีละไฟล์ — middleware จำกัด body ต่อ request (ตั้งไว้ 12mb ใน next.config.js) */
 export async function uploadAttachments(
-  coverageId: string,
+  /** เช่น /api/renewals/coverages/{id}/attachments หรือ /api/renewals/vehicles/{id}/attachments */
+  uploadUrl: string,
   files: File[],
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   for (const file of files) {
@@ -14,7 +15,7 @@ export async function uploadAttachments(
     const form = new FormData()
     form.append('files', file)
     try {
-      const res = await fetch(`/api/renewals/coverages/${coverageId}/attachments`, { method: 'POST', body: form })
+      const res = await fetch(uploadUrl, { method: 'POST', body: form })
       if (handleSessionExpired(res, res.ok ? (res.headers.get('content-type') ?? '').includes('json') : true)) {
         return { ok: false, error: SESSION_EXPIRED_ERROR }
       }

@@ -61,7 +61,7 @@ export default function RenewModal({ item, insurers, vehicles, onClose, onDone }
       return
     }
     if (files.length > 0) {
-      const uploaded = await uploadAttachments(res.data.id, files)
+      const uploaded = await uploadAttachments(`/api/renewals/coverages/${res.data.id}/attachments`, files)
       if (!uploaded.ok) message.warning(`ต่ออายุสำเร็จ แต่แนบไฟล์ไม่สำเร็จ (แนบใหม่ที่หน้ารถ): ${uploaded.error}`)
     }
     setSaving(false)

@@ -8,7 +8,11 @@ import type { VehicleInput } from './schemas'
 const DUPLICATE_PLATE_ERROR = 'ทะเบียนนี้มีอยู่แล้ว'
 
 function vehicleData(input: VehicleInput) {
-  return { ...input, statusDate: input.statusDate ? ymdToDate(input.statusDate) : null }
+  return {
+    ...input,
+    registrationDate: input.registrationDate ? ymdToDate(input.registrationDate) : null,
+    statusDate: input.statusDate ? ymdToDate(input.statusDate) : null,
+  }
 }
 
 async function withPlateGuard<T>(fn: () => Promise<T>): Promise<T> {
@@ -36,11 +40,13 @@ export async function updateVehicle(id: string, input: VehicleInput, userId: str
   )
 }
 
-export async function deleteVehicle(id: string): Promise<void> {
+/** แถวเอกสารสำเนารถลบตาม cascade — คืน fileKey ให้ caller ลบใน storage หลังลบสำเร็จ */
+export async function deleteVehicle(id: string): Promise<string[]> {
   const used = await prisma.vehicleCoverage.count({ where: { OR: [{ vehicleId: id }, { pairedVehicleId: id }] } })
   if (used > 0) throw conflict('ลบไม่ได้ เพราะรถคันนี้มีงวดอยู่ — เปลี่ยนสถานะรถแทน')
   try {
-    await prisma.vehicle.delete({ where: { id } })
+    const deleted = await prisma.vehicle.delete({ where: { id }, include: { attachments: { select: { fileKey: true } } } })
+    return deleted.attachments.map((a) => a.fileKey)
   } catch (error) {
     if (isPrismaNotFound(error)) throw notFound('ไม่พบรถ')
     throw error
