@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { cleanupRenewals, createCoverage, createInsurer, createVehicle, getVehicleDetail, login } from './helpers'
+import { cleanupRenewals, createCoverage, createInsurer, createVehicle, expectJson, getVehicleDetail, login } from './helpers'
 
 test.describe.serial('API รถและงวด', () => {
   test.beforeAll(() => cleanupRenewals())
@@ -45,14 +45,24 @@ test.describe.serial('API รถและงวด', () => {
     expect((await dup.json()).error).toBe('มีงวดประเภทนี้ที่หมดวันเดียวกันอยู่แล้ว')
   })
 
-  test('ภาษีล้างบริษัทประกัน; ประกันสินค้าล้างชั้น; หางคู่ต้องเป็นคนละคัน', async ({ page }) => {
+  test('ภาษีล้างบริษัทประกัน/ตัวแทน; ประกันสินค้าล้างชั้น; หางคู่ต้องเป็นคนละคัน', async ({ page }) => {
     const insurerId = await createInsurer(page, 'E2E ประกันภัย V')
     const vid = await createVehicle(page, 'E2E-1004 กท')
-    await createCoverage(page, vid, 'TAX', '2027-06-30', { insurerId, amount: 4350, serviceFee: 1300 })
-    await createCoverage(page, vid, 'CARGO_INSURANCE', '2027-01-11', { insurerId, coverageClass: 'ป.3' })
+    await createCoverage(page, vid, 'TAX', '2027-06-30', { insurerId, agentName: 'E2E ตัวแทน', amount: 4350, serviceFee: 1300 })
+    await createCoverage(page, vid, 'CARGO_INSURANCE', '2027-01-11', { insurerId, agentName: ' E2E ตัวแทน ', coverageClass: 'ป.3' })
     const detail = await getVehicleDetail(page, vid)
-    expect(detail.coverages.find((c) => c.type === 'TAX')).toMatchObject({ insurerId: null, amount: 4350, serviceFee: 1300 })
-    expect(detail.coverages.find((c) => c.type === 'CARGO_INSURANCE')).toMatchObject({ insurerId, coverageClass: null })
+    expect(detail.coverages.find((c) => c.type === 'TAX')).toMatchObject({
+      insurerId: null,
+      agentName: null,
+      amount: 4350,
+      serviceFee: 1300,
+    })
+    expect(detail.coverages.find((c) => c.type === 'CARGO_INSURANCE')).toMatchObject({
+      insurerId,
+      agentName: 'E2E ตัวแทน',
+      coverageClass: null,
+    })
+    expect(await expectJson<string[]>(await page.request.get('/api/renewals/agents'))).toContain('E2E ตัวแทน')
 
     const self = await page.request.post('/api/renewals/coverages', {
       data: { vehicleId: vid, type: 'MOTOR_INSURANCE', endDate: '2027-01-09', pairedVehicleId: vid },

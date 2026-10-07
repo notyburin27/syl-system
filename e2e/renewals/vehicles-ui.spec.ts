@@ -123,6 +123,44 @@ test.describe.serial('หน้าทะเบียนรถ', () => {
     await expect(page.getByTestId(`coverage-status-${oldId}`)).toHaveText('รอต่อ')
   })
 
+  test('เพิ่มงวดประกันรถยนต์: กรอกตัวแทน + แนบกรมธรรม์ → ตารางแสดงตัวแทนและจำนวนไฟล์; ภาษีไม่มีช่องตัวแทน/แนบกรมธรรม์', async ({ page }) => {
+    const vid = await createVehicle(page, 'E2E-5006 กท')
+    await page.goto(`/renewals/vehicles/${vid}`)
+
+    await page.getByTestId('coverage-add-btn-TAX').click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText('เพิ่มงวดภาษี')
+    await expect(page.locator('#coverage-agent')).toHaveCount(0)
+    await expect(dialog.getByTestId('coverage-attach-btn')).toHaveCount(0)
+    await dialog.getByRole('button', { name: 'ยกเลิก' }).click()
+
+    await page.getByTestId('coverage-add-btn-MOTOR_INSURANCE').click()
+    await expect(dialog).toContainText('เพิ่มงวดประกันรถยนต์')
+    await page.locator('#coverage-agent').fill('E2E ตัวแทนสมชาย')
+    await dialog.locator('.ant-modal-title').click() // ปิด dropdown ของ AutoComplete
+    await fillDate(page, '#coverage-end-date', '2027-05-31')
+    await dialog.locator('input[type=file]').setInputFiles([
+      { name: 'กรมธรรม์.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 e2e') },
+      { name: 'หน้าตาราง.png', mimeType: 'image/png', buffer: PNG },
+    ])
+    await expect(dialog.getByText('กรมธรรม์.pdf')).toBeVisible()
+    await expect(dialog.getByText('หน้าตาราง.png')).toBeVisible()
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+    await expect(dialog).toBeHidden() // ปิดหลังอัปโหลดไฟล์เสร็จ (งวดถูกสร้างก่อนไฟล์)
+
+    const [coverage] = (await getVehicleDetail(page, vid)).coverages
+    expect(coverage).toMatchObject({ type: 'MOTOR_INSURANCE', agentName: 'E2E ตัวแทนสมชาย', attachmentCount: 2 })
+    await expect(page.getByRole('cell', { name: 'E2E ตัวแทนสมชาย' })).toBeVisible()
+    await expect(page.getByTestId(`attachments-btn-${coverage.id}`)).toHaveText('2')
+
+    // แก้ไขงวด: ตัวแทนเดิมขึ้นในฟอร์ม และแนบเพิ่มได้
+    await page.getByTestId(`coverage-edit-btn-${coverage.id}`).click()
+    await expect(page.locator('#coverage-agent')).toHaveValue('E2E ตัวแทนสมชาย')
+    await dialog.locator('input[type=file]').setInputFiles({ name: 'สลักหลัง.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 e2e') })
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+    await expect(page.getByTestId(`attachments-btn-${coverage.id}`)).toHaveText('3')
+  })
+
   test('เปลี่ยนรถเป็นขาย (ยืนยัน) → งวดเปิดเป็นไม่ต่อ (ขายรถ)', async ({ page }) => {
     const vid = await createVehicle(page, 'E2E-5003 กท')
     const cid = await createCoverage(page, vid, 'PRB', '2027-03-31')

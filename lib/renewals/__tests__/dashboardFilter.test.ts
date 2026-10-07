@@ -9,6 +9,7 @@ function item(overrides: Partial<DashboardItemDto> & { id: string }): DashboardI
     type: 'PRB',
     insurerId: null,
     insurerName: null,
+    agentName: null,
     coverageClass: null,
     policyNumber: null,
     startDate: null,

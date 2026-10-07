@@ -49,7 +49,7 @@ const CARDS = [
 
 export default function RenewalDashboard() {
   const { message, modal } = App.useApp()
-  const { insurers, vehicles } = useRenewalLookups()
+  const { insurers, vehicles, agents, reloadAgents } = useRenewalLookups()
   const [data, setData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState<DashboardFilters>({ type: 'ALL' })
@@ -305,7 +305,17 @@ export default function RenewalDashboard() {
         )}
       />
 
-      <RenewModal item={renewing} insurers={insurers} vehicles={vehicles} onClose={() => setRenewing(null)} onDone={afterChange} />
+      <RenewModal
+        item={renewing}
+        insurers={insurers}
+        agents={agents}
+        vehicles={vehicles}
+        onClose={() => setRenewing(null)}
+        onDone={() => {
+          afterChange()
+          reloadAgents()
+        }}
+      />
       <NotRenewModal ids={notRenewIds} onClose={() => setNotRenewIds(null)} onDone={afterChange} />
       <NoteModal item={noteItem} onClose={() => setNoteItem(null)} onDone={afterChange} />
       <BulkRenewModal

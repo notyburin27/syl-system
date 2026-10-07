@@ -2,14 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { App, AutoComplete, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select, Upload } from 'antd'
-import { UploadOutlined } from '@ant-design/icons'
-import { validateAttachment } from '@/lib/renewals/attachmentRules'
-import { VEHICLE_STATUSES, VEHICLE_STATUS_LABELS, type VehicleStatusKey } from '@/lib/renewals/constants'
+import { App, AutoComplete, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select } from 'antd'
+import { VEHICLE_STATUSES, VEHICLE_STATUS_LABELS, VEHICLE_TEXT_MAX, type VehicleStatusKey } from '@/lib/renewals/constants'
 import { THAI_PROVINCES } from '@/lib/renewals/provinces'
 import type { VehicleDto } from '@/types/renewals'
 import { sendJson } from './api'
 import { DATE_FORMAT } from './coverageForm'
+import PendingFilesUpload from './PendingFilesUpload'
 import { uploadAttachments } from './uploadAttachments'
 
 interface Props {
@@ -169,14 +168,14 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
             </Col>
             <Col span={12}>
               <Form.Item name="fleetNumber" label="เบอร์รถ">
-                <Input data-testid="vehicle-fleet-input" maxLength={50} />
+                <Input data-testid="vehicle-fleet-input" maxLength={VEHICLE_TEXT_MAX.fleetNumber} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="plate" label="ทะเบียนรถ" rules={[{ required: true, whitespace: true, message: 'กรุณากรอกทะเบียน' }]}>
-                <Input data-testid="vehicle-plate-input" maxLength={30} />
+                <Input data-testid="vehicle-plate-input" maxLength={VEHICLE_TEXT_MAX.plate} />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -200,34 +199,34 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
           <Row gutter={12}>
             <Col span={8}>
               <Form.Item name="brand" label="ยี่ห้อรถ">
-                <Input maxLength={100} />
+                <Input maxLength={VEHICLE_TEXT_MAX.brand} />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="modelName" label="แบบ/รุ่น">
-                <Input data-testid="vehicle-model-input" maxLength={100} />
+                <Input data-testid="vehicle-model-input" maxLength={VEHICLE_TEXT_MAX.modelName} />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="color" label="สีรถ">
-                <Input data-testid="vehicle-color-input" maxLength={50} />
+                <Input data-testid="vehicle-color-input" maxLength={VEHICLE_TEXT_MAX.color} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="chassisNumber" label="เลขตัวรถ (คัสซี)">
-                <Input data-testid="vehicle-chassis-input" maxLength={100} />
+                <Input data-testid="vehicle-chassis-input" maxLength={VEHICLE_TEXT_MAX.chassisNumber} />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="chassisPosition" label="ตำแหน่งคัสซี">
-                <Input data-testid="vehicle-chassis-position-input" maxLength={100} />
+                <Input data-testid="vehicle-chassis-position-input" maxLength={VEHICLE_TEXT_MAX.chassisPosition} />
               </Form.Item>
             </Col>
           </Row>
           <Form.Item name="engineNumber" label="เลขเครื่องยนต์">
-            <Input data-testid="vehicle-engine-number-input" maxLength={100} />
+            <Input data-testid="vehicle-engine-number-input" maxLength={VEHICLE_TEXT_MAX.engineNumber} />
           </Form.Item>
           <Form.Item label="ขนาดเครื่องยนต์" style={{ marginBottom: 0 }}>
             <Row gutter={12}>
@@ -256,7 +255,7 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
             </Col>
             <Col span={12}>
               <Form.Item name="fuelType" label="เชื้อเพลิง">
-                <Input maxLength={50} />
+                <Input maxLength={VEHICLE_TEXT_MAX.fuelType} />
               </Form.Item>
             </Col>
           </Row>
@@ -273,31 +272,13 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
             </Col>
           </Row>
           <Form.Item name="note" label="หมายเหตุ">
-            <Input.TextArea rows={2} maxLength={500} />
+            <Input.TextArea rows={2} maxLength={VEHICLE_TEXT_MAX.note} />
           </Form.Item>
           <Form.Item
             label="เอกสารสำเนารถ"
             extra={isNew ? 'PDF/JPG/PNG ไม่เกิน 10 MB' : 'PDF/JPG/PNG ไม่เกิน 10 MB — ไฟล์ที่แนบไว้แล้ว ดู/ลบได้ที่หน้ารายละเอียดรถ'}
           >
-            <Upload
-              accept=".pdf,.jpg,.jpeg,.png"
-              multiple
-              fileList={files.map((f, i) => ({ uid: String(i), name: f.name, status: 'done' as const }))}
-              beforeUpload={(file) => {
-                const checked = validateAttachment(file.name, file.type, file.size)
-                if ('error' in checked) {
-                  message.error(checked.error)
-                  return Upload.LIST_IGNORE
-                }
-                setFiles((prev) => [...prev, file])
-                return false
-              }}
-              onRemove={(removed) => setFiles((prev) => prev.filter((_, i) => String(i) !== removed.uid))}
-            >
-              <Button icon={<UploadOutlined />} data-testid="vehicle-doc-attach-btn">
-                เลือกไฟล์
-              </Button>
-            </Upload>
+            <PendingFilesUpload files={files} onChange={setFiles} buttonTestId="vehicle-doc-attach-btn" />
           </Form.Item>
         </Form>
       )}

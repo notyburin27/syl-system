@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { COVERAGE_TYPE_LABELS } from '../../constants'
-import { lookupLabel, parseImportDate, parseImportInt, parseImportMoney } from '../cells'
+import { lookupLabel, parseImportDate, parseImportInt, parseImportMoney, parseImportProvince, parseImportText } from '../cells'
 
 test('parseImportDate: date cell, พ.ศ./ค.ศ. 4 หลัก, คั่นด้วย - ได้, YYYY-MM-DD, ว่าง', () => {
   assert.deepEqual(parseImportDate(new Date(Date.UTC(2027, 2, 31))), { value: '2027-03-31' })
@@ -35,6 +35,28 @@ test('parseImportInt: คอมมาได้ ทศนิยมไม่ได
   assert.deepEqual(parseImportInt(null), { value: null })
 })
 
+test('parseImportInt: ค่าสูงสุดกำหนดได้ (default 100,000)', () => {
+  assert.deepEqual(parseImportInt('100,001'), { error: 'ต้องอยู่ระหว่าง 0 ถึง 100,000' })
+  assert.deepEqual(parseImportInt(20, 20), { value: 20 })
+  assert.deepEqual(parseImportInt(21, 20), { error: 'ต้องอยู่ระหว่าง 0 ถึง 20' })
+  assert.deepEqual(parseImportInt('10001', 10_000), { error: 'ต้องอยู่ระหว่าง 0 ถึง 10,000' })
+  assert.deepEqual(parseImportInt('-1', 100), { error: 'ต้องอยู่ระหว่าง 0 ถึง 100' })
+})
+
+test('parseImportProvince: ชื่อเต็ม, ช่องว่าง, จ./จังหวัด นำหน้า, ํา → ำ, กรุงเทพฯ / กทม.; ไม่รู้จัก → error', () => {
+  assert.deepEqual(parseImportProvince(' ชลบุรี '), { value: 'ชลบุรี' })
+  assert.deepEqual(parseImportProvince('นคร ราชสีมา'), { value: 'นครราชสีมา' })
+  assert.deepEqual(parseImportProvince('จ.ระยอง'), { value: 'ระยอง' })
+  assert.deepEqual(parseImportProvince('จังหวัด สมุทรปราการ'), { value: 'สมุทรปราการ' })
+  assert.deepEqual(parseImportProvince('ล\u0E4D\u0E32ปาง'), { value: 'ลำปาง' })
+  for (const bkk of ['กรุงเทพมหานคร', 'กรุงเทพฯ', 'กรุงเทพ', 'กทม', 'กทม.']) {
+    assert.deepEqual(parseImportProvince(bkk), { value: 'กรุงเทพมหานคร' })
+  }
+  assert.deepEqual(parseImportProvince(''), { value: null })
+  assert.deepEqual(parseImportProvince(null), { value: null })
+  assert.deepEqual(parseImportProvince('ชบ'), { error: 'ไม่พบจังหวัด "ชบ" — กรอกชื่อจังหวัดเต็ม เช่น กรุงเทพมหานคร, ชลบุรี' })
+})
+
 test('lookupLabel: ไม่สนจุด/ช่องว่าง; ว่าง = null; ไม่ตรงตัวเลือก = undefined', () => {
   assert.equal(lookupLabel(COVERAGE_TYPE_LABELS, 'พรบ'), 'PRB')
   assert.equal(lookupLabel(COVERAGE_TYPE_LABELS, ' ประกัน รถยนต์ '), 'MOTOR_INSURANCE')
@@ -48,4 +70,12 @@ test('parseImportDate: ปี พ.ศ. จาก date cell / ISO text แปล�
   assert.deepEqual(parseImportDate(new Date(Date.UTC(1970, 2, 31))), {
     error: 'วันที่ "1970-03-31" ปีไม่สมเหตุผล (1970) — ถ้าพิมพ์ปี 2 หลัก Excel อาจแปลงให้ผิด ให้ใช้ วว/ดด/ปปปป เช่น 31/03/2570',
   })
+})
+
+test('parseImportText: trim, ว่าง = null, ยาวเกิน → error (นับหลัง trim)', () => {
+  assert.deepEqual(parseImportText('  ISUZU ', 5), { value: 'ISUZU' })
+  assert.deepEqual(parseImportText('', 5), { value: null })
+  assert.deepEqual(parseImportText(null, 5), { value: null })
+  assert.deepEqual(parseImportText(12345, 5), { value: '12345' })
+  assert.deepEqual(parseImportText('123456', 5), { error: 'ข้อความยาวเกิน 5 ตัวอักษร' })
 })

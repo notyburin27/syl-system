@@ -635,6 +635,8 @@ model VehicleCoverage {
   type            CoverageType
   insurerId       String?
   insurer         Insurer?     @relation(fields: [insurerId], references: [id])
+  /// ตัวแทนที่ทำประกัน/พรบ. ให้ (free text)
+  agentName       String?
   coverageClass   String?
   policyNumber    String?
   startDate       DateTime?    @db.Date

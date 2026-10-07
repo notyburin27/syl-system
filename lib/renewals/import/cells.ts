@@ -1,5 +1,6 @@
 import { MAX_MONEY } from '../constants'
 import { dateToYmd, isValidYmd } from '../dateOnly'
+import { THAI_PROVINCES } from '../provinces'
 
 export type CellResult<T> = { value: T } | { error: string }
 
@@ -11,6 +12,13 @@ export function cellText(value: unknown): string {
 
 export function isBlank(value: unknown): boolean {
   return cellText(value) === ''
+}
+
+/** ข้อความ trim แล้ว ความยาวไม่เกิน max (เหมือน optionalText ของ schema) — ว่าง = null */
+export function parseImportText(value: unknown, max: number): CellResult<string | null> {
+  const text = cellText(value)
+  if (text.length > max) return { error: `ข้อความยาวเกิน ${max} ตัวอักษร` }
+  return { value: text || null }
 }
 
 /** ปี > 2400 = พ.ศ. (−543) ใช้กับทุกรูปแบบ; ปีนอก 2000–2200 ไม่รับ (เช่น Excel แปลงปี 2 หลักเป็น 1970) */
@@ -58,12 +66,26 @@ export function parseImportMoney(value: unknown): CellResult<number | null> {
   return { value: Math.round(parsed.value * 100) / 100 }
 }
 
-export function parseImportInt(value: unknown): CellResult<number | null> {
+export function parseImportInt(value: unknown, max = 100_000): CellResult<number | null> {
   const parsed = parseNumber(value)
   if ('error' in parsed || parsed.value === null) return parsed
   if (!Number.isInteger(parsed.value)) return { error: 'ต้องเป็นจำนวนเต็ม' }
-  if (parsed.value < 0 || parsed.value > 100_000) return { error: 'ต้องอยู่ระหว่าง 0 ถึง 100,000' }
+  if (parsed.value < 0 || parsed.value > max) return { error: `ต้องอยู่ระหว่าง 0 ถึง ${max.toLocaleString('en-US')}` }
   return parsed
+}
+
+type ThaiProvince = (typeof THAI_PROVINCES)[number]
+const BANGKOK_ALIASES = new Set(['กรุงเทพ', 'กรุงเทพฯ', 'กทม', 'กทม.'])
+
+/** ชื่อจังหวัดเต็มตาม THAI_PROVINCES — ไม่สนช่องว่าง, ตัด "จ." / "จังหวัด" นำหน้า, "ํา" (นิคหิต+สระอา) = "ำ", กรุงเทพฯ / กทม. = กรุงเทพมหานคร */
+export function parseImportProvince(value: unknown): CellResult<ThaiProvince | null> {
+  const text = cellText(value)
+  if (!text) return { value: null }
+  const name = text.replace(/\s/g, '').replace(/\u0E4D\u0E32/g, '\u0E33').replace(/^(จังหวัด|จ\.)/, '')
+  if (BANGKOK_ALIASES.has(name)) return { value: 'กรุงเทพมหานคร' }
+  const province = THAI_PROVINCES.find((p) => p === name)
+  if (!province) return { error: `ไม่พบจังหวัด "${text}" — กรอกชื่อจังหวัดเต็ม เช่น กรุงเทพมหานคร, ชลบุรี` }
+  return { value: province }
 }
 
 const squash = (s: string) => s.replace(/[.\s]/g, '')

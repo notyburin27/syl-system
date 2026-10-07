@@ -89,8 +89,14 @@ test('insurerCreateSchema: ชื่อว่าง → error ไทย, รั�
 })
 
 test('sanitizeCoverageFields: ล้างฟิลด์ที่ไม่ใช้กับประเภทนั้น', () => {
-  const f = { insurerId: 'ins', coverageClass: 'ป.3', pairedVehicleId: 'v2', endDate: '2027-01-01' }
-  assert.deepEqual(sanitizeCoverageFields('TAX', f), { ...f, insurerId: null, coverageClass: null, pairedVehicleId: null })
+  const f = { insurerId: 'ins', agentName: 'ตัวแทน ก', coverageClass: 'ป.3', pairedVehicleId: 'v2', endDate: '2027-01-01' }
+  assert.deepEqual(sanitizeCoverageFields('TAX', f), {
+    ...f,
+    insurerId: null,
+    agentName: null,
+    coverageClass: null,
+    pairedVehicleId: null,
+  })
   assert.deepEqual(sanitizeCoverageFields('CARGO_INSURANCE', f), { ...f, coverageClass: null, pairedVehicleId: null })
   assert.deepEqual(sanitizeCoverageFields('PRB', f), { ...f, coverageClass: null, pairedVehicleId: null })
   assert.deepEqual(sanitizeCoverageFields('MOTOR_INSURANCE', f), f)

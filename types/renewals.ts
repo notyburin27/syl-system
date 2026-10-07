@@ -52,6 +52,7 @@ export interface CoverageDto {
   type: CoverageTypeKey
   insurerId: string | null
   insurerName: string | null
+  agentName: string | null
   coverageClass: string | null
   policyNumber: string | null
   startDate: string | null

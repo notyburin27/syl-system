@@ -1,13 +1,15 @@
 'use client'
 
-import { Col, DatePicker, Form, Input, InputNumber, Row, Select } from 'antd'
-import { COVERAGE_CLASSES, MAX_MONEY, type CoverageTypeKey } from '@/lib/renewals/constants'
+import { AutoComplete, Col, DatePicker, Form, Input, InputNumber, Row, Select } from 'antd'
+import { COVERAGE_CLASSES, COVERAGE_TEXT_MAX, MAX_MONEY, type CoverageTypeKey } from '@/lib/renewals/constants'
 import type { InsurerDto, VehicleListItemDto } from '@/types/renewals'
 import { DATE_FORMAT } from './coverageForm'
 
 interface Props {
   type: CoverageTypeKey
   insurers: InsurerDto[]
+  /** ชื่อตัวแทนที่เคยกรอก — ตัวเลือก AutoComplete */
+  agents: string[]
   vehicles: VehicleListItemDto[]
   vehicleId: string
   /** บริษัทที่ปิดใช้งานแล้วแต่งวดนี้ใช้อยู่ ยังต้องแสดงในตัวเลือก */
@@ -15,7 +17,7 @@ interface Props {
 }
 
 /** ช่องกรอกงวด — ใช้ร่วมกันระหว่าง "ต่อแล้ว" และ เพิ่ม/แก้งวด; ต้องอยู่ใน <Form> */
-export default function CoveragePeriodFields({ type, insurers, vehicles, vehicleId, currentInsurerId }: Props) {
+export default function CoveragePeriodFields({ type, insurers, agents, vehicles, vehicleId, currentInsurerId }: Props) {
   const isMotor = type === 'MOTOR_INSURANCE'
   const insurerOptions = insurers
     .filter((i) => i.isActive || i.id === currentInsurerId)
@@ -31,13 +33,25 @@ export default function CoveragePeriodFields({ type, insurers, vehicles, vehicle
           <Select id="coverage-insurer" allowClear showSearch optionFilterProp="label" options={insurerOptions} placeholder="เลือกบริษัทประกัน" />
         </Form.Item>
       )}
+      {type !== 'TAX' && (
+        <Form.Item name="agentName" label="ตัวแทน">
+          <AutoComplete
+            id="coverage-agent"
+            maxLength={COVERAGE_TEXT_MAX.agentName}
+            allowClear
+            placeholder="ทำกับตัวแทนไหน"
+            options={agents.map((value) => ({ value }))}
+            filterOption={(input, option) => String(option?.value ?? '').includes(input)}
+          />
+        </Form.Item>
+      )}
       {isMotor && (
         <Form.Item name="coverageClass" label="ชั้น">
           <Select id="coverage-class" allowClear options={COVERAGE_CLASSES.map((c) => ({ value: c, label: c }))} />
         </Form.Item>
       )}
       <Form.Item name="policyNumber" label={type === 'TAX' ? 'เลขที่อ้างอิง' : 'เลขกรมธรรม์'}>
-        <Input data-testid="coverage-policy-input" maxLength={100} />
+        <Input data-testid="coverage-policy-input" maxLength={COVERAGE_TEXT_MAX.policyNumber} />
       </Form.Item>
       <Row gutter={12}>
         <Col span={12}>
@@ -69,7 +83,7 @@ export default function CoveragePeriodFields({ type, insurers, vehicles, vehicle
         </Form.Item>
       )}
       <Form.Item name="renewalNote" label="หมายเหตุ">
-        <Input.TextArea data-testid="coverage-note-input" rows={2} maxLength={500} />
+        <Input.TextArea data-testid="coverage-note-input" rows={2} maxLength={COVERAGE_TEXT_MAX.renewalNote} />
       </Form.Item>
     </>
   )

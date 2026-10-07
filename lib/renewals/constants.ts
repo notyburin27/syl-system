@@ -69,6 +69,25 @@ export const BULK_LIMIT = 500
 /** Decimal(10,2) */
 export const MAX_MONEY = 99_999_999.99
 
+/** ความยาวสูงสุดของช่องข้อความรถ — ใช้ร่วมกันระหว่าง vehicleInputSchema และ import */
+export const VEHICLE_TEXT_MAX = {
+  plate: 30,
+  fleetNumber: 50,
+  ownerName: 100,
+  vehicleType: 50,
+  brand: 100,
+  modelName: 100,
+  color: 50,
+  chassisNumber: 100,
+  chassisPosition: 100,
+  engineNumber: 100,
+  fuelType: 50,
+  note: 500,
+} as const
+
+/** ความยาวสูงสุดของช่องข้อความงวด — ใช้ร่วมกันระหว่าง coverageFieldsObject และ import */
+export const COVERAGE_TEXT_MAX = { agentName: 100, policyNumber: 100, renewalNote: 500 } as const
+
 export function isRenewalRole(role: string | null | undefined): boolean {
   return !!role && (RENEWAL_ROLES as readonly string[]).includes(role)
 }

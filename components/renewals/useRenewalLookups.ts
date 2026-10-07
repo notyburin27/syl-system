@@ -1,15 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { App } from 'antd'
 import type { InsurerDto, VehicleListItemDto } from '@/types/renewals'
 import { getJson } from './api'
 
-/** รายชื่อบริษัทประกันและรถ สำหรับ Select ในฟอร์มงวด */
+/** รายชื่อบริษัทประกัน ตัวแทน และรถ สำหรับตัวเลือกในฟอร์มงวด */
 export function useRenewalLookups() {
   const { message } = App.useApp()
   const [insurers, setInsurers] = useState<InsurerDto[]>([])
   const [vehicles, setVehicles] = useState<VehicleListItemDto[]>([])
+  const [agents, setAgents] = useState<string[]>([])
+  /** เพิ่มหลังบันทึกงวด — ตัวแทนชื่อใหม่จะขึ้นเป็นตัวเลือกครั้งต่อไป */
+  const [agentsVersion, setAgentsVersion] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -28,5 +31,18 @@ export function useRenewalLookups() {
     }
   }, [message])
 
-  return { insurers, vehicles }
+  useEffect(() => {
+    let cancelled = false
+    getJson<string[]>('/api/renewals/agents').then((res) => {
+      // ตัวเลือกเสริม — โหลดไม่ได้ก็ยังพิมพ์เองได้ จึงไม่แจ้ง error
+      if (!cancelled && res.ok) setAgents(res.data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [agentsVersion])
+
+  const reloadAgents = useCallback(() => setAgentsVersion((n) => n + 1), [])
+
+  return { insurers, vehicles, agents, reloadAgents }
 }
