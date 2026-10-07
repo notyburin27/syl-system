@@ -3,7 +3,9 @@ import type { AttachmentDto, CoverageDto, InsurerDto, VehicleDto } from '@/types
 import { dateToYmd } from './dateOnly'
 
 export const COVERAGE_INCLUDE = {
-  vehicle: { select: { id: true, plate: true, fleetNumber: true, ownerName: true, vehicleType: true, status: true } },
+  vehicle: {
+    select: { id: true, plate: true, fleetNumber: true, ownerName: true, vehicleType: true, status: true, statusDate: true },
+  },
   insurer: { select: { id: true, name: true } },
   pairedVehicle: { select: { id: true, plate: true } },
   _count: { select: { attachments: true } },
@@ -34,7 +36,7 @@ export function toCoverageDto(r: CoverageWithRelations): CoverageDto {
     renewalNote: r.renewalNote,
     renewedToId: r.renewedToId,
     attachmentCount: r._count.attachments,
-    vehicle: r.vehicle,
+    vehicle: { ...r.vehicle, statusDate: r.vehicle.statusDate ? dateToYmd(r.vehicle.statusDate) : null },
   }
 }
 
@@ -60,6 +62,7 @@ export function toVehicleDto(v: Vehicle): VehicleDto {
     fuelType: v.fuelType,
     weightKg: v.weightKg,
     statusDate: v.statusDate ? dateToYmd(v.statusDate) : null,
+    currentLocation: v.currentLocation,
     note: v.note,
   }
 }

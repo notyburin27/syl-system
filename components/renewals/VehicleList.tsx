@@ -7,6 +7,7 @@ import { EditOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   COVERAGE_TYPES,
   COVERAGE_TYPE_LABELS,
+  VEHICLE_LOCATIONS,
   VEHICLE_STATUSES,
   VEHICLE_STATUS_COLORS,
   VEHICLE_STATUS_LABELS,
@@ -27,6 +28,7 @@ export default function VehicleList() {
   const [loading, setLoading] = useState(false)
   const [owner, setOwner] = useState<string>()
   const [status, setStatus] = useState<VehicleStatusKey>()
+  const [location, setLocation] = useState<string>()
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState<VehicleDto | 'new' | null>(null)
 
@@ -50,22 +52,22 @@ export default function VehicleList() {
       (r) =>
         (!owner || r.ownerName === owner) &&
         (!status || r.status === status) &&
+        (!location || r.currentLocation === location) &&
         (!query || r.plate.toLowerCase().includes(query) || (r.fleetNumber ?? '').toLowerCase().includes(query)),
     )
-  }, [rows, owner, status, q])
+  }, [rows, owner, status, location, q])
 
   const columns: TableColumnsType<VehicleListItemDto> = [
     { title: 'เบอร์รถ', key: 'fleetNumber', width: 100, render: (_, r) => r.fleetNumber ?? '-' },
     { title: 'ทะเบียน', dataIndex: 'plate', key: 'plate', width: 110 },
     { title: 'บริษัท', dataIndex: 'ownerName', key: 'ownerName', width: 160 },
-    { title: 'ลักษณะ', dataIndex: 'vehicleType', key: 'vehicleType', width: 120 },
-    { title: 'ยี่ห้อ', key: 'brand', width: 100, render: (_, r) => r.brand ?? '-' },
     {
       title: 'สถานะ',
       key: 'status',
       width: 90,
       render: (_, r) => <Tag color={VEHICLE_STATUS_COLORS[r.status]}>{VEHICLE_STATUS_LABELS[r.status]}</Tag>,
     },
+    { title: 'รถอยู่ไหน', key: 'currentLocation', width: 140, render: (_, r) => r.currentLocation ?? '-' },
     ...COVERAGE_TYPES.map((t) => ({
       title: COVERAGE_TYPE_LABELS[t],
       key: t,
@@ -127,6 +129,17 @@ export default function VehicleList() {
           />
         </Col>
         <Col>
+          <Select
+            id="vehicle-location-filter"
+            allowClear
+            placeholder="รถอยู่ไหน"
+            style={{ width: 140 }}
+            options={VEHICLE_LOCATIONS.map((l) => ({ value: l, label: l }))}
+            value={location}
+            onChange={(v) => setLocation(v as string | undefined)}
+          />
+        </Col>
+        <Col>
           <Input allowClear placeholder="ค้นหาทะเบียน/เบอร์รถ" style={{ width: 220 }} value={q} onChange={(e) => setQ(e.target.value)} />
         </Col>
       </Row>
@@ -136,7 +149,7 @@ export default function VehicleList() {
         loading={loading}
         dataSource={filtered}
         columns={columns}
-        scroll={{ x: 1350 }}
+        scroll={{ x: 1270 }}
         pagination={{ pageSize: 50, showSizeChanger: true }}
       />
       <VehicleFormModal

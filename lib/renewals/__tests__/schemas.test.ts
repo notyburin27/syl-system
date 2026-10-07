@@ -22,6 +22,14 @@ test('vehicleInputSchema: normalize ทะเบียน, ค่าว่าง
   assert.equal(r.brand, null)
   assert.equal(r.weightKg, null)
   assert.equal(r.status, 'ACTIVE')
+  assert.equal(r.currentLocation, null)
+})
+
+test('vehicleInputSchema: รถอยู่ไหน — ต้องเป็นตัวเลือกที่กำหนด, null = ไม่ระบุ', () => {
+  const base = { plate: '64-0212', ownerName: 'a', vehicleType: 'b' }
+  assert.equal(vehicleInputSchema.parse({ ...base, currentLocation: 'โรงสี' }).currentLocation, 'โรงสี')
+  assert.equal(vehicleInputSchema.parse({ ...base, currentLocation: null }).currentLocation, null)
+  assert.equal(errorOf(vehicleInputSchema.safeParse({ ...base, currentLocation: 'อู่บางนา' })), 'ข้อมูลไม่ถูกต้อง: currentLocation')
 })
 
 test('vehicleInputSchema: ทะเบียนว่าง (มีแต่จุด) → error ไทย', () => {

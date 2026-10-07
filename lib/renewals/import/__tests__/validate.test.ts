@@ -175,6 +175,26 @@ test('รถถูกตั้งเป็น "ขาย" พร้อมงว�
   assert.equal(r.summary.coveragesAutoClosed, 1)
 })
 
+test('สถานะรถ "เพิ่ม" / "รอตรวจสอบ" / "อื่นๆ" → map เป็น key และไม่ปิดงวด', () => {
+  const r = validateRenewalImport(
+    {
+      vehicles: [
+        v(2, { plate: '61-8550 กท', status: 'รอตรวจสอบ' }),
+        v(3, { plate: '64-5598 กท', ownerName: 'แวลู ทรานสปอร์ต', vehicleType: 'ลากจูง', status: 'เพิ่ม' }),
+        v(4, { plate: '76-1119 กท', ownerName: 'แวลู ทรานสปอร์ต', vehicleType: 'ลากจูง', status: 'อื่นๆ' }),
+      ],
+      coverages: [c(2, { plate: '61-8550 กท', type: 'ประกันรถยนต์', endDate: '09/01/2570', renewalStatus: 'รอต่อ' })],
+    },
+    BASE,
+  )
+  assert.deepEqual(r.errors, [])
+  assert.deepEqual(
+    r.plan.vehicles.map((x) => x.data.status),
+    ['PENDING_REVIEW', 'ADDED', 'OTHER'],
+  )
+  assert.equal(r.summary.coveragesAutoClosed, 0)
+})
+
 test('งวดที่ปิดแล้วเปลี่ยนสถานะผ่าน import ไม่ได้ (ยกเว้นค่าเดิม)', () => {
   const existing: ExistingSnapshot = {
     ...BASE,
@@ -220,6 +240,23 @@ test('ข้อมูลเล่มทะเบียน: จังหวัด
     plateProvince: 'กรุงเทพมหานคร',
     registrationDate: '2022-08-15',
   })
+})
+
+test('รถอยู่ไหน: ตรงตัวเลือก → เข้าแผน; ไม่ตรง → error บอกตัวเลือก; ว่าง = คงค่าเดิม', () => {
+  const r = validateRenewalImport(
+    {
+      vehicles: [
+        v(2, { plate: '61-8550 กท', currentLocation: ' โรงสี ' }),
+        v(3, { plate: '64-5598 กท', ownerName: 'a', vehicleType: 'b', currentLocation: 'อู่บางนา' }),
+        v(4, { plate: '76-1119 กท', ownerName: 'a', vehicleType: 'b', currentLocation: '' }),
+      ],
+      coverages: [],
+    },
+    BASE,
+  )
+  assert.deepEqual(messages(r), ['รถ:3:รถอยู่ไหน:ต้องเป็น โรงสี'])
+  assert.deepEqual(r.plan.vehicles[0].data, { currentLocation: 'โรงสี' })
+  assert.deepEqual(r.plan.vehicles[2].data, { ownerName: 'a', vehicleType: 'b' })
 })
 
 test('ข้อมูลเล่มทะเบียนผิด → error ระบุคอลัมน์; ช่องว่างไม่อยู่ในแผน (คงค่าเดิม)', () => {

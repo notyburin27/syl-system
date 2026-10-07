@@ -1,4 +1,4 @@
-import { COVERAGE_TEXT_MAX, RENEWAL_STATUS_LABELS, VEHICLE_TEXT_MAX } from '../constants'
+import { COVERAGE_TEXT_MAX, RENEWAL_STATUS_LABELS, VEHICLE_LOCATIONS, VEHICLE_TEXT_MAX } from '../constants'
 
 export const VEHICLE_SHEET = 'รถ'
 export const COVERAGE_SHEET = 'งวด'
@@ -31,6 +31,7 @@ export const VEHICLE_COLUMNS = {
   engineCylinders: 'จำนวนสูบ',
   engineHorsepower: 'แรงม้า',
   axleCount: 'จำนวนเพลา',
+  currentLocation: 'รถอยู่ไหน',
 } as const
 
 /** หัวคอลัมน์ชื่อเดิม (template ก่อนเปลี่ยนชื่อตามฟอร์ม) — ยังรับตอนอ่าน ไฟล์ที่กรอกไว้แล้วนำเข้าได้เหมือนเดิม */
@@ -51,6 +52,7 @@ export const OPTIONAL_VEHICLE_COLUMNS: readonly VehicleColumnKey[] = [
   'engineCylinders',
   'engineHorsepower',
   'axleCount',
+  'currentLocation',
 ]
 
 export const COVERAGE_COLUMNS = {
@@ -109,7 +111,8 @@ export const GUIDE_ROWS: [string, string][] = [
   ['ชีต "รถ"', '1 แถว = รถ 1 คัน — ทะเบียนใช้จับคู่กับรถที่มีอยู่แล้ว'],
   ['ทะเบียน *', 'เช่น 64-5598 กท (จุดท้าย / ช่องว่างซ้อน ระบบจัดให้เอง)'],
   ['บริษัท, ลักษณะ', 'บังคับเฉพาะรถใหม่ — รถที่มีอยู่แล้วเว้นว่าง = คงค่าเดิม'],
-  ['สถานะ', 'ใช้งาน / งดใช้ / ขาย — "ขาย" จะปิดงวดที่ยังเปิดอยู่ของรถคันนั้นเป็น "ไม่ต่อ (ขายรถ)"'],
+  ['สถานะ', 'เพิ่ม / รอตรวจสอบ / ใช้งาน / งดใช้ / ขาย / อื่นๆ — "ขาย" จะปิดงวดที่ยังเปิดอยู่ของรถคันนั้นเป็น "ไม่ต่อ (ขายรถ)"'],
+  ['รถอยู่ไหน', `เลือกจาก dropdown: ${VEHICLE_LOCATIONS.join(' / ')} — เว้นว่าง = คงค่าเดิม`],
   ['จังหวัด (ทะเบียนรถ)', 'เลือกจาก dropdown หรือพิมพ์ชื่อจังหวัดเต็ม เช่น กรุงเทพมหานคร, ชลบุรี (กรุงเทพฯ / กทม. ระบบแปลงให้)'],
   ['วันที่จดทะเบียน, วันที่แจ้งสถานะ', 'วว/ดด/ปปปป เช่น 15/08/2565 (พ.ศ. หรือ ค.ศ. ก็ได้ แต่ปีต้อง 4 หลัก) หรือช่องวันที่ของ Excel'],
   ['จำนวนสูบ, แรงม้า, จำนวนเพลา', 'จำนวนเต็ม — สูบไม่เกิน 100, แรงม้าไม่เกิน 10,000, เพลาไม่เกิน 20'],

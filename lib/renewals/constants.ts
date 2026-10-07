@@ -11,7 +11,8 @@ export type RenewalStatusKey = (typeof RENEWAL_STATUSES)[number]
 export const NOT_RENEWED_REASONS = ['SOLD', 'SUSPENDED', 'ACCIDENT', 'REPAIR', 'OTHER'] as const
 export type NotRenewedReasonKey = (typeof NOT_RENEWED_REASONS)[number]
 
-export const VEHICLE_STATUSES = ['ACTIVE', 'SUSPENDED', 'SOLD'] as const
+/** ลำดับนี้คือลำดับใน dropdown — มีแค่ SOLD/SUSPENDED ที่มี logic ผูก (ปิดงวด / tag บน dashboard) */
+export const VEHICLE_STATUSES = ['ADDED', 'PENDING_REVIEW', 'ACTIVE', 'SUSPENDED', 'SOLD', 'OTHER'] as const
 export type VehicleStatusKey = (typeof VEHICLE_STATUSES)[number]
 
 /** งวดที่ยังต้องดำเนินการ — ขึ้น dashboard และเปลี่ยนสถานะต่อได้ */
@@ -52,15 +53,25 @@ export const NOT_RENEWED_REASON_LABELS: Record<NotRenewedReasonKey, string> = {
 }
 
 export const VEHICLE_STATUS_LABELS: Record<VehicleStatusKey, string> = {
+  ADDED: 'เพิ่ม',
+  PENDING_REVIEW: 'รอตรวจสอบ',
   ACTIVE: 'ใช้งาน',
   SUSPENDED: 'งดใช้',
   SOLD: 'ขาย',
+  OTHER: 'อื่นๆ',
 }
 
+/** ตัวเลือก "รถอยู่ไหน" — DB เก็บเป็นข้อความ เพิ่มตัวเลือกได้โดยไม่ต้อง migrate */
+export const VEHICLE_LOCATIONS = ['โรงสี'] as const
+export type VehicleLocation = (typeof VEHICLE_LOCATIONS)[number]
+
 export const VEHICLE_STATUS_COLORS: Record<VehicleStatusKey, string> = {
+  ADDED: 'blue',
+  PENDING_REVIEW: 'orange',
   ACTIVE: 'green',
   SUSPENDED: 'gold',
   SOLD: 'default',
+  OTHER: 'purple',
 }
 
 /** จำนวนแถวสูงสุดต่อ bulk action */

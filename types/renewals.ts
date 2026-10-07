@@ -15,6 +15,8 @@ export interface VehicleSummaryDto {
   ownerName: string
   vehicleType: string
   status: VehicleStatusKey
+  /** วันที่แจ้งสถานะ (ม.79 / ม.89) */
+  statusDate: string | null
 }
 
 export interface VehicleDto extends VehicleSummaryDto {
@@ -31,7 +33,7 @@ export interface VehicleDto extends VehicleSummaryDto {
   axleCount: number | null
   fuelType: string | null
   weightKg: number | null
-  statusDate: string | null
+  currentLocation: string | null
   note: string | null
 }
 
