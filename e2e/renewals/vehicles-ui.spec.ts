@@ -106,7 +106,11 @@ test.describe.serial('หน้าทะเบียนรถ', () => {
 
     await page.getByTestId('coverage-add-btn-PRB').click()
     await expect(page.getByRole('dialog')).toContainText('เพิ่มงวดพรบ.')
+    // ปฏิทินเมนูนี้แสดงปี พ.ศ.
+    await page.locator('#coverage-end-date').click()
+    await expect(page.locator('.ant-picker-dropdown .ant-picker-year-btn').first()).toHaveText(String(new Date().getFullYear() + 543))
     await fillDate(page, '#coverage-end-date', '2026-03-31')
+    await expect(page.locator('#coverage-end-date')).toHaveValue('31/03/2569')
     await page.getByRole('dialog').getByRole('button', { name: 'บันทึก' }).click()
     await expect.poll(async () => (await getVehicleDetail(page, vid)).coverages.length).toBe(1)
     const oldId = (await getVehicleDetail(page, vid)).coverages[0].id

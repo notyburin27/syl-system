@@ -56,7 +56,7 @@ export default function VehicleList() {
 
   const columns: TableColumnsType<VehicleListItemDto> = [
     { title: 'เบอร์รถ', key: 'fleetNumber', width: 100, render: (_, r) => r.fleetNumber ?? '-' },
-    { title: 'ทะเบียน', dataIndex: 'plate', key: 'plate', width: 140 },
+    { title: 'ทะเบียน', dataIndex: 'plate', key: 'plate', width: 110 },
     { title: 'บริษัท', dataIndex: 'ownerName', key: 'ownerName', width: 160 },
     { title: 'ลักษณะ', dataIndex: 'vehicleType', key: 'vehicleType', width: 120 },
     { title: 'ยี่ห้อ', key: 'brand', width: 100, render: (_, r) => r.brand ?? '-' },

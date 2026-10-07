@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { Alert, App, Col, DatePicker, Form, Modal, Row, Select } from 'antd'
+import { Alert, App, Col, Form, Modal, Row, Select } from 'antd'
 import { COVERAGE_TYPE_LABELS } from '@/lib/renewals/constants'
 import { nextPeriodDefaults } from '@/lib/renewals/renewalDefaults'
 import type { DashboardItemDto, InsurerDto } from '@/types/renewals'
 import { sendJson } from './api'
 import { DATE_FORMAT } from './coverageForm'
+import ThaiDatePicker from './ThaiDatePicker'
 
 interface Props {
   open: boolean
@@ -94,12 +95,12 @@ export default function BulkRenewModal({ open, items, insurers, onClose, onDone 
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="startDate" label="วันเริ่ม">
-                <DatePicker id="bulk-renew-start-date" format={DATE_FORMAT} style={{ width: '100%' }} />
+                <ThaiDatePicker id="bulk-renew-start-date" format={DATE_FORMAT} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="endDate" label="วันสิ้นสุด" rules={[{ required: true, message: 'กรุณาเลือกวันสิ้นสุด' }]}>
-                <DatePicker id="bulk-renew-end-date" format={DATE_FORMAT} style={{ width: '100%' }} />
+                <ThaiDatePicker id="bulk-renew-end-date" format={DATE_FORMAT} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>

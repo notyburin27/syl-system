@@ -1,9 +1,10 @@
 'use client'
 
-import { AutoComplete, Col, DatePicker, Form, Input, InputNumber, Row, Select } from 'antd'
+import { AutoComplete, Col, Form, Input, InputNumber, Row, Select } from 'antd'
 import { COVERAGE_CLASSES, COVERAGE_TEXT_MAX, MAX_MONEY, type CoverageTypeKey } from '@/lib/renewals/constants'
 import type { InsurerDto, VehicleListItemDto } from '@/types/renewals'
 import { DATE_FORMAT } from './coverageForm'
+import ThaiDatePicker from './ThaiDatePicker'
 
 interface Props {
   type: CoverageTypeKey
@@ -56,12 +57,12 @@ export default function CoveragePeriodFields({ type, insurers, agents, vehicles,
       <Row gutter={12}>
         <Col span={12}>
           <Form.Item name="startDate" label="วันเริ่ม">
-            <DatePicker id="coverage-start-date" format={DATE_FORMAT} style={{ width: '100%' }} />
+            <ThaiDatePicker id="coverage-start-date" format={DATE_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={12}>
           <Form.Item name="endDate" label="วันสิ้นสุด" rules={[{ required: true, message: 'กรุณาเลือกวันสิ้นสุด' }]}>
-            <DatePicker id="coverage-end-date" format={DATE_FORMAT} style={{ width: '100%' }} />
+            <ThaiDatePicker id="coverage-end-date" format={DATE_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>

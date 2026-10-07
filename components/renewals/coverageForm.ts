@@ -1,7 +1,7 @@
 import dayjs, { type Dayjs } from 'dayjs'
 import type { CoverageDto } from '@/types/renewals'
 
-/** DatePicker ใช้ ค.ศ. ให้พิมพ์วันที่ได้แน่นอน — ตารางแสดง พ.ศ. ด้วย toThaiShortDate */
+/** format ของ ThaiDatePicker — YYYY แสดง/รับเป็นปี พ.ศ. (ดู lib/renewals/buddhistDate.ts) */
 export const DATE_FORMAT = 'DD/MM/YYYY'
 
 export interface CoverageFormValues {
