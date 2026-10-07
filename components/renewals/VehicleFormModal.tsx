@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { App, AutoComplete, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select } from 'antd'
+import { App, AutoComplete, Col, Form, Input, InputNumber, Modal, Row, Select } from 'antd'
 import { VEHICLE_STATUSES, VEHICLE_STATUS_LABELS, VEHICLE_TEXT_MAX, type VehicleStatusKey } from '@/lib/renewals/constants'
 import { THAI_PROVINCES } from '@/lib/renewals/provinces'
 import type { VehicleDto } from '@/types/renewals'
 import { sendJson } from './api'
 import { DATE_FORMAT } from './coverageForm'
 import PendingFilesUpload from './PendingFilesUpload'
+import ThaiDatePicker from './ThaiDatePicker'
 import { uploadAttachments } from './uploadAttachments'
 
 interface Props {
@@ -163,7 +164,7 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="registrationDate" label="วันที่จดทะเบียน">
-                <DatePicker id="vehicle-registration-date" format={DATE_FORMAT} style={{ width: '100%' }} />
+                <ThaiDatePicker id="vehicle-registration-date" format={DATE_FORMAT} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -267,7 +268,7 @@ export default function VehicleFormModal({ vehicle, ownerOptions, typeOptions, o
             </Col>
             <Col span={12}>
               <Form.Item name="statusDate" label="วันที่แจ้งสถานะ (แจ้ง ม.79 / ม.89)">
-                <DatePicker id="vehicle-status-date" format={DATE_FORMAT} style={{ width: '100%' }} />
+                <ThaiDatePicker id="vehicle-status-date" format={DATE_FORMAT} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>

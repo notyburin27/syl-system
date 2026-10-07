@@ -52,9 +52,10 @@ export async function getVehicleDetail(page: Page, vehicleId: string): Promise<V
 }
 
 /** 'YYYY-MM-DD' → 'DD/MM/YYYY' ตาม format ของ DatePicker */
+/** ข้อความในช่อง DatePicker ของเมนูต่ออายุรถ — ปี พ.ศ. */
 export function toPickerText(ymd: string): string {
   const [y, m, d] = ymd.split('-')
-  return `${d}/${m}/${y}`
+  return `${d}/${m}/${Number(y) + 543}`
 }
 
 export async function fillDate(page: Page, selector: string, ymd: string) {
