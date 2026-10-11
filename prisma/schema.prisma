@@ -96,11 +96,12 @@ model Product {
 }
 
 model Buyer {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  phone         String?
+  defaultDueDay Int? // วันที่ของเดือนถัดไปที่ใช้เป็นค่าเริ่มต้นวันครบกำหนดชำระ (1–31)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   stockOuts StockOut[]
   invoices  Invoice[]
@@ -152,6 +153,7 @@ model Invoice {
   buyerId     String
   buyer       Buyer     @relation(fields: [buyerId], references: [id])
   totalAmount Float
+  dueDate     DateTime? // บังคับกรอกตอนออกใบเสร็จ — nullable เพราะใบเสร็จเก่าไม่มี
   isPaid      Boolean   @default(false)
   paidAt      DateTime?
   note        String?

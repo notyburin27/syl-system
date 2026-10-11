@@ -16,15 +16,19 @@ export async function GET() {
         stockIns: { select: { quantity: true } },
         stockOuts: { select: { quantity: true } },
       },
-      orderBy: { createdAt: 'desc' },
     })
 
-    const result = products.map(({ stockIns, stockOuts, ...product }) => ({
-      ...product,
-      stockRemaining:
-        stockIns.reduce((sum, si) => sum + si.quantity, 0) -
-        stockOuts.reduce((sum, so) => sum + so.quantity, 0),
-    }))
+    // เรียงชื่อด้วย Intl.Collator('th') แทน orderBy ของ DB เพราะ collation ของ Postgres
+    // ไม่ข้ามสระหน้า (เ แ โ ใ ไ) ตามพจนานุกรมไทย และ numeric ทำให้ 5 กก มาก่อน 14 กก
+    const collator = new Intl.Collator('th', { numeric: true })
+    const result = products
+      .map(({ stockIns, stockOuts, ...product }) => ({
+        ...product,
+        stockRemaining:
+          stockIns.reduce((sum, si) => sum + si.quantity, 0) -
+          stockOuts.reduce((sum, so) => sum + so.quantity, 0),
+      }))
+      .sort((a, b) => collator.compare(a.name, b.name))
 
     return NextResponse.json(result)
   } catch (error) {

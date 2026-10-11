@@ -1,24 +1,26 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Button, Card, App, Space, Tag, Tabs, Statistic, Row, Col, Popconfirm } from 'antd'
-import { ArrowLeftOutlined, FileTextOutlined, DollarOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Table, Button, Card, App, Space, Tag, Tabs, Statistic, Row, Col, Modal, Form, DatePicker } from 'antd'
+import { ArrowLeftOutlined, FileTextOutlined, DollarOutlined, DeleteOutlined, PrinterOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { StockOut, Invoice } from '@/types/stock'
 import { useRouter, useParams } from 'next/navigation'
 import dayjs from 'dayjs'
+import { nextMonthDueDate } from '@/lib/utils/dueDate'
 
 interface BuyerDetail {
   id: string
   name: string
   phone: string | null
+  defaultDueDay: number | null
   totalPurchased: number
   outstandingAmount: number
   paidAmount: number
 }
 
 export default function BuyerDetailPage() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const router = useRouter()
   const params = useParams()
   const buyerId = params.id as string
@@ -29,6 +31,9 @@ export default function BuyerDetailPage() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [creatingInvoice, setCreatingInvoice] = useState(false)
+  const [invoiceForm] = Form.useForm<{ dueDate: dayjs.Dayjs }>()
 
   const fetchBuyer = useCallback(async () => {
     try {
@@ -61,12 +66,20 @@ export default function BuyerDetailPage() {
     fetchInvoices()
   }, [fetchBuyer, fetchUninvoiced, fetchInvoices])
 
-  const handleCreateInvoice = async () => {
+  const openInvoiceModal = () => {
     if (selectedRowKeys.length === 0) {
       message.warning('กรุณาเลือกรายการ')
       return
     }
+    invoiceForm.resetFields()
+    invoiceForm.setFieldsValue({
+      dueDate: buyer?.defaultDueDay ? nextMonthDueDate(buyer.defaultDueDay) : undefined,
+    })
+    setInvoiceModalOpen(true)
+  }
 
+  const handleCreateInvoice = async ({ dueDate }: { dueDate: dayjs.Dayjs }) => {
+    setCreatingInvoice(true)
     try {
       const res = await fetch('/api/stock/invoices', {
         method: 'POST',
@@ -74,6 +87,7 @@ export default function BuyerDetailPage() {
         body: JSON.stringify({
           buyerId,
           stockOutIds: selectedRowKeys,
+          dueDate: dueDate.startOf('day').toISOString(),
         }),
       })
 
@@ -84,12 +98,15 @@ export default function BuyerDetailPage() {
       }
 
       message.success('ออกใบเสร็จสำเร็จ')
+      setInvoiceModalOpen(false)
       setSelectedRowKeys([])
       fetchBuyer()
       fetchUninvoiced()
       fetchInvoices()
     } catch {
       message.error('เกิดข้อผิดพลาด')
+    } finally {
+      setCreatingInvoice(false)
     }
   }
 
@@ -194,6 +211,12 @@ export default function BuyerDetailPage() {
       align: 'right',
     },
     {
+      title: 'ครบกำหนด',
+      dataIndex: 'dueDate',
+      key: 'dueDate',
+      render: (date: string | null) => date ? dayjs(date).format('DD/MM/YYYY') : '-',
+    },
+    {
       title: 'สถานะ',
       key: 'status',
       render: (_, record) =>
@@ -214,30 +237,48 @@ export default function BuyerDetailPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
+          <Button
+            icon={<PrinterOutlined />}
+            size="small"
+            onClick={() => window.open(`/stock/invoices/${record.id}/print`, '_blank', 'noopener')}
+          >
+            ใบเสร็จ
+          </Button>
           {!record.isPaid && (
             <>
-              <Popconfirm
-                title="ยืนยันการชำระเงิน"
-                description={`ยืนยันชำระเงิน ${record.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท?`}
-                onConfirm={() => handlePay(record.id)}
-                okText="ยืนยัน"
-                cancelText="ยกเลิก"
+              <Button
+                type="primary"
+                icon={<DollarOutlined />}
+                size="small"
+                onClick={() =>
+                  modal.confirm({
+                    title: 'ยืนยันการชำระเงิน',
+                    content: `ยืนยันชำระเงิน ${record.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท?`,
+                    okText: 'ยืนยัน',
+                    cancelText: 'ยกเลิก',
+                    onOk: () => handlePay(record.id),
+                  })
+                }
               >
-                <Button type="primary" icon={<DollarOutlined />} size="small">
-                  บันทึกชำระเงิน
-                </Button>
-              </Popconfirm>
-              <Popconfirm
-                title="ยืนยันการลบ"
-                description="ลบใบเสร็จนี้? รายการขายจะกลับไปเป็นรายการที่ยังไม่ออกใบเสร็จ"
-                onConfirm={() => handleDeleteInvoice(record.id)}
-                okText="ยืนยัน"
-                cancelText="ยกเลิก"
+                บันทึกชำระเงิน
+              </Button>
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                size="small"
+                onClick={() =>
+                  modal.confirm({
+                    title: 'ยืนยันการลบ',
+                    content: 'ลบใบเสร็จนี้? รายการขายจะกลับไปเป็นรายการที่ยังไม่ออกใบเสร็จ',
+                    okText: 'ยืนยัน',
+                    okButtonProps: { danger: true },
+                    cancelText: 'ยกเลิก',
+                    onOk: () => handleDeleteInvoice(record.id),
+                  })
+                }
               >
-                <Button danger icon={<DeleteOutlined />} size="small">
-                  ลบ
-                </Button>
-              </Popconfirm>
+                ลบ
+              </Button>
             </>
           )}
         </Space>
@@ -354,7 +395,7 @@ export default function BuyerDetailPage() {
                         เลือก {selectedRowKeys.length} รายการ | ยอดรวม:{' '}
                         <strong>{selectedTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท</strong>
                       </span>
-                      <Button type="primary" icon={<FileTextOutlined />} onClick={handleCreateInvoice}>
+                      <Button type="primary" icon={<FileTextOutlined />} onClick={openInvoiceModal}>
                         ออกใบเสร็จ
                       </Button>
                     </div>
@@ -380,6 +421,34 @@ export default function BuyerDetailPage() {
           ]}
         />
       </Card>
+
+      <Modal
+        title="ออกใบเสร็จ"
+        open={invoiceModalOpen}
+        onCancel={() => setInvoiceModalOpen(false)}
+        onOk={() => invoiceForm.submit()}
+        confirmLoading={creatingInvoice}
+        okText="ออกใบเสร็จ"
+        cancelText="ยกเลิก"
+        forceRender
+      >
+        <p>
+          {selectedRowKeys.length} รายการ | ยอดรวม:{' '}
+          <strong>{selectedTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท</strong>
+        </p>
+        <Form form={invoiceForm} layout="vertical" onFinish={handleCreateInvoice}>
+          <Form.Item
+            name="dueDate"
+            label="วันครบกำหนดชำระ"
+            rules={[{ required: true, message: 'กรุณาเลือกวันครบกำหนดชำระ' }]}
+            extra={buyer?.defaultDueDay
+              ? `ค่าเริ่มต้นของลูกค้านี้: วันที่ ${buyer.defaultDueDay} ของเดือนถัดไป`
+              : 'ตั้งค่าเริ่มต้นได้ที่หน้าแก้ไขลูกค้า'}
+          >
+            <DatePicker id="invoice-due-date" style={{ width: '100%' }} format="DD/MM/YYYY" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

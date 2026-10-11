@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, App, Space, Popconfirm, Tag } from 'antd'
+import { Table, Button, Card, App, Space, Tag } from 'antd'
 import { PlusOutlined, DeleteOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { StockOut } from '@/types/stock'
@@ -9,7 +9,7 @@ import StockOutFormModal from '@/components/stock/StockOutFormModal'
 import dayjs from 'dayjs'
 
 export default function StockExportPage() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [stockOuts, setStockOuts] = useState<StockOut[]>([])
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -133,17 +133,23 @@ export default function StockExportPage() {
             </Button>
           )}
           {!record.invoiceId && (
-            <Popconfirm
-              title="ยืนยันการลบ"
-              description="คุณแน่ใจหรือไม่ที่จะลบรายการนี้?"
-              onConfirm={() => handleDelete(record.id)}
-              okText="ยืนยัน"
-              cancelText="ยกเลิก"
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              size="small"
+              onClick={() =>
+                modal.confirm({
+                  title: 'ยืนยันการลบ',
+                  content: 'คุณแน่ใจหรือไม่ที่จะลบรายการนี้?',
+                  okText: 'ยืนยัน',
+                  okButtonProps: { danger: true },
+                  cancelText: 'ยกเลิก',
+                  onOk: () => handleDelete(record.id),
+                })
+              }
             >
-              <Button danger icon={<DeleteOutlined />} size="small">
-                ลบ
-              </Button>
-            </Popconfirm>
+              ลบ
+            </Button>
           )}
         </Space>
       ),
