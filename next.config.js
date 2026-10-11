@@ -20,6 +20,11 @@ const nextConfig = {
   // Disable React strict mode
   reactStrictMode: false,
 
+  experimental: {
+    // ไฟล์แนบต่ออายุรถ (≤ 10 MB) ผ่าน middleware — ค่าเริ่มต้น 10mb ไม่พอเมื่อรวม multipart overhead
+    middlewareClientMaxBodySize: '12mb',
+  },
+
   // Webpack configuration to handle bcrypt and optional dependencies
   webpack: (config, { isServer }) => {
     if (!isServer) {

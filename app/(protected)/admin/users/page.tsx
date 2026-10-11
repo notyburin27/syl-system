@@ -9,7 +9,7 @@ import dayjs from 'dayjs'
 interface User {
   id: string
   username: string
-  role: 'ADMIN' | 'MANAGER' | 'SENIOR_STAFF' | 'STAFF'
+  role: 'ADMIN' | 'MANAGER' | 'SENIOR_STAFF' | 'STAFF' | 'INSURANCE'
   name: string | null
   createdAt: string
 }
@@ -153,18 +153,20 @@ export default function UsersManagementPage() {
       title: 'สิทธิ์',
       dataIndex: 'role',
       key: 'role',
-      render: (role: 'ADMIN' | 'MANAGER' | 'SENIOR_STAFF' | 'STAFF') => {
+      render: (role: 'ADMIN' | 'MANAGER' | 'SENIOR_STAFF' | 'STAFF' | 'INSURANCE') => {
         const colors = {
           ADMIN: '#1890ff',
           MANAGER: '#722ed1',
           SENIOR_STAFF: '#13c2c2',
           STAFF: '#52c41a',
+          INSURANCE: '#d48806',
         }
         const labels = {
           ADMIN: 'ADMIN',
           MANAGER: 'MANAGER',
           SENIOR_STAFF: 'SENIOR STAFF',
           STAFF: 'STAFF',
+          INSURANCE: 'ฝ่ายประกัน',
         }
         return <span style={{ color: colors[role] }}>{labels[role]}</span>
       },
@@ -288,6 +290,7 @@ export default function UsersManagementPage() {
           >
             <Select>
               <Select.Option value="STAFF">STAFF</Select.Option>
+              <Select.Option value="INSURANCE">ฝ่ายประกัน</Select.Option>
               <Select.Option value="SENIOR_STAFF">SENIOR STAFF</Select.Option>
               <Select.Option value="MANAGER">MANAGER</Select.Option>
               <Select.Option value="ADMIN">ADMIN</Select.Option>
@@ -338,6 +341,7 @@ export default function UsersManagementPage() {
           >
             <Select>
               <Select.Option value="STAFF">STAFF</Select.Option>
+              <Select.Option value="INSURANCE">ฝ่ายประกัน</Select.Option>
               <Select.Option value="SENIOR_STAFF">SENIOR STAFF</Select.Option>
               <Select.Option value="MANAGER">MANAGER</Select.Option>
               <Select.Option value="ADMIN">ADMIN</Select.Option>

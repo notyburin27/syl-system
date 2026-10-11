@@ -45,14 +45,18 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { buyerId, stockOutIds, note } = body as {
+    const { buyerId, stockOutIds, dueDate, note } = body as {
       buyerId: string
       stockOutIds: string[]
+      dueDate?: string
       note?: string
     }
 
     if (!buyerId || !stockOutIds || stockOutIds.length === 0) {
       return NextResponse.json({ error: 'กรุณาเลือกรายการขาย' }, { status: 400 })
+    }
+    if (!dueDate || isNaN(new Date(dueDate).getTime())) {
+      return NextResponse.json({ error: 'กรุณาเลือกวันครบกำหนดชำระ' }, { status: 400 })
     }
 
     const invoice = await prisma.$transaction(async (tx) => {
@@ -78,6 +82,7 @@ export async function POST(req: Request) {
         data: {
           buyerId,
           totalAmount,
+          dueDate: new Date(dueDate),
           note: note || null,
         },
       })

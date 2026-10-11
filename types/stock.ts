@@ -13,6 +13,7 @@ export interface Buyer {
   id: string
   name: string
   phone: string | null
+  defaultDueDay: number | null
   outstandingAmount?: number
   createdAt: string
   updatedAt: string
@@ -51,6 +52,7 @@ export interface Invoice {
   buyerId: string
   buyer?: Buyer
   totalAmount: number
+  dueDate: string | null
   isPaid: boolean
   paidAt: string | null
   note: string | null

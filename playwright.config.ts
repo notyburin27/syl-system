@@ -40,6 +40,8 @@ export default defineConfig({
       DO_SPACES_SECRET:          process.env.DO_SPACES_SECRET          ?? '',
       DO_SPACES_REGION:          process.env.DO_SPACES_REGION          ?? '',
       DO_SPACES_CDN_BASE:        process.env.DO_SPACES_CDN_BASE        ?? '',
+      // ไฟล์แนบต่ออายุรถเก็บในโฟลเดอร์ .tmp แทน Spaces จริง
+      ATTACHMENT_STORAGE:        'local',
     },
   },
 })

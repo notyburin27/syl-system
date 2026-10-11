@@ -15,11 +15,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: {
-        buyer: { select: { id: true, name: true } },
+        buyer: { select: { id: true, name: true, phone: true } },
         stockOuts: {
           include: {
             product: { select: { id: true, name: true } },
           },
+          orderBy: { date: 'asc' },
         },
       },
     })

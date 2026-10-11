@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Button, Card, App, Space, Popconfirm, DatePicker, Select } from 'antd'
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Table, Button, Card, App, Space, DatePicker, Select } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { StockIn, Product } from '@/types/stock'
 import StockInFormModal from '@/components/stock/StockInFormModal'
@@ -11,11 +11,12 @@ import dayjs from 'dayjs'
 const { RangePicker } = DatePicker
 
 export default function StockImportPage() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [stockIns, setStockIns] = useState<StockIn[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingStockIn, setEditingStockIn] = useState<StockIn | null>(null)
   const [filterProductId, setFilterProductId] = useState<string | undefined>()
   const [filterDateRange, setFilterDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
 
@@ -67,6 +68,17 @@ export default function StockImportPage() {
     }
   }
 
+  const confirmDelete = (record: StockIn) => {
+    modal.confirm({
+      title: 'ยืนยันการลบ',
+      content: 'คุณแน่ใจหรือไม่ที่จะลบรายการนี้?',
+      okText: 'ยืนยัน',
+      okButtonProps: { danger: true },
+      cancelText: 'ยกเลิก',
+      onOk: () => handleDelete(record.id),
+    })
+  }
+
   const columns: ColumnsType<StockIn> = [
     {
       title: 'วันที่',
@@ -108,17 +120,21 @@ export default function StockImportPage() {
       title: 'การดำเนินการ',
       key: 'actions',
       render: (_, record) => (
-        <Popconfirm
-          title="ยืนยันการลบ"
-          description="คุณแน่ใจหรือไม่ที่จะลบรายการนี้?"
-          onConfirm={() => handleDelete(record.id)}
-          okText="ยืนยัน"
-          cancelText="ยกเลิก"
-        >
-          <Button danger icon={<DeleteOutlined />} size="small">
+        <Space>
+          <Button
+            icon={<EditOutlined />}
+            size="small"
+            onClick={() => {
+              setEditingStockIn(record)
+              setModalOpen(true)
+            }}
+          >
+            แก้ไข
+          </Button>
+          <Button danger icon={<DeleteOutlined />} size="small" onClick={() => confirmDelete(record)}>
             ลบ
           </Button>
-        </Popconfirm>
+        </Space>
       ),
     },
   ]
@@ -128,7 +144,14 @@ export default function StockImportPage() {
       <Card
         title="นำเข้าสินค้า"
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setEditingStockIn(null)
+              setModalOpen(true)
+            }}
+          >
             นำเข้าสินค้า
           </Button>
         }
@@ -163,6 +186,7 @@ export default function StockImportPage() {
 
       <StockInFormModal
         open={modalOpen}
+        stockIn={editingStockIn}
         onClose={() => setModalOpen(false)}
         onSuccess={fetchStockIns}
       />

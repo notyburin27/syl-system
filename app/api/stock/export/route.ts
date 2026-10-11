@@ -42,6 +42,8 @@ export async function GET(req: Request) {
 }
 
 // POST /api/stock/export - Record stock export (sale) with stock validation
+// รับได้ 2 แบบ: รายการเดียว { productId, buyerId, quantity, sellingPrice, date, note }
+// หรือหลายรายการ { buyerId, date, note, items: [{ productId, quantity, sellingPrice }] } — บันทึกทั้งชุดหรือไม่บันทึกเลย
 export async function POST(req: Request) {
   try {
     const session = await auth()
@@ -50,48 +52,63 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { productId, buyerId, quantity, sellingPrice, date, note } = body
+    const { buyerId, date, note } = body
+    const isBatch = Array.isArray(body.items)
+    const items: { productId: string; quantity: number; sellingPrice: number }[] = isBatch
+      ? body.items
+      : [{ productId: body.productId, quantity: body.quantity, sellingPrice: body.sellingPrice }]
 
-    if (!productId || !buyerId || !quantity || sellingPrice == null || !date) {
+    if (
+      !buyerId || !date || items.length === 0 ||
+      items.some(item => !item.productId || !item.quantity || item.sellingPrice == null)
+    ) {
       return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบ' }, { status: 400 })
     }
 
     // Use transaction to prevent race condition
-    const stockOut = await prisma.$transaction(async (tx) => {
-      const stockIns = await tx.stockIn.findMany({
-        where: { productId },
-        select: { quantity: true },
-      })
-      const stockOuts = await tx.stockOut.findMany({
-        where: { productId },
-        select: { quantity: true },
-      })
-
-      const stockRemaining =
-        stockIns.reduce((sum, si) => sum + si.quantity, 0) -
-        stockOuts.reduce((sum, so) => sum + so.quantity, 0)
-
-      if (quantity > stockRemaining) {
-        throw new Error(`สินค้าคงเหลือไม่เพียงพอ (คงเหลือ ${stockRemaining} ชิ้น)`)
+    const stockOuts = await prisma.$transaction(async (tx) => {
+      // สินค้าเดียวกันอาจอยู่หลายแถว — รวมจำนวนก่อนเทียบกับคงเหลือ
+      const requested = new Map<string, number>()
+      for (const item of items) {
+        requested.set(item.productId, (requested.get(item.productId) ?? 0) + item.quantity)
       }
 
-      return tx.stockOut.create({
-        data: {
-          productId,
-          buyerId,
-          quantity,
-          sellingPrice,
-          date: new Date(date),
-          note: note || null,
-        },
-        include: {
-          product: { select: { id: true, name: true } },
-          buyer: { select: { id: true, name: true } },
-        },
-      })
+      for (const [productId, quantity] of requested) {
+        const [stockIns, existingOuts, product] = await Promise.all([
+          tx.stockIn.findMany({ where: { productId }, select: { quantity: true } }),
+          tx.stockOut.findMany({ where: { productId }, select: { quantity: true } }),
+          tx.product.findUnique({ where: { id: productId }, select: { name: true } }),
+        ])
+
+        const stockRemaining =
+          stockIns.reduce((sum, si) => sum + si.quantity, 0) -
+          existingOuts.reduce((sum, so) => sum + so.quantity, 0)
+
+        if (quantity > stockRemaining) {
+          const label = isBatch && product ? ` "${product.name}" ` : ''
+          throw new Error(`สินค้า${label}คงเหลือไม่เพียงพอ (คงเหลือ ${stockRemaining} ชิ้น)`)
+        }
+      }
+
+      return Promise.all(items.map(item =>
+        tx.stockOut.create({
+          data: {
+            productId: item.productId,
+            buyerId,
+            quantity: item.quantity,
+            sellingPrice: item.sellingPrice,
+            date: new Date(date),
+            note: note || null,
+          },
+          include: {
+            product: { select: { id: true, name: true } },
+            buyer: { select: { id: true, name: true } },
+          },
+        })
+      ))
     })
 
-    return NextResponse.json(stockOut)
+    return NextResponse.json(isBatch ? stockOuts : stockOuts[0])
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Internal server error'
     if (errorMessage.includes('คงเหลือไม่เพียงพอ')) {
