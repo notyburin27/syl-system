@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { Modal, Form, Select, InputNumber, DatePicker, Input, App } from 'antd'
-import type { Product } from '@/types/stock'
+import type { Product, StockIn } from '@/types/stock'
 import dayjs from 'dayjs'
 
 interface StockInFormModalProps {
   open: boolean
+  stockIn?: StockIn | null
   onClose: () => void
   onSuccess: () => void
 }
 
-export default function StockInFormModal({ open, onClose, onSuccess }: StockInFormModalProps) {
+export default function StockInFormModal({ open, stockIn, onClose, onSuccess }: StockInFormModalProps) {
   const { message } = App.useApp()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
@@ -20,10 +21,20 @@ export default function StockInFormModal({ open, onClose, onSuccess }: StockInFo
   useEffect(() => {
     if (open) {
       form.resetFields()
-      form.setFieldsValue({ date: dayjs() })
+      if (stockIn) {
+        form.setFieldsValue({
+          productId: stockIn.productId,
+          purchasePrice: stockIn.purchasePrice,
+          quantity: stockIn.quantity,
+          date: dayjs(stockIn.date),
+          note: stockIn.note,
+        })
+      } else {
+        form.setFieldsValue({ date: dayjs() })
+      }
       fetchProducts()
     }
-  }, [open, form])
+  }, [open, stockIn, form])
 
   const fetchProducts = async () => {
     try {
@@ -32,11 +43,18 @@ export default function StockInFormModal({ open, onClose, onSuccess }: StockInFo
     } catch { /* ignore */ }
   }
 
+  // สินค้าที่ถูกลบไปแล้วไม่อยู่ใน list — ใส่กลับเข้าไปเพื่อให้รายการเดิมยังแสดงชื่อได้
+  const productOptions = products.map(p => ({ value: p.id, label: p.name }))
+  if (stockIn?.product && !products.some(p => p.id === stockIn.productId)) {
+    productOptions.push({ value: stockIn.productId, label: stockIn.product.name })
+  }
+
   const handleSubmit = async (values: Record<string, unknown>) => {
     setLoading(true)
     try {
-      const res = await fetch('/api/stock/import', {
-        method: 'POST',
+      const url = stockIn ? `/api/stock/import/${stockIn.id}` : '/api/stock/import'
+      const res = await fetch(url, {
+        method: stockIn ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId: values.productId,
@@ -53,7 +71,7 @@ export default function StockInFormModal({ open, onClose, onSuccess }: StockInFo
         return
       }
 
-      message.success('นำเข้าสินค้าสำเร็จ')
+      message.success(stockIn ? 'แก้ไขรายการสำเร็จ' : 'นำเข้าสินค้าสำเร็จ')
       onSuccess()
       onClose()
     } catch {
@@ -65,7 +83,7 @@ export default function StockInFormModal({ open, onClose, onSuccess }: StockInFo
 
   return (
     <Modal
-      title="นำเข้าสินค้า"
+      title={stockIn ? 'แก้ไขรายการนำเข้าสินค้า' : 'นำเข้าสินค้า'}
       open={open}
       onCancel={onClose}
       onOk={() => form.submit()}
@@ -85,7 +103,7 @@ export default function StockInFormModal({ open, onClose, onSuccess }: StockInFo
             filterOption={(input, option) =>
               (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
             }
-            options={products.map(p => ({ value: p.id, label: p.name }))}
+            options={productOptions}
           />
         </Form.Item>
 
