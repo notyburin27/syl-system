@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isValidDueDay } from '@/lib/utils/dueDate'
 
 // GET /api/stock/buyers/[id] - Buyer detail with stats
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -64,11 +65,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { id } = await params
     const body = await req.json()
 
+    if (body.defaultDueDay !== undefined && !isValidDueDay(body.defaultDueDay)) {
+      return NextResponse.json({ error: 'วันครบกำหนดชำระต้องเป็นวันที่ 1–31' }, { status: 400 })
+    }
+
     const buyer = await prisma.buyer.update({
       where: { id },
       data: {
         ...(body.name !== undefined && { name: body.name }),
         ...(body.phone !== undefined && { phone: body.phone || null }),
+        ...(body.defaultDueDay !== undefined && { defaultDueDay: body.defaultDueDay }),
       },
     })
 

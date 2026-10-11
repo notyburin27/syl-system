@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, App, Space, Popconfirm } from 'antd'
+import { Table, Button, Card, App, Space } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { Buyer } from '@/types/stock'
@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 
 export default function BuyersPage() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const router = useRouter()
   const [buyers, setBuyers] = useState<Buyer[]>([])
   const [loading, setLoading] = useState(false)
@@ -102,17 +102,23 @@ export default function BuyersPage() {
           >
             แก้ไข
           </Button>
-          <Popconfirm
-            title="ยืนยันการลบ"
-            description="คุณแน่ใจหรือไม่ที่จะลบลูกค้านี้?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="ยืนยัน"
-            cancelText="ยกเลิก"
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            size="small"
+            onClick={() =>
+              modal.confirm({
+                title: 'ยืนยันการลบ',
+                content: `คุณแน่ใจหรือไม่ที่จะลบลูกค้า "${record.name}"?`,
+                okText: 'ยืนยัน',
+                okButtonProps: { danger: true },
+                cancelText: 'ยกเลิก',
+                onOk: () => handleDelete(record.id),
+              })
+            }
           >
-            <Button danger icon={<DeleteOutlined />} size="small">
-              ลบ
-            </Button>
-          </Popconfirm>
+            ลบ
+          </Button>
         </Space>
       ),
     },

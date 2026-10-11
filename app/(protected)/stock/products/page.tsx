@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, App, Space, Popconfirm, Image } from 'antd'
+import { Table, Button, Card, App, Space, Image } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { Product } from '@/types/stock'
@@ -9,7 +9,7 @@ import ProductFormModal from '@/components/stock/ProductFormModal'
 import dayjs from 'dayjs'
 
 export default function ProductsPage() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -103,17 +103,23 @@ export default function ProductsPage() {
           >
             แก้ไข
           </Button>
-          <Popconfirm
-            title="ยืนยันการลบ"
-            description="คุณแน่ใจหรือไม่ที่จะลบสินค้านี้?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="ยืนยัน"
-            cancelText="ยกเลิก"
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            size="small"
+            onClick={() =>
+              modal.confirm({
+                title: 'ยืนยันการลบ',
+                content: `คุณแน่ใจหรือไม่ที่จะลบสินค้า "${record.name}"?`,
+                okText: 'ยืนยัน',
+                okButtonProps: { danger: true },
+                cancelText: 'ยกเลิก',
+                onOk: () => handleDelete(record.id),
+              })
+            }
           >
-            <Button danger icon={<DeleteOutlined />} size="small">
-              ลบ
-            </Button>
-          </Popconfirm>
+            ลบ
+          </Button>
         </Space>
       ),
     },

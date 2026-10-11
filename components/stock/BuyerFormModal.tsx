@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Modal, Form, Input, App } from 'antd'
+import { Modal, Form, Input, InputNumber, App } from 'antd'
 import type { Buyer } from '@/types/stock'
 
 interface BuyerFormModalProps {
@@ -19,14 +19,14 @@ export default function BuyerFormModal({ open, buyer, onClose, onSuccess }: Buye
   useEffect(() => {
     if (open) {
       if (buyer) {
-        form.setFieldsValue({ name: buyer.name, phone: buyer.phone })
+        form.setFieldsValue({ name: buyer.name, phone: buyer.phone, defaultDueDay: buyer.defaultDueDay })
       } else {
         form.resetFields()
       }
     }
   }, [open, buyer, form])
 
-  const handleSubmit = async (values: { name: string; phone?: string }) => {
+  const handleSubmit = async (values: { name: string; phone?: string; defaultDueDay?: number | null }) => {
     setLoading(true)
     try {
       const url = buyer ? `/api/stock/buyers/${buyer.id}` : '/api/stock/buyers'
@@ -35,7 +35,7 @@ export default function BuyerFormModal({ open, buyer, onClose, onSuccess }: Buye
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, defaultDueDay: values.defaultDueDay ?? null }),
       })
 
       if (!res.ok) {
@@ -75,6 +75,21 @@ export default function BuyerFormModal({ open, buyer, onClose, onSuccess }: Buye
 
         <Form.Item name="phone" label="เบอร์โทร">
           <Input placeholder="เบอร์โทร" />
+        </Form.Item>
+
+        <Form.Item
+          name="defaultDueDay"
+          label="วันครบกำหนดชำระเริ่มต้น"
+          extra="ใช้เติมวันครบกำหนดตอนออกใบเสร็จ เช่น 5 = วันที่ 5 ของเดือนถัดไป (ไม่ระบุก็ได้)"
+        >
+          <InputNumber
+            min={1}
+            max={31}
+            precision={0}
+            addonBefore="วันที่"
+            addonAfter="ของเดือนถัดไป"
+            style={{ width: '100%' }}
+          />
         </Form.Item>
       </Form>
     </Modal>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isValidDueDay } from '@/lib/utils/dueDate'
 
 // GET /api/stock/buyers - List buyers with outstanding amounts
 export async function GET() {
@@ -52,14 +53,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { name, phone } = body
+    const { name, phone, defaultDueDay } = body
 
     if (!name) {
       return NextResponse.json({ error: 'กรุณากรอกชื่อลูกค้า' }, { status: 400 })
     }
+    if (!isValidDueDay(defaultDueDay)) {
+      return NextResponse.json({ error: 'วันครบกำหนดชำระต้องเป็นวันที่ 1–31' }, { status: 400 })
+    }
 
     const buyer = await prisma.buyer.create({
-      data: { name, phone: phone || null },
+      data: { name, phone: phone || null, defaultDueDay: defaultDueDay ?? null },
     })
 
     return NextResponse.json(buyer)
