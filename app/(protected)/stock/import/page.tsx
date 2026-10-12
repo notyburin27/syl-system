@@ -180,7 +180,7 @@ export default function StockImportPage() {
           rowKey="id"
           loading={loading}
           size="small"
-          pagination={{ pageSize: 10 }}
+          pagination={{ defaultPageSize: 20 }}
         />
       </Card>
 

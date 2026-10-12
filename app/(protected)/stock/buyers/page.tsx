@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, App, Space } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons'
+import { Table, Button, Card, App, Space, Input } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { Buyer } from '@/types/stock'
 import BuyerFormModal from '@/components/stock/BuyerFormModal'
@@ -16,6 +16,7 @@ export default function BuyersPage() {
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBuyer, setEditingBuyer] = useState<Buyer | null>(null)
+  const [search, setSearch] = useState('')
 
   const fetchBuyers = async () => {
     setLoading(true)
@@ -124,30 +125,45 @@ export default function BuyersPage() {
     },
   ]
 
+  const keyword = search.trim().toLowerCase()
+  const filteredBuyers = keyword
+    ? buyers.filter(b => b.name.toLowerCase().includes(keyword) || b.phone?.includes(keyword))
+    : buyers
+
   return (
     <div>
       <Card
         title="รายการลูกค้า"
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingBuyer(null)
-              setModalOpen(true)
-            }}
-          >
-            เพิ่มลูกค้า
-          </Button>
+          <Space>
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="ค้นหาชื่อ/เบอร์โทร"
+              style={{ width: 220 }}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingBuyer(null)
+                setModalOpen(true)
+              }}
+            >
+              เพิ่มลูกค้า
+            </Button>
+          </Space>
         }
       >
         <Table
           columns={columns}
-          dataSource={buyers}
+          dataSource={filteredBuyers}
           rowKey="id"
           loading={loading}
           size="small"
-          pagination={{ pageSize: 10 }}
+          pagination={{ defaultPageSize: 20 }}
         />
       </Card>
 

@@ -148,7 +148,7 @@ export default function ProductsPage() {
           rowKey="id"
           loading={loading}
           size="small"
-          pagination={{ pageSize: 10 }}
+          pagination={{ defaultPageSize: 20 }}
         />
       </Card>
 
