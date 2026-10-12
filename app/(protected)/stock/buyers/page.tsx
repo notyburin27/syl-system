@@ -58,12 +58,6 @@ export default function BuyersPage() {
       key: 'name',
     },
     {
-      title: 'เบอร์โทร',
-      dataIndex: 'phone',
-      key: 'phone',
-      render: (phone: string | null) => phone || '-',
-    },
-    {
       title: 'ยอดค้างชำระ (บาท)',
       dataIndex: 'outstandingAmount',
       key: 'outstandingAmount',
@@ -75,10 +69,10 @@ export default function BuyersPage() {
       align: 'right',
     },
     {
-      title: 'วันที่สร้าง',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
+      title: 'วันครบกำหนดชำระ',
+      dataIndex: 'nextDueDate',
+      key: 'nextDueDate',
+      render: (date: string | null) => (date ? dayjs(date).format('DD/MM/YYYY') : '-'),
     },
     {
       title: 'การดำเนินการ',

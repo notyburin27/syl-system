@@ -18,10 +18,9 @@ export async function GET() {
         },
         invoices: {
           where: { isPaid: false },
-          select: { totalAmount: true },
+          select: { totalAmount: true, dueDate: true },
         },
       },
-      orderBy: { createdAt: 'desc' },
     })
 
     const result = buyers.map(({ stockOuts, invoices, ...buyer }) => {
@@ -30,12 +29,17 @@ export async function GET() {
         .filter(so => so.invoiceId === null)
         .reduce((sum, so) => sum + so.sellingPrice * so.quantity, 0)
       const unpaidInvoices = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
+      // วันครบกำหนดที่ใกล้ที่สุดของใบเสร็จที่ยังไม่จ่าย
+      const dueTimes = invoices.flatMap(inv => (inv.dueDate ? [inv.dueDate.getTime()] : []))
 
       return {
         ...buyer,
         outstandingAmount: uninvoiced + unpaidInvoices,
+        nextDueDate: dueTimes.length ? new Date(Math.min(...dueTimes)) : null,
       }
     })
+    // เรียงชื่อใน JS ด้วย locale ไทย — collation ของ DB ไม่รับประกันลำดับภาษาไทย (สระหน้า เ แ โ ใ ไ)
+    result.sort((a, b) => a.name.localeCompare(b.name, 'th'))
 
     return NextResponse.json(result)
   } catch (error) {

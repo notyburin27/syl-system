@@ -15,7 +15,8 @@ test.describe('รายการลูกค้า — ค้นหา', () => 
 
   test.beforeEach(async ({ page }) => {
     await login(page, 'testadmin', /:\d+\/(?!login)/)
-    ids = [await createBuyer(page, { name: nameA }), await createBuyer(page, { name: nameB, phone: phoneB })]
+    // สร้าง B ก่อน A — ถ้ายังเรียงตามวันที่สร้าง (ใหม่สุดก่อน) A จะขึ้นก่อน
+    ids = [await createBuyer(page, { name: nameB, phone: phoneB }), await createBuyer(page, { name: nameA })]
   })
 
   test.afterEach(async ({ page }) => {
@@ -39,5 +40,8 @@ test.describe('รายการลูกค้า — ค้นหา', () => 
     await search.fill(String(suffix))
     await expect(rowA).toBeVisible()
     await expect(rowB).toBeVisible()
+    // เรียงตามชื่อภาษาไทย: "มานี" มาก่อน "สมชาย"
+    const names = page.locator('tbody tr td:first-child')
+    await expect(names).toHaveText([nameB, nameA])
   })
 })

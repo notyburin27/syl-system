@@ -15,6 +15,7 @@ export interface Buyer {
   phone: string | null
   defaultDueDay: number | null
   outstandingAmount?: number
+  nextDueDate?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -67,6 +68,7 @@ export interface MonthlySummary {
   cost: number
   profit: number
   totalOutstanding: number
+  stockValue: number
   details: {
     productId: string
     productName: string

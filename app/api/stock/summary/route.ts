@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     const endDate = new Date(year, month, 1)
 
     // Fetch sales and purchases for the month
-    const [sales, purchases, totalOutstandingData, productCount] = await Promise.all([
+    const [sales, purchases, totalOutstandingData, productCount, allPurchases, soldTotals] = await Promise.all([
       prisma.stockOut.findMany({
         where: { date: { gte: startDate, lt: endDate } },
         include: { product: { select: { id: true, name: true } } },
@@ -39,7 +39,31 @@ export async function GET(req: Request) {
         }),
       ]),
       prisma.product.count({ where: { isActive: true } }),
+      // ทุกรายการซื้อ/ขายตลอดอายุ — ใช้คิดต้นทุนเฉลี่ยและสต๊อกคงค้าง
+      prisma.stockIn.findMany({ select: { productId: true, purchasePrice: true, quantity: true } }),
+      prisma.stockOut.groupBy({ by: ['productId'], _sum: { quantity: true } }),
     ])
+
+    // ต้นทุนเฉลี่ยถ่วงน้ำหนักต่อหน่วยของแต่ละสินค้า = ยอดซื้อรวม / จำนวนซื้อรวม
+    const purchaseTotals = new Map<string, { quantity: number; amount: number }>()
+    for (const p of allPurchases) {
+      const t = purchaseTotals.get(p.productId) ?? { quantity: 0, amount: 0 }
+      t.quantity += p.quantity
+      t.amount += p.purchasePrice * p.quantity
+      purchaseTotals.set(p.productId, t)
+    }
+    const avgCost = (productId: string) => {
+      const t = purchaseTotals.get(productId)
+      return t && t.quantity > 0 ? t.amount / t.quantity : 0
+    }
+
+    // มูลค่าสต๊อกคงค้าง (ราคาทุน) = จำนวนคงเหลือ × ต้นทุนเฉลี่ย
+    const soldQuantity = new Map(soldTotals.map(s => [s.productId, s._sum.quantity ?? 0]))
+    let stockValue = 0
+    for (const [productId, t] of purchaseTotals) {
+      const remaining = t.quantity - (soldQuantity.get(productId) ?? 0)
+      if (remaining > 0) stockValue += remaining * avgCost(productId)
+    }
 
     // Calculate revenue per product
     const productSalesMap = new Map<string, { name: string; quantitySold: number; revenue: number }>()
@@ -57,34 +81,34 @@ export async function GET(req: Request) {
       }
     }
 
-    // Calculate cost per product
-    const productCostMap = new Map<string, { name: string; quantityPurchased: number; cost: number }>()
+    // Purchased quantity per product (info only — not used for profit)
+    const productPurchaseMap = new Map<string, { name: string; quantityPurchased: number }>()
     for (const purchase of purchases) {
-      const existing = productCostMap.get(purchase.productId)
+      const existing = productPurchaseMap.get(purchase.productId)
       if (existing) {
         existing.quantityPurchased += purchase.quantity
-        existing.cost += purchase.purchasePrice * purchase.quantity
       } else {
-        productCostMap.set(purchase.productId, {
+        productPurchaseMap.set(purchase.productId, {
           name: purchase.product.name,
           quantityPurchased: purchase.quantity,
-          cost: purchase.purchasePrice * purchase.quantity,
         })
       }
     }
 
     // Merge into details
-    const allProductIds = new Set([...productSalesMap.keys(), ...productCostMap.keys()])
+    // กำไรคิดเฉพาะสินค้าที่ขายในเดือน: cost = จำนวนขาย × ต้นทุนเฉลี่ย
+    const allProductIds = new Set([...productSalesMap.keys(), ...productPurchaseMap.keys()])
     const details = Array.from(allProductIds).map(productId => {
       const salesData = productSalesMap.get(productId)
-      const costData = productCostMap.get(productId)
+      const purchaseData = productPurchaseMap.get(productId)
+      const quantitySold = salesData?.quantitySold || 0
       return {
         productId,
-        productName: salesData?.name || costData?.name || '',
-        quantitySold: salesData?.quantitySold || 0,
+        productName: salesData?.name || purchaseData?.name || '',
+        quantitySold,
         revenue: salesData?.revenue || 0,
-        quantityPurchased: costData?.quantityPurchased || 0,
-        cost: costData?.cost || 0,
+        quantityPurchased: purchaseData?.quantityPurchased || 0,
+        cost: quantitySold * avgCost(productId),
       }
     })
 
@@ -103,6 +127,7 @@ export async function GET(req: Request) {
       cost,
       profit: revenue - cost,
       totalOutstanding,
+      stockValue,
       productCount,
       details,
     })

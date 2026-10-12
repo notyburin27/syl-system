@@ -7,6 +7,7 @@ import {
   DollarOutlined,
   RiseOutlined,
   WarningOutlined,
+  InboxOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { MonthlySummary } from '@/types/stock'
@@ -62,7 +63,7 @@ export default function StockDashboardPage() {
       align: 'right',
     },
     {
-      title: 'ต้นทุน (บาท)',
+      title: 'ต้นทุนขาย (บาท)',
       dataIndex: 'cost',
       key: 'cost',
       render: (v: number) => v.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
@@ -88,7 +89,7 @@ export default function StockDashboardPage() {
       <h2 style={{ marginBottom: 16 }}>ภาพรวมคลังสินค้า</h2>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}>
+        <Col flex="1">
           <Card>
             <Statistic
               title="จำนวนสินค้า"
@@ -98,7 +99,18 @@ export default function StockDashboardPage() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col flex="1">
+          <Card>
+            <Statistic
+              title="มูลค่าสต๊อกคงค้าง (ราคาทุน)"
+              value={summary?.stockValue ?? 0}
+              precision={2}
+              prefix={<InboxOutlined />}
+              suffix="บาท"
+            />
+          </Card>
+        </Col>
+        <Col flex="1">
           <Card>
             <Statistic
               title="ยอดขายเดือนนี้"
@@ -110,7 +122,7 @@ export default function StockDashboardPage() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col flex="1">
           <Card>
             <Statistic
               title="กำไรเดือนนี้"
@@ -122,7 +134,7 @@ export default function StockDashboardPage() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col flex="1">
           <Card>
             <Statistic
               title="ยอดค้างชำระรวม"
