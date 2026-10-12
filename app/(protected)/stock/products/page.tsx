@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, App, Space, Image } from 'antd'
+import { Table, Button, Card, App, Space } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { Product } from '@/types/stock'
@@ -49,20 +49,6 @@ export default function ProductsPage() {
   }
 
   const columns: ColumnsType<Product> = [
-    {
-      title: 'รูปภาพ',
-      dataIndex: 'image',
-      key: 'image',
-      width: 80,
-      render: (image: string | null) =>
-        image ? (
-          <Image src={image} alt="product" width={50} height={50} style={{ objectFit: 'cover', borderRadius: 4 }} />
-        ) : (
-          <div style={{ width: 50, height: 50, background: '#f0f0f0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 12 }}>
-            ไม่มีรูป
-          </div>
-        ),
-    },
     {
       title: 'ชื่อสินค้า',
       dataIndex: 'name',
