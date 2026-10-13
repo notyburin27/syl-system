@@ -413,7 +413,7 @@ export default function BuyerDetailPage() {
                   rowKey="id"
                   loading={invoiceLoading}
                   size="small"
-                  pagination={{ defaultPageSize: 20 }}
+                  pagination={{ defaultPageSize: 100 }}
                   expandable={{ expandedRowRender }}
                 />
               ),

@@ -62,6 +62,39 @@ test.describe('ภาพรวมคลังสินค้า — กำไร
     await expect(page.getByText('มูลค่าสต๊อกคงค้าง (ราคาทุน)')).toBeVisible()
   })
 
+  test('การ์ดกำไรแยกข้าว (ชื่อขึ้นต้นด้วย "ข้าว") กับสินค้าอื่น', async ({ page }) => {
+    const riceId = (await post<{ id: string }>(page, '/api/stock/products', { name: `ข้าว E2E ${suffix}`, sellingPrice: 80 })).id
+    try {
+      // ข้าว: ซื้อ @50 ขาย 2 @80 → กำไร 60 / สินค้าอื่น: ซื้อ @50 ขาย 1 @100 → กำไร 50
+      for (const [pid, sellingPrice, quantity] of [[riceId, 80, 2], [productId, 100, 1]] as const) {
+        const si = await post<{ id: string }>(page, '/api/stock/import', {
+          productId: pid, purchasePrice: 50, quantity: 10, date: `${YEAR}-0${MONTH}-05T00:00:00.000Z`,
+        })
+        created.stockIns.push(si.id)
+        const so = await post<{ id: string }>(page, '/api/stock/export', {
+          buyerId, productId: pid, quantity, sellingPrice, date: `${YEAR}-0${MONTH}-10T00:00:00.000Z`,
+        })
+        created.stockOuts.push(so.id)
+      }
+
+      await page.goto('/stock')
+      await page.locator('#summary-month').click()
+      await page.locator('#summary-month').fill(`0${MONTH}/${YEAR}`)
+      await page.locator('#summary-month').press('Enter')
+
+      const card = (title: string) => page.locator('.ant-statistic').filter({ has: page.getByText(title, { exact: true }) })
+      await expect(card('กำไรข้าว')).toContainText('60.00')
+      await expect(card('กำไรสินค้าอื่น')).toContainText('50.00')
+      await expect(card('กำไรเดือนนี้')).toContainText('110.00')
+    } finally {
+      for (const id of created.stockOuts) await page.request.delete(`/api/stock/export/${id}`)
+      for (const id of created.stockIns) await page.request.delete(`/api/stock/import/${id}`)
+      created.stockOuts = []
+      created.stockIns = []
+      await page.request.delete(`/api/stock/products/${riceId}`)
+    }
+  })
+
   test('รายการลูกค้า: แสดงวันครบกำหนดที่ใกล้ที่สุดของใบเสร็จที่ยังไม่ชำระ', async ({ page }) => {
     const si = await post<{ id: string }>(page, '/api/stock/import', {
       productId, purchasePrice: 50, quantity: 10, date: `${YEAR}-0${MONTH}-05T00:00:00.000Z`,

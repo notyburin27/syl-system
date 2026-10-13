@@ -157,7 +157,7 @@ export default function BuyersPage() {
           rowKey="id"
           loading={loading}
           size="small"
-          pagination={{ defaultPageSize: 20 }}
+          pagination={{ defaultPageSize: 100 }}
         />
       </Card>
 

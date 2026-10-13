@@ -37,6 +37,14 @@ export default function StockDashboardPage() {
     fetchSummary()
   }, [fetchSummary])
 
+  // แยกกำไรข้าว: สินค้าที่ชื่อขึ้นต้นด้วย "ข้าว"
+  const isRice = (productName: string) => productName.trim().startsWith('ข้าว')
+  const riceProfit = (summary?.details ?? [])
+    .filter(d => isRice(d.productName))
+    .reduce((sum, d) => sum + d.revenue - d.cost, 0)
+  const otherProfit = (summary?.profit ?? 0) - riceProfit
+  const profitColor = (v: number) => (v >= 0 ? '#3f8600' : '#cf1322')
+
   const detailColumns: ColumnsType<MonthlySummary['details'][0]> = [
     {
       title: 'สินค้า',
@@ -88,8 +96,8 @@ export default function StockDashboardPage() {
     <div>
       <h2 style={{ marginBottom: 16 }}>ภาพรวมคลังสินค้า</h2>
 
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col flex="1">
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="จำนวนสินค้า"
@@ -99,7 +107,7 @@ export default function StockDashboardPage() {
             />
           </Card>
         </Col>
-        <Col flex="1">
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="มูลค่าสต๊อกคงค้าง (ราคาทุน)"
@@ -110,7 +118,7 @@ export default function StockDashboardPage() {
             />
           </Card>
         </Col>
-        <Col flex="1">
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="ยอดขายเดือนนี้"
@@ -122,7 +130,7 @@ export default function StockDashboardPage() {
             />
           </Card>
         </Col>
-        <Col flex="1">
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="กำไรเดือนนี้"
@@ -130,11 +138,35 @@ export default function StockDashboardPage() {
               precision={2}
               prefix={<RiseOutlined />}
               suffix="บาท"
-              valueStyle={{ color: (summary?.profit ?? 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: profitColor(summary?.profit ?? 0) }}
             />
           </Card>
         </Col>
-        <Col flex="1">
+        <Col flex="1 1 200px">
+          <Card>
+            <Statistic
+              title="กำไรข้าว"
+              value={riceProfit}
+              precision={2}
+              prefix={<RiseOutlined />}
+              suffix="บาท"
+              valueStyle={{ color: profitColor(riceProfit) }}
+            />
+          </Card>
+        </Col>
+        <Col flex="1 1 200px">
+          <Card>
+            <Statistic
+              title="กำไรสินค้าอื่น"
+              value={otherProfit}
+              precision={2}
+              prefix={<RiseOutlined />}
+              suffix="บาท"
+              valueStyle={{ color: profitColor(otherProfit) }}
+            />
+          </Card>
+        </Col>
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="ยอดค้างชำระรวม"
@@ -152,6 +184,7 @@ export default function StockDashboardPage() {
         title="สรุปกำไรรายเดือน"
         extra={
           <DatePicker
+            id="summary-month"
             picker="month"
             value={selectedMonth}
             onChange={(date) => date && setSelectedMonth(date)}
