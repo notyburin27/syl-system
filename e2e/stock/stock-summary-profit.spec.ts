@@ -95,6 +95,54 @@ test.describe('ภาพรวมคลังสินค้า — กำไร
     }
   })
 
+  test('รายการลูกค้า: กดหัวคอลัมน์วันครบกำหนดเพื่อเรียง, ไม่มีวันครบกำหนดอยู่ท้ายเสมอ', async ({ page }) => {
+    const si = await post<{ id: string }>(page, '/api/stock/import', {
+      productId, purchasePrice: 50, quantity: 10, date: `${YEAR}-0${MONTH}-05T00:00:00.000Z`,
+    })
+    created.stockIns.push(si.id)
+
+    // ชื่อเรียงตามตัวอักษร ก < ข < ค แต่วันครบกำหนดสลับลำดับ, ค ไม่มีใบเสร็จ
+    const tag = `E2E เรียง ${suffix}`
+    const buyers = [
+      { name: `${tag} ก`, due: '2099-06-01' },
+      { name: `${tag} ข`, due: '2099-04-01' },
+      { name: `${tag} ค`, due: null },
+    ]
+    const extraBuyerIds: string[] = []
+    try {
+      for (const b of buyers) {
+        const id = (await post<{ id: string }>(page, '/api/stock/buyers', { name: b.name })).id
+        extraBuyerIds.push(id)
+        if (!b.due) continue
+        const so = await post<{ id: string }>(page, '/api/stock/export', {
+          buyerId: id, productId, quantity: 1, sellingPrice: 100, date: `${YEAR}-0${MONTH}-10T00:00:00.000Z`,
+        })
+        created.stockOuts.push(so.id)
+        const inv = await post<{ id: string }>(page, '/api/stock/invoices', {
+          buyerId: id, stockOutIds: [so.id], dueDate: `${b.due}T00:00:00.000Z`,
+        })
+        created.invoices.push(inv.id)
+      }
+
+      await page.goto('/stock/buyers')
+      await page.getByPlaceholder('ค้นหาชื่อ/เบอร์โทร').fill(tag)
+      const names = page.locator('tbody tr td:first-child')
+      await expect(names).toHaveText([`${tag} ก`, `${tag} ข`, `${tag} ค`])
+
+      const header = page.getByRole('columnheader', { name: 'วันครบกำหนดชำระ' })
+      await header.click()
+      await expect(names).toHaveText([`${tag} ข`, `${tag} ก`, `${tag} ค`])
+      await header.click()
+      await expect(names).toHaveText([`${tag} ก`, `${tag} ข`, `${tag} ค`])
+    } finally {
+      for (const id of created.invoices) await page.request.delete(`/api/stock/invoices/${id}`)
+      for (const id of created.stockOuts) await page.request.delete(`/api/stock/export/${id}`)
+      created.invoices = []
+      created.stockOuts = []
+      for (const id of extraBuyerIds) await page.request.delete(`/api/stock/buyers/${id}`)
+    }
+  })
+
   test('รายการลูกค้า: แสดงวันครบกำหนดที่ใกล้ที่สุดของใบเสร็จที่ยังไม่ชำระ', async ({ page }) => {
     const si = await post<{ id: string }>(page, '/api/stock/import', {
       productId, purchasePrice: 50, quantity: 10, date: `${YEAR}-0${MONTH}-05T00:00:00.000Z`,

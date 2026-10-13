@@ -73,6 +73,15 @@ export default function BuyersPage() {
       dataIndex: 'nextDueDate',
       key: 'nextDueDate',
       render: (date: string | null) => (date ? dayjs(date).format('DD/MM/YYYY') : '-'),
+      // ไม่มีวันครบกำหนดอยู่ท้ายเสมอ — antd กลับผล compare ตอน descend จึงต้องกลับเองด้วย
+      sorter: (a, b, sortOrder) => {
+        if (!a.nextDueDate || !b.nextDueDate) {
+          if (a.nextDueDate === b.nextDueDate) return 0
+          const nullLast = a.nextDueDate ? -1 : 1
+          return sortOrder === 'descend' ? -nullLast : nullLast
+        }
+        return dayjs(a.nextDueDate).valueOf() - dayjs(b.nextDueDate).valueOf()
+      },
     },
     {
       title: 'การดำเนินการ',
