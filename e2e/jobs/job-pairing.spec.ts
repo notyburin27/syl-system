@@ -509,6 +509,11 @@ test.describe.serial('จับคู่งาน', () => {
     const cleared = await page.request.patch(`/api/jobs/${firstId}/clear`)
     expect(cleared.ok()).toBeTruthy()
     expect((await cleared.json()).clearStatus).toBe(true)
+
+    // ใบ primary ก็ต้องเคลียร์ได้ แม้ใบ secondary จะ income = null ตามดีไซน์
+    const clearedPrimary = await page.request.patch(`/api/jobs/${secondId}/clear`)
+    expect(clearedPrimary.ok()).toBeTruthy()
+    expect((await clearedPrimary.json()).clearStatus).toBe(true)
   })
 
   // ─── 10. ลบใบเดียวของคู่ ────────────────────────────────────────────────

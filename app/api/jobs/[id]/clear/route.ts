@@ -46,16 +46,21 @@ export async function PATCH(
       return NextResponse.json(job);
     }
 
-    // งานที่จับคู่อยู่ ห้ามล็อคถ้าอีกใบยังไม่มียอด — ล็อคแล้วจะปลดคู่ไม่ได้
+    // งานที่จับคู่อยู่ ห้ามล็อคถ้าคู่นี้ยังไม่มียอด — ล็อคแล้วจะปลดคู่ไม่ได้
     // (pair-link DELETE ปฏิเสธเมื่อมีฝั่งใดเคลียร์) และยอดของคู่นี้จะค้างเป็น 0 ตลอดไป
+    // ยอดของคู่อยู่ที่ใบ primary เสมอ (secondary income = null ตามดีไซน์)
+    // จึงต้องเช็ค income ของ primary ไม่ว่ากำลังเคลียร์ฝั่งไหน
     const partner =
       existing.pairLinkAsPrimary?.secondaryJob ??
       existing.pairLinkAsSecondary?.primaryJob ??
       null;
-    if (partner && partner.income === null) {
+    const pairIncome = existing.pairLinkAsPrimary
+      ? existing.income
+      : existing.pairLinkAsSecondary?.primaryJob.income;
+    if (partner && pairIncome === null) {
       return NextResponse.json(
         {
-          error: `งานนี้จับคู่กับ ${partner.jobNumber} ซึ่งยังไม่มียอด กรุณากด "ดึงข้อมูล" หรือปลดคู่ก่อนเคลียร์`,
+          error: `งานนี้จับคู่กับ ${partner.jobNumber} และคู่นี้ยังไม่มียอด กรุณากด "ดึงข้อมูล" หรือปลดคู่ก่อนเคลียร์`,
         },
         { status: 400 }
       );
