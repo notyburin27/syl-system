@@ -15,15 +15,7 @@ export async function PATCH(
     const { id } = await params;
     const existing = await prisma.job.findUnique({
       where: { id },
-      include: {
-        transfers: true,
-        pairLinkAsPrimary: {
-          select: { secondaryJob: { select: { jobNumber: true, income: true } } },
-        },
-        pairLinkAsSecondary: {
-          select: { primaryJob: { select: { jobNumber: true, income: true } } },
-        },
-      },
+      include: { transfers: true },
     });
 
     if (!existing) {
@@ -44,26 +36,6 @@ export async function PATCH(
         data: { clearStatus: false },
       });
       return NextResponse.json(job);
-    }
-
-    // งานที่จับคู่อยู่ ห้ามล็อคถ้าคู่นี้ยังไม่มียอด — ล็อคแล้วจะปลดคู่ไม่ได้
-    // (pair-link DELETE ปฏิเสธเมื่อมีฝั่งใดเคลียร์) และยอดของคู่นี้จะค้างเป็น 0 ตลอดไป
-    // ยอดของคู่อยู่ที่ใบ primary เสมอ (secondary income = null ตามดีไซน์)
-    // จึงต้องเช็ค income ของ primary ไม่ว่ากำลังเคลียร์ฝั่งไหน
-    const partner =
-      existing.pairLinkAsPrimary?.secondaryJob ??
-      existing.pairLinkAsSecondary?.primaryJob ??
-      null;
-    const pairIncome = existing.pairLinkAsPrimary
-      ? existing.income
-      : existing.pairLinkAsSecondary?.primaryJob.income;
-    if (partner && pairIncome === null) {
-      return NextResponse.json(
-        {
-          error: `งานนี้จับคู่กับ ${partner.jobNumber} และคู่นี้ยังไม่มียอด กรุณากด "ดึงข้อมูล" หรือปลดคู่ก่อนเคลียร์`,
-        },
-        { status: 400 }
-      );
     }
 
     // เคลียร์ได้เมื่อส่วนต่างเป็น 0 เท่านั้น
