@@ -472,8 +472,8 @@ test.describe.serial('จับคู่งาน', () => {
     expect(after).toBe(1)
   })
 
-  // ─── 9. เคลียร์ทับคู่ที่ยังไม่มียอด ──────────────────────────────────────
-  test('เคลียร์งานที่จับคู่อยู่ไม่ได้ถ้าอีกใบยังไม่มียอด', async ({ page }) => {
+  // ─── 9. เคลียร์งานที่จับคู่อยู่ ───────────────────────────────────────────
+  test('เคลียร์งานที่จับคู่อยู่ได้ทั้งสองใบ แม้ยังไม่มี income/ค่าเที่ยว', async ({ page }) => {
     const driverId = await createDriver(page)
     const { factoryLocationId, customerId } = await seedRefData(page, 'PAIR9')
 
@@ -486,34 +486,19 @@ test.describe.serial('จับคู่งาน', () => {
     const link = await pairViaApi(page, firstId, secondId)
     // ใบที่สร้างทีหลังถือยอด — จับคู่แล้วยอดถูกล้างทั้งคู่ (ยังไม่ได้กด "ดึงข้อมูล")
     expect(link.primaryJobId).toBe(secondId)
-    expect((await getJob(page, firstId)).income).toBeNull()
-    expect((await getJob(page, secondId)).income).toBeNull()
+    for (const id of [firstId, secondId]) {
+      const job = await getJob(page, id)
+      expect(job.income).toBeNull()
+      expect(job.driverWage).toBeNull()
+    }
 
-    // เคลียร์ใบ secondary ต้องถูกปฏิเสธ พร้อมบอกเลข JOB ของคู่
-    const blocked = await page.request.patch(`/api/jobs/${firstId}/clear`)
-    expect(blocked.status()).toBe(400)
-    expect((await blocked.json()).error).toContain('E2E-PAIR-I2')
-    expect((await getJob(page, firstId)).clearStatus).toBe(false)
-
-    // ฝั่ง primary ก็ถูกปฏิเสธเหมือนกัน (คู่เดียวกัน ยังไม่มียอดทั้งคู่)
-    const blockedPrimary = await page.request.patch(`/api/jobs/${secondId}/clear`)
-    expect(blockedPrimary.status()).toBe(400)
-    expect((await blockedPrimary.json()).error).toContain('E2E-PAIR-I1')
-    expect((await getJob(page, secondId)).clearStatus).toBe(false)
-
-    // เมื่อคู่มียอดแล้ว (primary ถือยอด) ใบ secondary ต้องเคลียร์ได้ตามปกติ
-    const priced = await page.request.patch(`/api/jobs/${secondId}`, {
-      data: { income: 12000, driverWage: 2200 },
-    })
-    expect(priced.ok()).toBeTruthy()
-    const cleared = await page.request.patch(`/api/jobs/${firstId}/clear`)
-    expect(cleared.ok()).toBeTruthy()
-    expect((await cleared.json()).clearStatus).toBe(true)
-
-    // ใบ primary ก็ต้องเคลียร์ได้ แม้ใบ secondary จะ income = null ตามดีไซน์
-    const clearedPrimary = await page.request.patch(`/api/jobs/${secondId}/clear`)
-    expect(clearedPrimary.ok()).toBeTruthy()
-    expect((await clearedPrimary.json()).clearStatus).toBe(true)
+    // income/driverWage ไม่มีผลต่อการเคลียร์ — ดูแค่ส่วนต่าง (ไม่มีค่าใช้จ่าย → 0)
+    // ทอยตู้ไม่มีอัตรา income และบางเส้นทางก็ไม่มีอัตรา ถ้าบังคับไว้คู่นั้นจะเคลียร์ไม่ได้ตลอดไป
+    for (const id of [firstId, secondId]) {
+      const cleared = await page.request.patch(`/api/jobs/${id}/clear`)
+      expect(cleared.ok()).toBeTruthy()
+      expect((await cleared.json()).clearStatus).toBe(true)
+    }
   })
 
   // ─── 10. ลบใบเดียวของคู่ ────────────────────────────────────────────────
