@@ -144,6 +144,27 @@ test.describe.serial('Job core — ยกเลิก / ลบ / โอน / ย
     await expect(page.locator('tr.cancelled-row')).toHaveCount(1)
   })
 
+  test('ยกเลิกงาน: โอนแล้วโอนคืนเต็มจำนวน (รวม 0) ยังติ๊กยกเลิกได้', async ({ page }) => {
+    const driverId = await createDriver(page)
+    const jobId = await createJob(page, { driverId, jobNumber: 'E2E-CANCEL-004', liftFee: 300 })
+    // โอนแล้วโอนคืนก่อนยกเลิก — เคยติดเพราะเช็คผลรวมยอดโอนแทนการมีรายการโอน
+    for (const amount of [300, -300]) {
+      const res = await page.request.post(`/api/jobs/${jobId}/transfers`, { data: { amount, isCompleted: true } })
+      expect(res.ok()).toBeTruthy()
+    }
+
+    await page.goto(`/jobs/${driverId}?month=${CURRENT_MONTH}`)
+    await page.getByTestId('toggle-modal-edit-btn').click()
+    await page.getByRole('cell', { name: 'E2E-CANCEL-004', exact: true }).click()
+    const modal = page.getByRole('dialog')
+    await expect(modal).toBeVisible()
+
+    const cancelBox = modal.getByTestId('job-cancel-checkbox')
+    await expect(cancelBox).toBeEnabled()
+    await cancelBox.check()
+    await expect.poll(async () => (await getJob(page, jobId)).isCancelled).toBe(true)
+  })
+
   // ─── ลบงาน ──────────────────────────────────────────────────────────────
   test('ลบงาน: ลบได้เมื่อยังไม่เคลียร์ และหายจากตาราง', async ({ page }) => {
     const driverId = await createDriver(page)
