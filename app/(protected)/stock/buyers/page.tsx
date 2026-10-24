@@ -6,6 +6,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined
 import type { ColumnsType } from 'antd/es/table'
 import type { Buyer } from '@/types/stock'
 import BuyerFormModal from '@/components/stock/BuyerFormModal'
+import { compareDateNullsLast } from '@/lib/utils/tableSort'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 
@@ -56,11 +57,13 @@ export default function BuyersPage() {
       title: 'ชื่อลูกค้า',
       dataIndex: 'name',
       key: 'name',
+      sorter: (a, b) => a.name.localeCompare(b.name, 'th', { numeric: true }),
     },
     {
       title: 'ยอดค้างชำระ (บาท)',
       dataIndex: 'outstandingAmount',
       key: 'outstandingAmount',
+      sorter: (a, b) => (a.outstandingAmount ?? 0) - (b.outstandingAmount ?? 0),
       render: (amount: number) => (
         <span style={{ color: amount > 0 ? '#cf1322' : '#3f8600', fontWeight: 500 }}>
           {(amount ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
@@ -73,15 +76,7 @@ export default function BuyersPage() {
       dataIndex: 'nextDueDate',
       key: 'nextDueDate',
       render: (date: string | null) => (date ? dayjs(date).format('DD/MM/YYYY') : '-'),
-      // ไม่มีวันครบกำหนดอยู่ท้ายเสมอ — antd กลับผล compare ตอน descend จึงต้องกลับเองด้วย
-      sorter: (a, b, sortOrder) => {
-        if (!a.nextDueDate || !b.nextDueDate) {
-          if (a.nextDueDate === b.nextDueDate) return 0
-          const nullLast = a.nextDueDate ? -1 : 1
-          return sortOrder === 'descend' ? -nullLast : nullLast
-        }
-        return dayjs(a.nextDueDate).valueOf() - dayjs(b.nextDueDate).valueOf()
-      },
+      sorter: (a, b, sortOrder) => compareDateNullsLast(a.nextDueDate, b.nextDueDate, sortOrder),
     },
     {
       title: 'การดำเนินการ',

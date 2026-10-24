@@ -50,17 +50,20 @@ export default function StockDashboardPage() {
       title: 'สินค้า',
       dataIndex: 'productName',
       key: 'productName',
+      sorter: (a, b) => a.productName.localeCompare(b.productName, 'th', { numeric: true }),
     },
     {
       title: 'จำนวนขาย',
       dataIndex: 'quantitySold',
       key: 'quantitySold',
+      sorter: (a, b) => a.quantitySold - b.quantitySold,
       align: 'right',
     },
     {
       title: 'ยอดขาย (บาท)',
       dataIndex: 'revenue',
       key: 'revenue',
+      sorter: (a, b) => a.revenue - b.revenue,
       render: (v: number) => v.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
@@ -68,18 +71,21 @@ export default function StockDashboardPage() {
       title: 'จำนวนซื้อ',
       dataIndex: 'quantityPurchased',
       key: 'quantityPurchased',
+      sorter: (a, b) => a.quantityPurchased - b.quantityPurchased,
       align: 'right',
     },
     {
       title: 'ต้นทุนขาย (บาท)',
       dataIndex: 'cost',
       key: 'cost',
+      sorter: (a, b) => a.cost - b.cost,
       render: (v: number) => v.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
     {
       title: 'กำไร (บาท)',
       key: 'profit',
+      sorter: (a, b) => (a.revenue - a.cost) - (b.revenue - b.cost),
       render: (_, record) => {
         const profit = record.revenue - record.cost
         return (

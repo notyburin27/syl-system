@@ -41,19 +41,21 @@ export default function StockMonthlySummaryPage() {
       title: 'สินค้า',
       dataIndex: 'productName',
       key: 'productName',
+      sorter: (a, b) => a.productName.localeCompare(b.productName, 'th', { numeric: true }),
       render: (name: string, record) => (
         <>
           {name} {record.isRice ? <Tag color="gold">ข้าวสาร</Tag> : <Tag>สินค้า</Tag>}
         </>
       ),
     },
-    { title: 'จำนวนขาย', dataIndex: 'quantity', key: 'quantity', align: 'right' },
-    { title: 'ยอดขาย (บาท)', dataIndex: 'revenue', key: 'revenue', render: money, align: 'right' },
-    { title: 'ต้นทุนขาย (บาท)', dataIndex: 'cost', key: 'cost', render: money, align: 'right' },
+    { title: 'จำนวนขาย', dataIndex: 'quantity', key: 'quantity', sorter: (a, b) => a.quantity - b.quantity, align: 'right' },
+    { title: 'ยอดขาย (บาท)', dataIndex: 'revenue', key: 'revenue', sorter: (a, b) => a.revenue - b.revenue, render: money, align: 'right' },
+    { title: 'ต้นทุนขาย (บาท)', dataIndex: 'cost', key: 'cost', sorter: (a, b) => a.cost - b.cost, render: money, align: 'right' },
     {
       title: 'กำไร (บาท)',
       dataIndex: 'profit',
       key: 'profit',
+      sorter: (a, b) => a.profit - b.profit,
       render: (v: number) => <span style={{ color: profitColor(v), fontWeight: 500 }}>{money(v)}</span>,
       align: 'right',
     },
@@ -64,13 +66,20 @@ export default function StockMonthlySummaryPage() {
       title: 'ครบกำหนดชำระ',
       dataIndex: 'dueDate',
       key: 'dueDate',
+      sorter: (a, b) => dayjs(a.dueDate).valueOf() - dayjs(b.dueDate).valueOf(),
       render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
-    { title: 'ลูกค้า', dataIndex: 'buyerName', key: 'buyerName' },
-    { title: 'ยอดรวม (บาท)', dataIndex: 'totalAmount', key: 'totalAmount', render: money, align: 'right' },
+    {
+      title: 'ลูกค้า',
+      dataIndex: 'buyerName',
+      key: 'buyerName',
+      sorter: (a, b) => a.buyerName.localeCompare(b.buyerName, 'th', { numeric: true }),
+    },
+    { title: 'ยอดรวม (บาท)', dataIndex: 'totalAmount', key: 'totalAmount', sorter: (a, b) => a.totalAmount - b.totalAmount, render: money, align: 'right' },
     {
       title: 'สถานะ',
       key: 'status',
+      sorter: (a, b) => Number(a.isPaid) - Number(b.isPaid),
       render: (_, record) =>
         record.isPaid ? <Tag color="green">ชำระแล้ว</Tag> : <Tag color="red">ค้างชำระ</Tag>,
     },
