@@ -65,40 +65,47 @@ export default function StockExportPage() {
       title: 'วันที่',
       dataIndex: 'date',
       key: 'date',
+      sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
       render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'สินค้า',
       dataIndex: ['product', 'name'],
       key: 'product',
+      sorter: (a, b) => (a.product?.name ?? '').localeCompare((b.product?.name ?? ''), 'th', { numeric: true }),
     },
     {
       title: 'ผู้ซื้อ',
       dataIndex: ['buyer', 'name'],
       key: 'buyer',
+      sorter: (a, b) => (a.buyer?.name ?? '').localeCompare((b.buyer?.name ?? ''), 'th', { numeric: true }),
     },
     {
       title: 'จำนวน',
       dataIndex: 'quantity',
       key: 'quantity',
+      sorter: (a, b) => a.quantity - b.quantity,
       align: 'right',
     },
     {
       title: 'ราคาขาย/หน่วย',
       dataIndex: 'sellingPrice',
       key: 'sellingPrice',
+      sorter: (a, b) => a.sellingPrice - b.sellingPrice,
       render: (price: number) => price.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
     {
       title: 'รวม (บาท)',
       key: 'total',
+      sorter: (a, b) => a.sellingPrice * a.quantity - b.sellingPrice * b.quantity,
       render: (_, record) => (record.sellingPrice * record.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
     {
       title: 'สถานะจัดส่ง',
       key: 'delivery',
+      sorter: (a, b) => Number(a.isDelivered) - Number(b.isDelivered),
       render: (_, record) =>
         record.isDelivered ? (
           <Tag color="green">ได้รับแล้ว</Tag>
@@ -109,6 +116,7 @@ export default function StockExportPage() {
     {
       title: 'ใบเสร็จ',
       key: 'invoice',
+      sorter: (a, b) => Number(!!a.invoiceId) - Number(!!b.invoiceId),
       render: (_, record) =>
         record.invoiceId ? (
           <Tag color="blue">ออกใบเสร็จแล้ว</Tag>

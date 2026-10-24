@@ -8,6 +8,7 @@ import type { StockOut, Invoice } from '@/types/stock'
 import { useRouter, useParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { nextMonthDueDate } from '@/lib/utils/dueDate'
+import { compareDateNullsLast } from '@/lib/utils/tableSort'
 
 interface BuyerDetail {
   id: string
@@ -152,35 +153,41 @@ export default function BuyerDetailPage() {
       title: 'วันที่',
       dataIndex: 'date',
       key: 'date',
+      sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
       render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
       title: 'สินค้า',
       dataIndex: ['product', 'name'],
       key: 'product',
+      sorter: (a, b) => (a.product?.name ?? '').localeCompare((b.product?.name ?? ''), 'th', { numeric: true }),
     },
     {
       title: 'จำนวน',
       dataIndex: 'quantity',
       key: 'quantity',
+      sorter: (a, b) => a.quantity - b.quantity,
       align: 'right',
     },
     {
       title: 'ราคาขาย/หน่วย',
       dataIndex: 'sellingPrice',
       key: 'sellingPrice',
+      sorter: (a, b) => a.sellingPrice - b.sellingPrice,
       render: (price: number) => price.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
     {
       title: 'รวม (บาท)',
       key: 'total',
+      sorter: (a, b) => a.sellingPrice * a.quantity - b.sellingPrice * b.quantity,
       render: (_, record) => (record.sellingPrice * record.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
     {
       title: 'สถานะจัดส่ง',
       key: 'delivery',
+      sorter: (a, b) => Number(a.isDelivered) - Number(b.isDelivered),
       render: (_, record) =>
         record.isDelivered ? (
           <Tag color="green">ได้รับแล้ว</Tag>
@@ -195,18 +202,21 @@ export default function BuyerDetailPage() {
       title: 'เลขใบเสร็จ',
       dataIndex: 'id',
       key: 'id',
+      sorter: (a, b) => a.id.slice(-8).toUpperCase().localeCompare(b.id.slice(-8).toUpperCase(), 'th'),
       render: (id: string) => id.slice(-8).toUpperCase(),
     },
     {
       title: 'วันที่',
       dataIndex: 'createdAt',
       key: 'createdAt',
+      sorter: (a, b) => dayjs(a.createdAt).valueOf() - dayjs(b.createdAt).valueOf(),
       render: (date: string) => dayjs(date).format('DD/MM/YYYY HH:mm'),
     },
     {
       title: 'ยอดรวม (บาท)',
       dataIndex: 'totalAmount',
       key: 'totalAmount',
+      sorter: (a, b) => a.totalAmount - b.totalAmount,
       render: (amount: number) => amount.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
@@ -214,11 +224,13 @@ export default function BuyerDetailPage() {
       title: 'ครบกำหนด',
       dataIndex: 'dueDate',
       key: 'dueDate',
+      sorter: (a, b, sortOrder) => compareDateNullsLast(a.dueDate, b.dueDate, sortOrder),
       render: (date: string | null) => date ? dayjs(date).format('DD/MM/YYYY') : '-',
     },
     {
       title: 'สถานะ',
       key: 'status',
+      sorter: (a, b) => Number(a.isPaid) - Number(b.isPaid),
       render: (_, record) =>
         record.isPaid ? (
           <Tag color="green">ชำระแล้ว</Tag>
@@ -230,6 +242,7 @@ export default function BuyerDetailPage() {
       title: 'วันที่ชำระ',
       dataIndex: 'paidAt',
       key: 'paidAt',
+      sorter: (a, b, sortOrder) => compareDateNullsLast(a.paidAt, b.paidAt, sortOrder),
       render: (date: string | null) => date ? dayjs(date).format('DD/MM/YYYY HH:mm') : '-',
     },
     {
