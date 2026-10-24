@@ -53,11 +53,14 @@ export default function ProductsPage() {
       title: 'ชื่อสินค้า',
       dataIndex: 'name',
       key: 'name',
+      // numeric: เรียง "5 กก." < "14 กก." < "40 กก." ตามตัวเลข ไม่ใช่ตามตัวอักษร
+      sorter: (a, b) => a.name.localeCompare(b.name, 'th', { numeric: true }),
     },
     {
       title: 'ราคาขาย (บาท)',
       dataIndex: 'sellingPrice',
       key: 'sellingPrice',
+      sorter: (a, b) => a.sellingPrice - b.sellingPrice,
       render: (price: number) => price.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
@@ -65,6 +68,7 @@ export default function ProductsPage() {
       title: 'สต็อกคงเหลือ',
       dataIndex: 'stockRemaining',
       key: 'stockRemaining',
+      sorter: (a, b) => (a.stockRemaining ?? 0) - (b.stockRemaining ?? 0),
       render: (qty: number) => qty ?? 0,
       align: 'right',
     },
@@ -72,6 +76,7 @@ export default function ProductsPage() {
       title: 'วันที่สร้าง',
       dataIndex: 'createdAt',
       key: 'createdAt',
+      sorter: (a, b) => dayjs(a.createdAt).valueOf() - dayjs(b.createdAt).valueOf(),
       render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
