@@ -78,3 +78,29 @@ export interface MonthlySummary {
     cost: number
   }[]
 }
+
+export interface ReceiptMonthlySummary {
+  year: number
+  month: number
+  revenue: number
+  cost: number
+  profit: number
+  riceProfit: number
+  productProfit: number
+  details: {
+    productId: string
+    productName: string
+    quantity: number
+    revenue: number
+    cost: number
+    profit: number
+    isRice: boolean
+  }[]
+  invoices: {
+    id: string
+    buyerName: string
+    dueDate: string
+    totalAmount: number
+    isPaid: boolean
+  }[]
+}
