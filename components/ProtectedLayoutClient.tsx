@@ -59,6 +59,7 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/stock/import")) return "stock-import";
     if (pathname?.startsWith("/stock/export")) return "stock-export";
     if (pathname?.startsWith("/stock/buyers")) return "stock-buyers";
+    if (pathname?.startsWith("/stock/summary")) return "stock-summary";
     if (pathname === "/stock") return "stock-dashboard";
     if (pathname?.startsWith("/jobs/settings/fuel-price")) return "jobs-fuel-price";
     if (pathname?.startsWith("/jobs/settings/rates/transfer")) return "jobs-rates-transfer";
@@ -164,6 +165,7 @@ export default function ProtectedLayoutClient({
       { key: "stock-import", label: <Link href="/stock/import">นำเข้าสินค้า</Link> },
       { key: "stock-export", label: <Link href="/stock/export">ขายสินค้า</Link> },
       { key: "stock-buyers", label: <Link href="/stock/buyers">ลูกค้า</Link> },
+      { key: "stock-summary", label: <Link href="/stock/summary">สรุป</Link> },
     ],
   };
 
