@@ -99,7 +99,7 @@ prod ยังไม่มีตารางนี้
 
 ## API
 
-ทุก route: `auth()` → 401 ถ้าไม่มี session, **403 ถ้า role ไม่ใช่ ADMIN**
+ทุก route: `requireApiRoles(RATE_ROLES)` → 401 ถ้าไม่มี session, **403 ถ้า role ไม่ใช่ ADMIN/MANAGER** (role มาจาก [lib/settingsNav.ts](../../../lib/settingsNav.ts) ร่วมกับเมนูและหน้า)
 Error message ภาษาไทย
 
 | Method | Route | หน้าที่ |
@@ -138,7 +138,7 @@ Body POST/PUT: `{ kind: "run" | "towing", size, locationId, isLaemChabang?: bool
 
 ## Settings Page
 
-- Route: `app/(protected)/jobs/settings/fuel-standard/page.tsx` — server component เช็ค ADMIN
+- Route: `app/(protected)/jobs/settings/fuel-standard/page.tsx` — `requireSettingsPage` (ADMIN/MANAGER)
 - `components/jobs/FuelStandardManager.tsx`
   - ตาราง `size="small"`: ประเภท | SIZE | สถานที่ | แหลมฉบัง | ลิตร | จัดการ
   - Filter: ประเภท, size, สถานที่
@@ -295,5 +295,5 @@ interface FuelMissingRouteView {
 
 ### E2E (Playwright)
 
-- `e2e/jobs/fuel-standard.spec.ts` — เพิ่ม/แก้/ลบ งานวิ่งและทอย, เพิ่มซ้ำ → error, Import CSV (สำเร็จ / ไม่พบสถานที่ / ซ้ำในไฟล์ / key เดิม → update), MANAGER → 403
+- `e2e/jobs/fuel-standard.spec.ts` — เพิ่ม/แก้/ลบ งานวิ่งและทอย, เพิ่มซ้ำ → error, Import CSV (สำเร็จ / ไม่พบสถานที่ / ซ้ำในไฟล์ / key เดิม → update), MANAGER เข้าได้, STAFF → 403
 - `e2e/summary/fuel-standard-summary.spec.ts` — seed งานวิ่ง + งานทอย + จุดเติม → การ์ดแสดงค่าถูก; ช่วงที่ขาดค่า → quick-add → การ์ดคำนวณใหม่

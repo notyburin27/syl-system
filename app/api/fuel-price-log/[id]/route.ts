@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { RATE_ROLES } from "@/lib/settingsNav";
 import { prisma } from "@/lib/prisma";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(RATE_ROLES);
+  if (denied) return denied;
 
   try {
     const { id } = await params;
@@ -26,8 +27,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(RATE_ROLES);
+  if (denied) return denied;
 
   try {
     const { id } = await params;

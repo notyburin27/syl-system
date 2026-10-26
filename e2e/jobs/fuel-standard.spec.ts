@@ -178,10 +178,15 @@ test.describe.serial('น้ำมันมาตรฐาน', () => {
     expect(list.filter((r) => r.location.name === names.tow && r.kind === 'towing')).toHaveLength(1)
   })
 
-  test('Case 7: MANAGER เรียก API ได้ 403 และเข้าหน้าตรงๆ ถูก redirect', async ({ page }) => {
+  test('Case 7: MANAGER เข้าหน้าและเรียก API ได้, STAFF เรียก API ได้ 403', async ({ page, browser }) => {
     await login(page, 'testmanager')
-    expect((await page.request.get('/api/rates/fuel-standard')).status()).toBe(403)
+    expect((await page.request.get('/api/rates/fuel-standard')).status()).toBe(200)
     await page.goto('/jobs/settings/fuel-standard')
-    await expect(page).not.toHaveURL(/fuel-standard/)
+    await expect(page.getByRole('heading', { name: 'น้ำมันมาตรฐาน' })).toBeVisible()
+
+    const staff = await browser.newPage()
+    await login(staff, 'teststaff')
+    expect((await staff.request.get('/api/rates/fuel-standard')).status()).toBe(403)
+    await staff.close()
   })
 })

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { RATE_ROLES } from "@/lib/settingsNav";
 import { prisma } from "@/lib/prisma";
 import { JOB_TYPES, SIZE_OPTIONS } from "@/types/job";
 import { isTowingJobType } from "@/types/job";
@@ -18,8 +19,8 @@ interface ValidationError {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(RATE_ROLES);
+  if (denied) return denied;
 
   try {
     const { rows: rawRows, validate } = (await req.json()) as { rows: ImportRow[]; validate?: boolean };

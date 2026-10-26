@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SIZE_OPTIONS } from "@/types/job";
 import { parseFuelLiters } from "@/lib/utils/fuelStandardImport";
@@ -10,16 +8,6 @@ export const DUPLICATE_FUEL_STANDARD_ERROR = "มีข้อมูลนี้�
 export const FUEL_STANDARD_INCLUDE = {
   location: { select: { id: true, name: true } },
 } as const;
-
-/** route น้ำมันมาตรฐานทุกตัวใช้ได้เฉพาะ ADMIN — คืน response ถ้าไม่ผ่าน, null ถ้าผ่าน */
-export async function requireAdmin(): Promise<NextResponse | null> {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "ไม่มีสิทธิ์เข้าถึงข้อมูลนี้" }, { status: 403 });
-  }
-  return null;
-}
 
 export interface FuelStandardInput {
   kind: FuelStandardKind;

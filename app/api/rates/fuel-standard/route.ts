@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { RATE_ROLES } from "@/lib/settingsNav";
 import {
   DUPLICATE_FUEL_STANDARD_ERROR,
   FUEL_STANDARD_INCLUDE,
   findDuplicateFuelStandard,
   parseFuelStandardInput,
-  requireAdmin,
 } from "@/lib/utils/fuelStandardApi";
 
 export async function GET() {
-  const denied = await requireAdmin();
+  const denied = await requireApiRoles(RATE_ROLES);
   if (denied) return denied;
 
   const rows = await prisma.fuelStandard.findMany({
@@ -20,7 +21,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const denied = await requireAdmin();
+  const denied = await requireApiRoles(RATE_ROLES);
   if (denied) return denied;
 
   try {

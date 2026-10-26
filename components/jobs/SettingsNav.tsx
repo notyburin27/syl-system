@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { visibleGroups } from '@/lib/settingsNav'
 
-export default function SettingsNav({ canManage }: { canManage: boolean }) {
+export default function SettingsNav({ role }: { role: string | undefined }) {
   const pathname = usePathname()
   const router = useRouter()
   const screens = Grid.useBreakpoint()
-  const groups = visibleGroups(canManage)
+  const groups = visibleGroups(role)
   const selected = groups.flatMap((g) => g.pages).find((p) => pathname?.startsWith(p.href))?.href
 
   // จอเล็กไม่มีที่วางเมนูด้านข้าง — ยุบเป็น dropdown เหนือเนื้อหา

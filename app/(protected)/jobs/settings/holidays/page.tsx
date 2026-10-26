@@ -1,13 +1,9 @@
-import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { requireSettingsPage } from '@/lib/utils/roleGuard'
 import { App } from 'antd'
 import HolidayManager from '@/components/jobs/HolidayManager'
 
 export default async function HolidaysPage() {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
-  const role = (session.user as { role?: string }).role
-  if (role !== 'ADMIN' && role !== 'MANAGER') redirect('/jobs')
+  await requireSettingsPage('/jobs/settings/holidays')
 
   return (
     <App>

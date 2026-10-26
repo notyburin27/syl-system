@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { RATE_ROLES } from "@/lib/settingsNav";
 import { prisma } from "@/lib/prisma";
 import { readSheetAsRows } from "@/lib/utils/excel";
 import { parseFuelRateRows, toStoredMax } from "@/lib/utils/fuelRateExcel";
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(RATE_ROLES);
+  if (denied) return denied;
 
   try {
     const formData = await req.formData();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { RATE_ROLES } from "@/lib/settingsNav";
 import { prisma } from "@/lib/prisma";
 import { writeRowsToBuffer } from "@/lib/utils/excel";
 import { buildFuelRateSheetRows, buildFuelRateFilename, FUEL_RATE_TEMPLATE_ROWS } from "@/lib/utils/fuelRateExcel";
@@ -16,8 +17,8 @@ async function toXlsxResponse(rows: (string | number)[][], filename: string) {
 }
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(RATE_ROLES);
+  if (denied) return denied;
 
   const { searchParams } = new URL(req.url);
 

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { RATE_ROLES } from "@/lib/settingsNav";
 import { readSheetAsRows } from "@/lib/utils/excel";
 import { parseFuelRateRows } from "@/lib/utils/fuelRateExcel";
 
 // แยกจาก /import เพื่อให้ modal แสดง preview ให้ผู้ใช้ตรวจก่อนบันทึกจริง
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(RATE_ROLES);
+  if (denied) return denied;
 
   const formData = await req.formData();
   const file = formData.get("file");

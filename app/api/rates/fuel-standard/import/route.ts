@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/utils/fuelStandardApi";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { RATE_ROLES } from "@/lib/settingsNav";
 import { validateFuelStandardRows, type FuelStandardImportRow } from "@/lib/utils/fuelStandardImport";
 
 export async function POST(req: Request) {
-  const denied = await requireAdmin();
+  const denied = await requireApiRoles(RATE_ROLES);
   if (denied) return denied;
 
   try {
