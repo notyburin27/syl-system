@@ -14,7 +14,7 @@ export async function GET() {
 
   const rows = await prisma.fuelStandard.findMany({
     include: FUEL_STANDARD_INCLUDE,
-    orderBy: [{ size: "asc" }, { pickupLocation: { name: "asc" } }],
+    orderBy: [{ kind: "asc" }, { size: "asc" }, { location: { name: "asc" } }, { isLaemChabang: "asc" }],
   });
   return NextResponse.json(rows);
 }

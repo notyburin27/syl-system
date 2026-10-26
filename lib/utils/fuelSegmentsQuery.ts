@@ -3,7 +3,9 @@ import {
   computeFuelSegments,
   totalFuelLiters,
   FUEL_EXCLUDED_JOB_TYPES,
+  isLaemChabangName,
   type FuelJob,
+  type FuelStandardKind,
   type FuelSegmentResult,
   type FuelStandardEntry,
 } from "@/lib/utils/fuelSegments";
@@ -44,10 +46,12 @@ async function computeForDriver(
       jobDate: true,
       jobType: true,
       isCancelled: true,
+      isTowingAbsorbed: true,
       size: true,
       pickupLocationId: true,
       factoryLocationId: true,
-      returnLocationId: true,
+      pickupLocation: { select: { name: true } },
+      returnLocation: { select: { name: true } },
       fuelOfficeLiters: true,
       fuelCashLiters: true,
       fuelCreditLiters: true,
@@ -64,10 +68,11 @@ async function computeForDriver(
     jobDate: r.jobDate.toISOString().slice(0, 10),
     jobType: r.jobType,
     isCancelled: r.isCancelled,
+    isTowingAbsorbed: r.isTowingAbsorbed,
     size: r.size,
     pickupLocationId: r.pickupLocationId,
     factoryLocationId: r.factoryLocationId,
-    returnLocationId: r.returnLocationId,
+    touchesLaemChabang: isLaemChabangName(r.pickupLocation?.name) || isLaemChabangName(r.returnLocation?.name),
     fuelLiters: totalFuelLiters({
       fuelOfficeLiters: num(r.fuelOfficeLiters),
       fuelCashLiters: num(r.fuelCashLiters),
@@ -93,10 +98,10 @@ export async function buildFuelStandardSummaries(
   const monthEnd = new Date(Date.UTC(year, mon, 1));
 
   const standards: FuelStandardEntry[] = (await prisma.fuelStandard.findMany()).map((s) => ({
+    kind: s.kind as FuelStandardKind,
     size: s.size,
-    pickupLocationId: s.pickupLocationId,
-    factoryLocationId: s.factoryLocationId,
-    returnLocationId: s.returnLocationId,
+    locationId: s.locationId,
+    isLaemChabang: s.isLaemChabang,
     liters: Number(s.liters),
   }));
 
@@ -109,13 +114,11 @@ export async function buildFuelStandardSummaries(
   const locationIds = new Set<string>();
   for (const [, r] of perDriver)
     for (const s of r.segments)
-      for (const m of s.missingRoutes)
-        for (const id of [m.pickupLocationId, m.factoryLocationId, m.returnLocationId]) if (id) locationIds.add(id);
+      for (const m of s.missingRoutes) if (m.locationId) locationIds.add(m.locationId);
   const locations = locationIds.size
     ? await prisma.location.findMany({ where: { id: { in: [...locationIds] } }, select: { id: true, name: true } })
     : [];
   const nameById = new Map(locations.map((l) => [l.id, l.name]));
-  const name = (id: string | null) => (id ? nameById.get(id) ?? null : null);
 
   for (const [driverId, r] of perDriver) {
     result.set(driverId, {
@@ -126,9 +129,7 @@ export async function buildFuelStandardSummaries(
         ...s,
         missingRoutes: s.missingRoutes.map((m) => ({
           ...m,
-          pickupLocationName: name(m.pickupLocationId),
-          factoryLocationName: name(m.factoryLocationId),
-          returnLocationName: name(m.returnLocationId),
+          locationName: m.locationId ? nameById.get(m.locationId) ?? null : null,
         })),
       })),
     });

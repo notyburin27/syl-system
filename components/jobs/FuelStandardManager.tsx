@@ -1,13 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Table, Button, Select, App, Space, Row, Col } from 'antd'
+import { Table, Button, Select, App, Space, Row, Col, Typography } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
-import FuelStandardFormModal, { type FuelStandardRecord } from './FuelStandardFormModal'
+import FuelStandardFormModal, { fuelStandardLabel, type FuelStandardRecord } from './FuelStandardFormModal'
 import { SIZE_OPTIONS } from '@/types/job'
+import type { FuelStandardKind } from '@/lib/utils/fuelSegments'
+import { FUEL_KIND_LABELS } from '@/lib/utils/fuelStandardImport'
 
-const CSV_HEADERS = ['size', 'pickupLocationName', 'factoryLocationName', 'returnLocationName', 'liters']
+const CSV_HEADERS = ['kind', 'size', 'locationName', 'isLaemChabang', 'liters']
+
+const KIND_OPTIONS = (Object.keys(FUEL_KIND_LABELS) as FuelStandardKind[]).map((k) => ({
+  value: k,
+  label: FUEL_KIND_LABELS[k],
+}))
 
 export default function FuelStandardManager() {
   const { message, modal } = App.useApp()
@@ -16,6 +23,7 @@ export default function FuelStandardManager() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<FuelStandardRecord | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [filterKind, setFilterKind] = useState<FuelStandardKind | undefined>()
   const [filterSize, setFilterSize] = useState<string | undefined>()
   const [filterLocation, setFilterLocation] = useState<string | undefined>()
 
@@ -34,29 +42,22 @@ export default function FuelStandardManager() {
 
   useEffect(() => { fetchRows() }, [fetchRows])
 
-  // filter สถานที่ — ค้นทั้งรับตู้ โรงงาน คืนตู้ จากสถานที่ที่ถูกใช้อยู่ในตาราง
+  // filter สถานที่ — จากสถานที่ที่ถูกใช้อยู่ในตาราง
   const locationOptions = useMemo(() => {
     const byId = new Map<string, string>()
-    for (const r of rows) {
-      byId.set(r.pickupLocation.id, r.pickupLocation.name)
-      if (r.factoryLocation) byId.set(r.factoryLocation.id, r.factoryLocation.name)
-      byId.set(r.returnLocation.id, r.returnLocation.name)
-    }
+    for (const r of rows) byId.set(r.location.id, r.location.name)
     return [...byId].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, 'th'))
   }, [rows])
 
   const filteredRows = useMemo(
     () =>
       rows.filter((r) => {
+        if (filterKind && r.kind !== filterKind) return false
         if (filterSize && r.size !== filterSize) return false
-        if (
-          filterLocation &&
-          ![r.pickupLocationId, r.factoryLocationId, r.returnLocationId].includes(filterLocation)
-        )
-          return false
+        if (filterLocation && r.locationId !== filterLocation) return false
         return true
       }),
-    [rows, filterSize, filterLocation],
+    [rows, filterKind, filterSize, filterLocation],
   )
 
   const openForm = (record: FuelStandardRecord | null) => {
@@ -67,7 +68,7 @@ export default function FuelStandardManager() {
   const handleDelete = (record: FuelStandardRecord) => {
     modal.confirm({
       title: 'ยืนยันการลบ',
-      content: `${record.size} · ${record.pickupLocation.name} → ${record.factoryLocation?.name ?? '-'} → ${record.returnLocation.name}`,
+      content: fuelStandardLabel(record, record.location.name),
       okText: 'ลบ',
       okButtonProps: { danger: true },
       cancelText: 'ยกเลิก',
@@ -86,7 +87,7 @@ export default function FuelStandardManager() {
   // ไม่มีแถว label ภาษาไทย — แก้ไฟล์แล้ว import กลับได้ทันที
   const handleExport = () => {
     const lines = filteredRows.map((r) =>
-      [r.size, r.pickupLocation.name, r.factoryLocation?.name ?? '', r.returnLocation.name, Number(r.liters)].join(','),
+      [FUEL_KIND_LABELS[r.kind], r.size, r.location.name, r.isLaemChabang ? 'Y' : '', Number(r.liters)].join(','),
     )
     const csv = [CSV_HEADERS.join(','), ...lines].join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -99,10 +100,13 @@ export default function FuelStandardManager() {
   }
 
   const columns = [
+    { title: 'ประเภท', dataIndex: 'kind', key: 'kind', width: 80, render: (v: FuelStandardKind) => FUEL_KIND_LABELS[v] },
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 90 },
-    { title: 'สถานที่รับตู้', key: 'pickup', render: (_: unknown, r: FuelStandardRecord) => r.pickupLocation.name },
-    { title: 'โรงงาน', key: 'factory', render: (_: unknown, r: FuelStandardRecord) => r.factoryLocation?.name ?? '-' },
-    { title: 'สถานที่คืนตู้', key: 'return', render: (_: unknown, r: FuelStandardRecord) => r.returnLocation.name },
+    { title: 'สถานที่', key: 'location', render: (_: unknown, r: FuelStandardRecord) => r.location.name },
+    {
+      title: 'แหลมฉบัง', dataIndex: 'isLaemChabang', key: 'laem', width: 90, align: 'center' as const,
+      render: (v: boolean) => (v ? '✓' : ''),
+    },
     {
       title: 'ลิตร', dataIndex: 'liters', key: 'liters', width: 110, align: 'right' as const,
       render: (v: number | string) => Number(v).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -121,7 +125,12 @@ export default function FuelStandardManager() {
   return (
     <>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>น้ำมันมาตรฐาน</h2>
+        <div>
+          <h2 style={{ margin: 0 }}>น้ำมันมาตรฐาน</h2>
+          <Typography.Text type="secondary">
+            งานวิ่งใช้ค่าตามโรงงาน · งานทอยใช้ค่าตามสถานที่รับตู้ · &quot;แหลมฉบัง&quot; ใช้เมื่อรับหรือคืนตู้ที่สถานที่ที่ชื่อมีคำว่า &quot;แหลม&quot;
+          </Typography.Text>
+        </div>
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>Export CSV</Button>
           <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
@@ -130,6 +139,11 @@ export default function FuelStandardManager() {
       </div>
 
       <Row gutter={8} style={{ marginBottom: 12 }}>
+        <Col>
+          <Select allowClear placeholder="ประเภท" style={{ width: 110 }}
+            options={KIND_OPTIONS}
+            value={filterKind} onChange={setFilterKind} />
+        </Col>
         <Col>
           <Select allowClear placeholder="SIZE" style={{ width: 110 }}
             options={SIZE_OPTIONS.map((s) => ({ value: s, label: s }))}
@@ -158,14 +172,14 @@ export default function FuelStandardManager() {
         apiEndpoint="/api/rates/fuel-standard/import"
         headers={CSV_HEADERS}
         headerLabels={{
+          kind: 'ประเภท (วิ่ง/ทอย)',
           size: 'SIZE',
-          pickupLocationName: 'สถานที่รับตู้',
-          factoryLocationName: 'โรงงาน',
-          returnLocationName: 'สถานที่คืนตู้',
+          locationName: 'สถานที่ (วิ่ง = โรงงาน, ทอย = ที่รับตู้)',
+          isLaemChabang: 'แหลมฉบัง (Y/ว่าง)',
           liters: 'ลิตร',
         }}
-        optionalHeaders={['factoryLocationName']}
-        exampleRow={['40DC', 'CMA/KM.18', 'โรงงาน B', 'SYL', '300']}
+        optionalHeaders={['isLaemChabang']}
+        exampleRow={['วิ่ง', '40DC', 'โรงงาน B', 'Y', '450']}
         templateFileName="fuel_standard_template.csv"
         onClose={() => setImportOpen(false)}
         onSuccess={fetchRows}

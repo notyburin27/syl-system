@@ -10,6 +10,11 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-03-fuel-standard-design.md`
 
+> **Revised 2026-10-26:** plan นี้ทำเสร็จด้วย key เดิม (size + รับตู้ + โรงงาน + คืนตู้) แล้วเปลี่ยน key ตาม spec ฉบับแก้
+> — `FuelStandard` เป็น `kind + size + locationId + isLaemChabang` (วิ่ง = โรงงาน + แหลมฉบังจากชื่อสถานที่, ทอย = สถานที่รับตู้),
+> ทอยที่ถูกดูดซับนับ 0, CSV `kind, size, locationName, isLaemChabang, liters`
+> โค้ดตัวอย่างใน task ด้านล่างเป็นของ key เดิม — ถือ spec และโค้ดจริงเป็นหลัก
+
 ## Global Constraints
 
 - ตอบ/ข้อความ UI/error message เป็นภาษาไทย

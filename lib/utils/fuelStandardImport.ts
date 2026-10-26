@@ -1,10 +1,11 @@
 import { SIZE_OPTIONS } from "@/types/job";
+import type { FuelStandardKind } from "@/lib/utils/fuelSegments";
 
 export interface FuelStandardImportRow {
+  kind?: string;
   size?: string;
-  pickupLocationName?: string;
-  factoryLocationName?: string;
-  returnLocationName?: string;
+  locationName?: string;
+  isLaemChabang?: string;
   liters?: string;
 }
 
@@ -21,15 +22,28 @@ export interface ImportValidationError {
 }
 
 export interface ResolvedFuelStandardRow {
+  kind: FuelStandardKind;
   size: string;
-  pickupLocationId: string;
-  factoryLocationId: string | null;
-  returnLocationId: string;
+  locationId: string;
+  isLaemChabang: boolean;
   liters: number;
 }
 
 /** Decimal(10,2) */
 export const MAX_FUEL_LITERS = 99999999.99;
+
+/** ชื่อประเภทในไฟล์ CSV — export ใช้ภาษาไทย, import รับทั้งไทยและอังกฤษ */
+export const FUEL_KIND_LABELS: Record<FuelStandardKind, string> = { run: "วิ่ง", towing: "ทอย" };
+
+const KIND_BY_TEXT: Record<string, FuelStandardKind> = {
+  วิ่ง: "run",
+  ทอย: "towing",
+  run: "run",
+  towing: "towing",
+};
+
+const LAEM_TRUE = ["y", "ใช่", "1", "true"];
+const LAEM_FALSE = ["", "n", "ไม่", "0", "false"];
 
 /** แปลงลิตรจาก input (string/number) — คืน error เป็นข้อความไทยถ้าไม่ผ่าน */
 export function parseFuelLiters(value: unknown): { liters: number } | { error: string } {
@@ -54,8 +68,13 @@ export function validateFuelStandardRows(
   const errors: ImportValidationError[] = [];
   const resolved: ResolvedFuelStandardRow[] = [];
 
+  const kindOf = (r: FuelStandardImportRow) => KIND_BY_TEXT[(r.kind ?? "").trim().toLowerCase()];
+  const laemText = (r: FuelStandardImportRow) => (r.isLaemChabang ?? "").trim().toLowerCase();
+
+  // ซ้ำในไฟล์เทียบด้วยค่าที่แปลงแล้ว — "วิ่ง" กับ "run", "Y" กับ "ใช่" คือ key เดียวกัน
+  const laemKey = (t: string) => (LAEM_TRUE.includes(t) ? "1" : LAEM_FALSE.includes(t) ? "0" : t);
   const keyOf = (r: FuelStandardImportRow) =>
-    [r.size ?? "", r.pickupLocationName ?? "", r.factoryLocationName ?? "", r.returnLocationName ?? ""].join("|");
+    [kindOf(r) ?? r.kind ?? "", r.size ?? "", r.locationName ?? "", laemKey(laemText(r))].join("|");
   const rowsByKey = new Map<string, number[]>();
   rows.forEach((r, i) => rowsByKey.set(keyOf(r), [...(rowsByKey.get(keyOf(r)) ?? []), i + 1]));
 
@@ -64,49 +83,43 @@ export function validateFuelStandardRows(
     const rowErrors: ImportValidationError[] = [];
     const err = (field: string, message: string) => rowErrors.push({ row: rowNum, field, message });
 
+    const kind = kindOf(r);
+    if (!r.kind) err("kind", "กรุณาระบุประเภท (วิ่ง/ทอย)");
+    else if (!kind) err("kind", `ประเภท "${r.kind}" ไม่ถูกต้อง (ใช้ วิ่ง หรือ ทอย)`);
+
     if (!r.size) err("size", "กรุณาระบุ SIZE");
     else if (!(SIZE_OPTIONS as readonly string[]).includes(r.size)) err("size", `SIZE "${r.size}" ไม่ถูกต้อง`);
 
-    const findLocation = (field: string, name: string | undefined, label: string) => {
-      if (!name) {
-        err(field, `กรุณาระบุ${label}`);
-        return null;
-      }
-      const loc = byName.get(name);
-      if (!loc) err(field, `ไม่พบสถานที่ "${name}"`);
-      return loc ?? null;
-    };
-    const pickup = findLocation("pickupLocationName", r.pickupLocationName, "สถานที่รับตู้");
-    const ret = findLocation("returnLocationName", r.returnLocationName, "สถานที่คืนตู้");
-
-    let factory: ImportLocation | null = null;
-    if (r.factoryLocationName) {
-      factory = byName.get(r.factoryLocationName) ?? null;
-      if (!factory) err("factoryLocationName", `ไม่พบสถานที่ "${r.factoryLocationName}"`);
-      else if (factory.type !== "factory")
-        err("factoryLocationName", `"${r.factoryLocationName}" ไม่ใช่สถานที่ประเภทโรงงาน`);
+    let location: ImportLocation | null = null;
+    if (!r.locationName) err("locationName", "กรุณาระบุสถานที่");
+    else {
+      location = byName.get(r.locationName) ?? null;
+      if (!location) err("locationName", `ไม่พบสถานที่ "${r.locationName}"`);
+      // งานวิ่งดูโรงงาน — ให้ตรงกับ modal ที่เลือกได้เฉพาะโรงงาน
+      else if (kind === "run" && location.type !== "factory")
+        err("locationName", `"${r.locationName}" ไม่ใช่สถานที่ประเภทโรงงาน (งานวิ่งต้องเป็นโรงงาน)`);
     }
+
+    const laem = laemText(r);
+    const isLaemChabang = LAEM_TRUE.includes(laem);
+    if (!isLaemChabang && !LAEM_FALSE.includes(laem))
+      err("isLaemChabang", `แหลมฉบัง "${r.isLaemChabang}" ไม่ถูกต้อง (ใช้ Y หรือเว้นว่าง)`);
+    else if (isLaemChabang && kind === "towing") err("isLaemChabang", "งานทอยไม่ต้องระบุแหลมฉบัง");
 
     const parsedLiters = parseFuelLiters(r.liters);
     if ("error" in parsedLiters) err("liters", parsedLiters.error);
     const liters = "liters" in parsedLiters ? parsedLiters.liters : 0;
 
     const dups = rowsByKey.get(keyOf(r)) ?? [];
-    if (dups.length > 1 && dups[0] !== rowNum) err("size", `ข้อมูลซ้ำในไฟล์ (แถว ${dups.join(", ")})`);
+    if (dups.length > 1 && dups[0] !== rowNum) err("kind", `ข้อมูลซ้ำในไฟล์ (แถว ${dups.join(", ")})`);
 
-    // ตำแหน่ง error ให้เรียง field ตามคอลัมน์ในไฟล์ (size, รับตู้, โรงงาน, คืนตู้, ลิตร)
-    const order = ["size", "pickupLocationName", "factoryLocationName", "returnLocationName", "liters"];
+    // ตำแหน่ง error ให้เรียง field ตามคอลัมน์ในไฟล์
+    const order = ["kind", "size", "locationName", "isLaemChabang", "liters"];
     rowErrors.sort((a, b) => order.indexOf(a.field) - order.indexOf(b.field));
     errors.push(...rowErrors);
 
-    if (rowErrors.length === 0 && pickup && ret) {
-      resolved.push({
-        size: r.size!,
-        pickupLocationId: pickup.id,
-        factoryLocationId: factory?.id ?? null,
-        returnLocationId: ret.id,
-        liters,
-      });
+    if (rowErrors.length === 0 && kind && location) {
+      resolved.push({ kind, size: r.size!, locationId: location.id, isLaemChabang, liters });
     }
   });
 

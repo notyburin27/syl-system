@@ -19,15 +19,7 @@ async function main() {
   const ids = locations.map((l) => l.id)
 
   // มาตรฐานอ้างสถานที่ด้วย FK — ต้องลบก่อนสถานที่
-  await prisma.fuelStandard.deleteMany({
-    where: {
-      OR: [
-        { pickupLocationId: { in: ids } },
-        { factoryLocationId: { in: ids } },
-        { returnLocationId: { in: ids } },
-      ],
-    },
-  })
+  await prisma.fuelStandard.deleteMany({ where: { locationId: { in: ids } } })
 
   const drivers = await prisma.driver.findMany({ where: { name: 'Fuel Summary Driver' } })
   for (const driver of drivers) {

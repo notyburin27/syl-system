@@ -28,8 +28,8 @@ export async function POST(req: Request) {
 
     // key ซ้ำของเดิม → อัปเดตลิตร; ทั้งไฟล์สำเร็จหรือไม่สำเร็จพร้อมกัน
     // โหลดของเดิมครั้งเดียวนอก transaction — ไม่ query ทีละแถวใน transaction (timeout 5 วินาทีเริ่มต้นไม่พอกับไฟล์ใหญ่)
-    const keyOf = (r: { size: string; pickupLocationId: string; factoryLocationId: string | null; returnLocationId: string }) =>
-      [r.size, r.pickupLocationId, r.factoryLocationId ?? "", r.returnLocationId].join("|");
+    const keyOf = (r: { kind: string; size: string; locationId: string; isLaemChabang: boolean }) =>
+      [r.kind, r.size, r.locationId, r.isLaemChabang ? "1" : "0"].join("|");
     const existingIds = new Map((await prisma.fuelStandard.findMany()).map((e) => [keyOf(e), e.id]));
 
     await prisma.$transaction(

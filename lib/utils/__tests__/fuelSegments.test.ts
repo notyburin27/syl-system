@@ -1,11 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeFuelSegments, totalFuelLiters, type FuelJob, type FuelStandardEntry } from '../fuelSegments'
+import {
+  computeFuelSegments,
+  isLaemChabangName,
+  totalFuelLiters,
+  type FuelJob,
+  type FuelStandardEntry,
+} from '../fuelSegments'
 
 const MONTH = '2026-09'
-const R1 = { pickupLocationId: 'P1', factoryLocationId: 'F1', returnLocationId: 'R1' }
-const R2 = { pickupLocationId: 'P2', factoryLocationId: 'F2', returnLocationId: 'R2' }
-const TOW = { pickupLocationId: 'P1', factoryLocationId: null, returnLocationId: 'SYL' }
 
 let seq = 0
 function job(over: Partial<FuelJob> = {}): FuelJob {
@@ -16,8 +19,11 @@ function job(over: Partial<FuelJob> = {}): FuelJob {
     jobDate: '2026-09-10',
     jobType: 'inbound',
     isCancelled: false,
+    isTowingAbsorbed: false,
     size: '40DC',
-    ...R1,
+    pickupLocationId: 'P1',
+    factoryLocationId: 'F1',
+    touchesLaemChabang: false,
     fuelLiters: 0,
     pairRole: null,
     pairPartnerId: null,
@@ -26,9 +32,10 @@ function job(over: Partial<FuelJob> = {}): FuelJob {
 }
 
 const STD: FuelStandardEntry[] = [
-  { size: '40DC', ...R1, liters: 40 },
-  { size: '2x20DC', ...R1, liters: 50 },
-  { size: '20DC', ...TOW, liters: 15 },
+  { kind: 'run', size: '40DC', locationId: 'F1', isLaemChabang: false, liters: 40 },
+  { kind: 'run', size: '40DC', locationId: 'F1', isLaemChabang: true, liters: 70 },
+  { kind: 'run', size: '2x20DC', locationId: 'F1', isLaemChabang: false, liters: 50 },
+  { kind: 'towing', size: '20DC', locationId: 'P1', isLaemChabang: false, liters: 15 },
 ]
 
 function run(jobs: FuelJob[], opts: Partial<{ month: string; hasPreviousFill: boolean }> = {}) {
@@ -60,15 +67,15 @@ test('totalFuelLiters: รวม OFF + สด + เครดิต, null นั�
 })
 
 test('ช่วงที่มี job ไม่มีค่ามาตรฐาน → missing_standard, ไม่รวมยอด, group เส้นทางพร้อมเลข JOB', () => {
-  const a = job({ ...R2 })
-  const b = job({ ...R2 })
+  const a = job({ factoryLocationId: 'F2' })
+  const b = job({ factoryLocationId: 'F2' })
   const r = run([a, b, job({ fuelLiters: 120 })])
   const s = r.segments[0]
   assert.equal(s.status, 'missing_standard')
   assert.equal(s.standardLiters, null)
   assert.equal(s.diffLiters, null)
   assert.deepEqual(s.missingRoutes, [
-    { size: '40DC', ...R2, jobNumbers: [a.jobNumber, b.jobNumber] },
+    { kind: 'run', size: '40DC', locationId: 'F2', isLaemChabang: false, jobNumbers: [a.jobNumber, b.jobNumber] },
   ])
   assert.equal(r.excessLiters, 0)
   assert.equal(r.netDiffLiters, 0)
@@ -137,15 +144,15 @@ test('งานจับคู่: secondary เรียงก่อน primary
 })
 
 test('งานจับคู่ที่ไม่มีค่า 2x20DC → missingRoutes ใช้ size 2x20DC (ไว้ quick-add)', () => {
-  const r = run([job({ size: '20DC', pairRole: 'primary', ...R2, fuelLiters: 60 })])
+  const r = run([job({ size: '20DC', pairRole: 'primary', factoryLocationId: 'F2', fuelLiters: 60 })])
   assert.equal(r.segments[0].missingRoutes[0].size, '2x20DC')
 })
 
 test('job ยกเลิก / noJob / advance ถูกข้ามทั้งมาตรฐานและลิตร', () => {
   const r = run([
     job(),
-    job({ isCancelled: true, fuelLiters: 500, ...R2 }),
-    job({ jobType: 'noJob', size: null, pickupLocationId: null, factoryLocationId: null, returnLocationId: null }),
+    job({ isCancelled: true, fuelLiters: 500, factoryLocationId: 'F2' }),
+    job({ jobType: 'noJob', size: null, pickupLocationId: null, factoryLocationId: null }),
     job({ jobType: 'advance', fuelLiters: 300 }),
     job({ fuelLiters: 85 }),
   ])
@@ -154,18 +161,69 @@ test('job ยกเลิก / noJob / advance ถูกข้ามทั้ง
   assert.equal(r.segments[0].diffLiters, 5)
 })
 
-test('โรงงานว่าง match เฉพาะมาตรฐานที่โรงงานว่าง', () => {
-  const ok = run([job({ jobType: 'towing', size: '20DC', ...TOW, fuelLiters: 20 })])
-  assert.equal(ok.segments[0].standardLiters, 15)
-
-  const miss = run([job({ jobType: 'towing', size: '20DC', ...TOW, factoryLocationId: 'F1', fuelLiters: 20 })])
-  assert.equal(miss.segments[0].status, 'missing_standard')
+test('งานวิ่ง match ด้วยโรงงาน — สถานที่รับตู้ต่างกันใช้ค่าเดียวกัน (โซนกรุงเทพ)', () => {
+  const r = run([job({ pickupLocationId: 'P9' }), job({ pickupLocationId: 'P7', fuelLiters: 80 })])
+  assert.equal(r.segments[0].status, 'ok')
+  assert.equal(r.segments[0].standardLiters, 80)
 })
 
-test('job ที่กรอก size/สถานที่ไม่ครบ → missing_standard', () => {
-  const r = run([job({ size: null, fuelLiters: 30 })])
+test('งานวิ่งรับหรือคืนตู้ที่แหลมฉบัง → ใช้ค่าแหลมฉบัง', () => {
+  const r = run([job({ touchesLaemChabang: true, fuelLiters: 70 })])
+  assert.equal(r.segments[0].standardLiters, 70)
+})
+
+test('งานวิ่งแหลมฉบังที่ยังไม่มีค่าแหลม → missing (ไม่ใช้ค่ากรุงเทพแทน)', () => {
+  const r = run([job({ factoryLocationId: 'F2', touchesLaemChabang: true, fuelLiters: 70 })])
   assert.equal(r.segments[0].status, 'missing_standard')
-  assert.equal(r.segments[0].missingRoutes[0].size, null)
+  assert.deepEqual(r.segments[0].missingRoutes[0], {
+    kind: 'run', size: '40DC', locationId: 'F2', isLaemChabang: true, jobNumbers: [r.segments[0].closingJobNumber],
+  })
+})
+
+test('งานทอย match ด้วยสถานที่รับตู้ ไม่สนโรงงาน; ทอยหนักนับเป็นทอย', () => {
+  const r = run([
+    job({ jobType: 'towing', size: '20DC', factoryLocationId: null }),
+    job({ jobType: 'towingHeavy', size: '20DC', factoryLocationId: 'F9', touchesLaemChabang: true, fuelLiters: 40 }),
+  ])
+  assert.equal(r.segments[0].status, 'ok')
+  assert.equal(r.segments[0].standardLiters, 30)
+})
+
+test('งานทอยที่สถานที่รับตู้ไม่มีค่า → missing kind towing', () => {
+  const r = run([job({ jobType: 'towing', size: '20DC', pickupLocationId: 'P2', fuelLiters: 20 })])
+  assert.equal(r.segments[0].status, 'missing_standard')
+  assert.equal(r.segments[0].missingRoutes[0].kind, 'towing')
+  assert.equal(r.segments[0].missingRoutes[0].locationId, 'P2')
+  assert.equal(r.segments[0].missingRoutes[0].isLaemChabang, false)
+})
+
+test('ทอยที่ถูกดูดซับ → มาตรฐาน 0 แม้ไม่มีค่า แต่ยังเป็นจุดเติมได้', () => {
+  const r = run([
+    job({ fuelLiters: 50 }),
+    job({ jobType: 'towing', size: '20DC', pickupLocationId: 'P2', isTowingAbsorbed: true, fuelLiters: 10 }),
+  ])
+  assert.equal(r.segments.length, 2)
+  assert.equal(r.segments[1].status, 'ok')
+  assert.equal(r.segments[1].standardLiters, 0)
+  assert.equal(r.segments[1].diffLiters, 10)
+})
+
+test('job ที่กรอกไม่ครบ (ไม่มี size / งานวิ่งไม่มีโรงงาน / ทอยไม่มีที่รับตู้) → missing_standard', () => {
+  for (const over of [
+    { size: null },
+    { factoryLocationId: null },
+    { jobType: 'towing', size: '20DC', pickupLocationId: null },
+  ] as Partial<FuelJob>[]) {
+    const r = run([job({ ...over, fuelLiters: 30 })])
+    assert.equal(r.segments[0].status, 'missing_standard')
+  }
+})
+
+test('isLaemChabangName: ชื่อมีคำว่า "แหลม"', () => {
+  assert.equal(isLaemChabangName('C1 /แหลมฉบัง'), true)
+  assert.equal(isLaemChabangName('แหลมฉบัง'), true)
+  assert.equal(isLaemChabangName('TICT'), false)
+  assert.equal(isLaemChabangName(null), false)
 })
 
 test('เกินรวม vs สุทธิ: +17 และ −10 → เกินรวม 17, สุทธิ 7', () => {
@@ -193,7 +251,7 @@ test('คร่อมเดือน: ช่วงที่ปิดเดือ
 test('ปัดทศนิยม 2 ตำแหน่ง', () => {
   const r = computeFuelSegments(
     [job({ fuelLiters: 0 }), job({ fuelLiters: 97.3 })],
-    [{ size: '40DC', ...R1, liters: 40.15 }],
+    [{ kind: 'run', size: '40DC', locationId: 'F1', isLaemChabang: false, liters: 40.15 }],
     { month: MONTH, hasPreviousFill: true },
   )
   assert.equal(r.segments[0].standardLiters, 80.3)

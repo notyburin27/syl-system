@@ -1,27 +1,27 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Modal, Form, Select, InputNumber, App } from 'antd'
+import { Modal, Form, Select, InputNumber, Radio, Checkbox, App } from 'antd'
 import type { Location } from '@/types/job'
 import { SIZE_OPTIONS } from '@/types/job'
+import type { FuelStandardKind } from '@/lib/utils/fuelSegments'
+import { FUEL_KIND_LABELS } from '@/lib/utils/fuelStandardImport'
 
 export interface FuelStandardRecord {
   id: string
+  kind: FuelStandardKind
   size: string
-  pickupLocationId: string
-  factoryLocationId: string | null
-  returnLocationId: string
+  locationId: string
+  isLaemChabang: boolean
   liters: number | string
-  pickupLocation: { id: string; name: string }
-  factoryLocation: { id: string; name: string } | null
-  returnLocation: { id: string; name: string }
+  location: { id: string; name: string }
 }
 
 export interface FuelStandardFormValues {
+  kind?: FuelStandardKind
   size?: string
-  pickupLocationId?: string
-  factoryLocationId?: string | null
-  returnLocationId?: string
+  locationId?: string
+  isLaemChabang?: boolean
   liters?: number
 }
 
@@ -35,12 +35,21 @@ interface Props {
   onSaved: () => void
 }
 
+/** ชื่อ key สำหรับแสดงผล เช่น "วิ่ง · 40DC · โรงงาน B · แหลมฉบัง" */
+export function fuelStandardLabel(
+  r: { kind: FuelStandardKind; size: string | null; isLaemChabang: boolean },
+  locationName: string | null,
+) {
+  return [FUEL_KIND_LABELS[r.kind], r.size ?? '?', locationName ?? '?', ...(r.isLaemChabang ? ['แหลมฉบัง'] : [])].join(' · ')
+}
+
 const filterByLabel = (input: string, option?: { label?: string }) =>
   (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
 
 export default function FuelStandardFormModal({ open, editing, initialValues, onClose, onSaved }: Props) {
   const { message } = App.useApp()
   const [form] = Form.useForm<FuelStandardFormValues>()
+  const kind = Form.useWatch('kind', form) ?? 'run'
   const [locations, setLocations] = useState<Location[]>([])
   const [saving, setSaving] = useState(false)
 
@@ -59,23 +68,33 @@ export default function FuelStandardFormModal({ open, editing, initialValues, on
     form.setFieldsValue(
       editing
         ? {
+            kind: editing.kind,
             size: editing.size,
-            pickupLocationId: editing.pickupLocationId,
-            factoryLocationId: editing.factoryLocationId,
-            returnLocationId: editing.returnLocationId,
+            locationId: editing.locationId,
+            isLaemChabang: editing.isLaemChabang,
             liters: Number(editing.liters),
           }
-        : initialValues ?? {},
+        : { kind: 'run', isLaemChabang: false, ...initialValues },
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const locationOptions = useMemo(() => locations.map((l) => ({ value: l.id, label: l.name })), [locations])
-  const factoryOptions = useMemo(
-    () => locations.filter((l) => l.type === 'factory').map((l) => ({ value: l.id, label: l.name })),
-    [locations],
+  // งานวิ่งดูโรงงาน, งานทอยดูสถานที่รับตู้ (สถานที่ใดก็ได้)
+  const locationOptions = useMemo(
+    () =>
+      locations
+        .filter((l) => kind === 'towing' || l.type === 'factory')
+        .map((l) => ({ value: l.id, label: l.name })),
+    [locations, kind],
   )
   const sizeOptions = SIZE_OPTIONS.map((s) => ({ value: s, label: s }))
+
+  const handleKindChange = (next: FuelStandardKind) => {
+    const locationId = form.getFieldValue('locationId')
+    const loc = locations.find((l) => l.id === locationId)
+    if (next === 'run' && loc && loc.type !== 'factory') form.setFieldValue('locationId', undefined)
+    if (next === 'towing') form.setFieldValue('isLaemChabang', false)
+  }
 
   const handleSubmit = async (values: FuelStandardFormValues) => {
     setSaving(true)
@@ -83,7 +102,7 @@ export default function FuelStandardFormModal({ open, editing, initialValues, on
       const res = await fetch(editing ? `/api/rates/fuel-standard/${editing.id}` : '/api/rates/fuel-standard', {
         method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, factoryLocationId: values.factoryLocationId ?? null }),
+        body: JSON.stringify({ ...values, isLaemChabang: values.kind === 'run' && !!values.isLaemChabang }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -100,6 +119,8 @@ export default function FuelStandardFormModal({ open, editing, initialValues, on
     }
   }
 
+  const locationLabel = kind === 'towing' ? 'สถานที่รับตู้ (ที่ทอย)' : 'โรงงาน'
+
   return (
     <Modal
       title={editing ? 'แก้ไขน้ำมันมาตรฐาน' : 'เพิ่มน้ำมันมาตรฐาน'}
@@ -112,18 +133,27 @@ export default function FuelStandardFormModal({ open, editing, initialValues, on
       okButtonProps={{ 'data-testid': 'fuel-standard-submit-btn' } as Record<string, string>}
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <Form.Item name="kind" label="ประเภท" rules={[{ required: true, message: 'กรุณาเลือกประเภท' }]}>
+          <Radio.Group id="fuel-standard-kind" onChange={(e) => handleKindChange(e.target.value)}>
+            <Radio value="run">งานวิ่ง</Radio>
+            <Radio value="towing">งานทอย</Radio>
+          </Radio.Group>
+        </Form.Item>
         <Form.Item name="size" label="SIZE" rules={[{ required: true, message: 'กรุณาเลือก SIZE' }]}>
           <Select id="fuel-standard-size" showSearch options={sizeOptions} placeholder="เลือก SIZE" />
         </Form.Item>
-        <Form.Item name="pickupLocationId" label="สถานที่รับตู้" rules={[{ required: true, message: 'กรุณาเลือกสถานที่รับตู้' }]}>
-          <Select id="fuel-standard-pickup" showSearch options={locationOptions} filterOption={filterByLabel} placeholder="เลือกสถานที่รับตู้" />
+        <Form.Item name="locationId" label={locationLabel} rules={[{ required: true, message: `กรุณาเลือก${locationLabel}` }]}>
+          <Select id="fuel-standard-location" showSearch options={locationOptions} filterOption={filterByLabel} placeholder={`เลือก${locationLabel}`} />
         </Form.Item>
-        <Form.Item name="factoryLocationId" label="โรงงาน" extra="ปล่อยว่างได้ สำหรับงานทอยที่ไม่มีโรงงาน">
-          <Select id="fuel-standard-factory" showSearch allowClear options={factoryOptions} filterOption={filterByLabel} placeholder="ไม่ระบุโรงงาน" />
-        </Form.Item>
-        <Form.Item name="returnLocationId" label="สถานที่คืนตู้" rules={[{ required: true, message: 'กรุณาเลือกสถานที่คืนตู้' }]}>
-          <Select id="fuel-standard-return" showSearch options={locationOptions} filterOption={filterByLabel} placeholder="เลือกสถานที่คืนตู้" />
-        </Form.Item>
+        {kind === 'run' && (
+          <Form.Item
+            name="isLaemChabang"
+            valuePropName="checked"
+            extra='ใช้เมื่อรับหรือคืนตู้ที่สถานที่ที่ชื่อมีคำว่า "แหลม" — ไม่ติ๊ก = โซนกรุงเทพ'
+          >
+            <Checkbox id="fuel-standard-laem">แหลมฉบัง</Checkbox>
+          </Form.Item>
+        )}
         <Form.Item name="liters" label="ลิตร" rules={[{ required: true, message: 'กรุณากรอกจำนวนลิตร' }]}>
           <InputNumber style={{ width: '100%' }} min={0} precision={2} placeholder="0" data-testid="fuel-standard-liters-input" />
         </Form.Item>

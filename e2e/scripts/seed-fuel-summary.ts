@@ -21,23 +21,33 @@ async function main() {
 
   const admin = await prisma.authUser.findUniqueOrThrow({ where: { username: 'testadmin' } })
   const loc = async (name: string, type: string) => prisma.location.create({ data: { name, type } })
-  const p1 = await loc('E2E_FUEL_SUM_P1', 'general')
-  const p2 = await loc('E2E_FUEL_SUM_P2', 'general')
-  const f1 = await loc('E2E_FUEL_SUM_F1', 'factory')
+  const fac = await loc('E2E_FUEL_SUM_F1', 'factory')
+  const tow = await loc('E2E_FUEL_SUM_TOW', 'general')
   const ret = await loc('E2E_FUEL_SUM_RET', 'general')
+  // ชื่อมีคำว่า "แหลม" → งานวิ่งที่รับตู้ที่นี่ใช้ค่าแหลมฉบังของโรงงาน
+  const laem = await loc('E2E_FUEL_SUM_แหลม', 'general')
 
-  await prisma.fuelStandard.create({
-    data: { size: '40DC', pickupLocationId: p1.id, factoryLocationId: f1.id, returnLocationId: ret.id, liters: 300 },
+  await prisma.fuelStandard.createMany({
+    data: [
+      { kind: 'run', size: '40DC', locationId: fac.id, isLaemChabang: false, liters: 300 },
+      { kind: 'towing', size: '40DC', locationId: tow.id, isLaemChabang: false, liters: 25 },
+    ],
   })
 
   const driver = await prisma.driver.create({ data: { name: 'Fuel Summary Driver', vehicleNumber: 'FUEL-01' } })
 
-  const base = { jobType: 'inbound', size: '40DC', driverId: driver.id, createdById: admin.id, factoryLocationId: f1.id, returnLocationId: ret.id }
+  const run = { jobType: 'inbound', size: '40DC', driverId: driver.id, createdById: admin.id, factoryLocationId: fac.id, returnLocationId: ret.id }
   // สร้างทีละใบตามลำดับ — createdAt เรียงตามลำดับจริง
-  await prisma.job.create({ data: { ...base, jobNumber: 'E2E-FUEL-1', jobDate: day(1), pickupLocationId: p1.id, fuelOfficeLiters: 100 } })
-  await prisma.job.create({ data: { ...base, jobNumber: 'E2E-FUEL-2', jobDate: day(2), pickupLocationId: p1.id } })
-  await prisma.job.create({ data: { ...base, jobNumber: 'E2E-FUEL-3', jobDate: day(3), pickupLocationId: p1.id, fuelCashLiters: 650 } })
-  await prisma.job.create({ data: { ...base, jobNumber: 'E2E-FUEL-4', jobDate: day(4), pickupLocationId: p2.id, fuelCreditLiters: 200 } })
+  // ช่วง 1: ไม่มีจุดเติมก่อนหน้า
+  await prisma.job.create({ data: { ...run, jobNumber: 'E2E-FUEL-1', jobDate: day(1), pickupLocationId: ret.id, fuelOfficeLiters: 100 } })
+  // ช่วง 2: วิ่ง 300 + ทอย 25 + วิ่ง (ใบที่เติม) 300 = 625, เติม 675 → +50
+  await prisma.job.create({ data: { ...run, jobNumber: 'E2E-FUEL-2', jobDate: day(2), pickupLocationId: ret.id } })
+  await prisma.job.create({
+    data: { jobType: 'towing', size: '40DC', driverId: driver.id, createdById: admin.id, jobNumber: 'E2E-FUEL-3', jobDate: day(2), pickupLocationId: tow.id },
+  })
+  await prisma.job.create({ data: { ...run, jobNumber: 'E2E-FUEL-4', jobDate: day(3), pickupLocationId: ret.id, fuelCashLiters: 675 } })
+  // ช่วง 3: รับตู้ที่แหลมฉบัง ยังไม่มีค่าแหลมฉบัง → ไม่ครบ
+  await prisma.job.create({ data: { ...run, jobNumber: 'E2E-FUEL-5', jobDate: day(4), pickupLocationId: laem.id, fuelCreditLiters: 200 } })
 
   console.log(`🌱 [Playwright] seed น้ำมันมาตรฐานเดือน ${month}`)
 }

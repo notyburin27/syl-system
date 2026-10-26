@@ -293,15 +293,14 @@ export interface JobSearchResponse {
   jobs: JobSearchResult[];
 }
 
-/** เส้นทางที่ยังไม่มีน้ำมันมาตรฐาน — ชื่อสถานที่ resolve ฝั่ง server ไว้แสดงและทำ quick-add */
+/** key ที่ยังไม่มีน้ำมันมาตรฐาน — ชื่อสถานที่ resolve ฝั่ง server ไว้แสดงและทำ quick-add */
 export interface FuelMissingRouteView {
+  /** run = งานวิ่ง (สถานที่ = โรงงาน), towing = งานทอย (สถานที่ = สถานที่รับตู้) */
+  kind: "run" | "towing";
   size: string | null;
-  pickupLocationId: string | null;
-  pickupLocationName: string | null;
-  factoryLocationId: string | null;
-  factoryLocationName: string | null;
-  returnLocationId: string | null;
-  returnLocationName: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  isLaemChabang: boolean;
   jobNumbers: string[];
 }
 

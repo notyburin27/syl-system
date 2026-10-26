@@ -4,7 +4,10 @@ import { useState } from 'react'
 import { Modal, Table, Tag, Button, Typography } from 'antd'
 import type { FuelMissingRouteView, FuelSegmentView, FuelStandardSummary } from '@/types/job'
 import { toThaiMonthYear, toThaiShortDate } from '@/lib/utils/thaiDate'
-import FuelStandardFormModal, { type FuelStandardFormValues } from '@/components/jobs/FuelStandardFormModal'
+import FuelStandardFormModal, {
+  fuelStandardLabel,
+  type FuelStandardFormValues,
+} from '@/components/jobs/FuelStandardFormModal'
 
 const fmtLiters = (v: number | null) =>
   v == null ? '-' : v.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -19,9 +22,7 @@ const STATUS_TAG: Record<FuelSegmentView['status'], { color: string; label: stri
   no_previous_fill: { color: 'orange', label: 'ไม่พบจุดเติมก่อนหน้า' },
 }
 
-function routeLabel(m: FuelMissingRouteView) {
-  return `${m.size ?? '?'} · ${m.pickupLocationName ?? '?'} → ${m.factoryLocationName ?? '-'} → ${m.returnLocationName ?? '?'}`
-}
+const routeLabel = (m: FuelMissingRouteView) => fuelStandardLabel(m, m.locationName)
 
 interface Props {
   open: boolean
@@ -56,7 +57,7 @@ export default function FuelSegmentsModal({ open, month, fuel, onClose, onStanda
   const renderMissing = (s: FuelSegmentView) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {s.missingRoutes.map((m) => {
-        const canAdd = !!(m.size && m.pickupLocationId && m.returnLocationId)
+        const canAdd = !!(m.size && m.locationId)
         return (
           <div key={`${routeLabel(m)}|${m.jobNumbers.join(',')}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>
@@ -68,10 +69,10 @@ export default function FuelSegmentsModal({ open, month, fuel, onClose, onStanda
                 data-testid="fuel-quick-add-btn"
                 onClick={() =>
                   setQuickAdd({
+                    kind: m.kind,
                     size: m.size!,
-                    pickupLocationId: m.pickupLocationId!,
-                    factoryLocationId: m.factoryLocationId,
-                    returnLocationId: m.returnLocationId!,
+                    locationId: m.locationId!,
+                    isLaemChabang: m.isLaemChabang,
                   })
                 }
               >

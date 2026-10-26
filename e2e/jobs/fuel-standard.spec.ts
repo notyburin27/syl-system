@@ -22,24 +22,27 @@ async function selectOption(page: Page, selectId: string, text: string) {
   await dropdown.locator('.ant-select-item-option-content', { hasText: text }).first().click()
 }
 
-/** สร้างสถานที่ทดสอบ 3 แห่ง — suffix กันชื่อซ้ำระหว่าง test */
+/** สร้างโรงงาน + สถานที่ทอยทดสอบ — suffix กันชื่อซ้ำระหว่าง test */
 async function seedLocations(page: Page, suffix: string) {
   const make = async (name: string, type: 'general' | 'factory') => {
     const res = await page.request.post('/api/locations', { data: { name, type } })
     if (!res.ok()) throw new Error(`create location ${name} failed — ${await res.text()}`)
     return ((await res.json()) as { id: string }).id
   }
-  const names = {
-    pickup: `E2E_FUEL_PICK_${suffix}`,
-    factory: `E2E_FUEL_FAC_${suffix}`,
-    ret: `E2E_FUEL_RET_${suffix}`,
-  }
+  const names = { factory: `E2E_FUEL_FAC_${suffix}`, tow: `E2E_FUEL_TOW_${suffix}` }
   return {
     names,
-    pickupId: await make(names.pickup, 'general'),
     factoryId: await make(names.factory, 'factory'),
-    returnId: await make(names.ret, 'general'),
+    towId: await make(names.tow, 'general'),
   }
+}
+
+async function openAddForm(page: Page) {
+  await page.goto('/jobs/settings/fuel-standard')
+  await expect(async () => {
+    await page.getByTestId('fuel-standard-add-btn').click()
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
 }
 
 function cleanup() {
@@ -53,49 +56,67 @@ function cleanup() {
 test.describe.serial('น้ำมันมาตรฐาน', () => {
   test.afterEach(() => cleanup())
 
-  test('Case 1: เพิ่มผ่านหน้าจอ → แสดงในตาราง', async ({ page }) => {
+  test('Case 1: เพิ่มงานวิ่งแหลมฉบังผ่านหน้าจอ → แสดงในตาราง', async ({ page }) => {
     await login(page)
     const { names } = await seedLocations(page, 'C1')
-    await page.goto('/jobs/settings/fuel-standard')
-
-    await expect(async () => {
-      await page.getByTestId('fuel-standard-add-btn').click()
-      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2_000 })
-    }).toPass({ timeout: 20_000 })
+    await openAddForm(page)
 
     await selectOption(page, 'fuel-standard-size', '40DC')
-    await selectOption(page, 'fuel-standard-pickup', names.pickup)
-    await selectOption(page, 'fuel-standard-factory', names.factory)
-    await selectOption(page, 'fuel-standard-return', names.ret)
-    await page.getByTestId('fuel-standard-liters-input').fill('300')
+    await selectOption(page, 'fuel-standard-location', names.factory)
+    await page.locator('#fuel-standard-laem').check()
+    await page.getByTestId('fuel-standard-liters-input').fill('450')
     await page.getByTestId('fuel-standard-submit-btn').click()
 
     await expect(page.getByText('เพิ่มสำเร็จ')).toBeVisible()
-    const row = page.getByRole('row').filter({ hasText: names.pickup })
-    await expect(row).toContainText(names.factory)
-    await expect(row).toContainText('300.00')
+    const row = page.getByRole('row').filter({ hasText: names.factory })
+    await expect(row).toContainText('วิ่ง')
+    await expect(row).toContainText('✓')
+    await expect(row).toContainText('450.00')
   })
 
-  test('Case 2: key ซ้ำ (รวมกรณีโรงงานว่าง) → 409', async ({ page }) => {
+  test('Case 2: เพิ่มงานทอยผ่านหน้าจอ — เลือกสถานที่ทั่วไปได้ ไม่มีช่องแหลมฉบัง', async ({ page }) => {
     await login(page)
-    const loc = await seedLocations(page, 'C2')
-    const body = { size: '20DC', pickupLocationId: loc.pickupId, factoryLocationId: null, returnLocationId: loc.returnId, liters: 100 }
+    const { names } = await seedLocations(page, 'C2')
+    await openAddForm(page)
+
+    await page.getByRole('dialog').getByText('งานทอย').click()
+    await expect(page.locator('#fuel-standard-laem')).toHaveCount(0)
+    await selectOption(page, 'fuel-standard-size', '20DC')
+    await selectOption(page, 'fuel-standard-location', names.tow)
+    await page.getByTestId('fuel-standard-liters-input').fill('25')
+    await page.getByTestId('fuel-standard-submit-btn').click()
+
+    await expect(page.getByText('เพิ่มสำเร็จ')).toBeVisible()
+    const row = page.getByRole('row').filter({ hasText: names.tow })
+    await expect(row).toContainText('ทอย')
+    await expect(row).toContainText('25.00')
+  })
+
+  test('Case 3: key ซ้ำ → 409, แหลมฉบังคนละ key, ทอยติ๊กแหลมฉบัง → 400', async ({ page }) => {
+    await login(page)
+    const loc = await seedLocations(page, 'C3')
+    const body = { kind: 'run', size: '20DC', locationId: loc.factoryId, isLaemChabang: false, liters: 100 }
 
     expect((await page.request.post('/api/rates/fuel-standard', { data: body })).status()).toBe(201)
     const dup = await page.request.post('/api/rates/fuel-standard', { data: { ...body, liters: 120 } })
     expect(dup.status()).toBe(409)
     expect((await dup.json()).error).toBe('มีข้อมูลนี้อยู่แล้ว')
 
-    // โรงงานต่างกัน = คนละ key
-    const other = await page.request.post('/api/rates/fuel-standard', { data: { ...body, factoryLocationId: loc.factoryId } })
-    expect(other.status()).toBe(201)
+    const laem = await page.request.post('/api/rates/fuel-standard', { data: { ...body, isLaemChabang: true } })
+    expect(laem.status()).toBe(201)
+
+    const towLaem = await page.request.post('/api/rates/fuel-standard', {
+      data: { kind: 'towing', size: '20DC', locationId: loc.towId, isLaemChabang: true, liters: 20 },
+    })
+    expect(towLaem.status()).toBe(400)
+    expect((await towLaem.json()).error).toBe('งานทอยไม่ต้องระบุแหลมฉบัง')
   })
 
-  test('Case 3: แก้ลิตร → ค่าใหม่ในตาราง', async ({ page }) => {
+  test('Case 4: แก้ลิตร → ค่าใหม่ในตาราง', async ({ page }) => {
     await login(page)
-    const loc = await seedLocations(page, 'C3')
+    const loc = await seedLocations(page, 'C4')
     const res = await page.request.post('/api/rates/fuel-standard', {
-      data: { size: '40DC', pickupLocationId: loc.pickupId, factoryLocationId: loc.factoryId, returnLocationId: loc.returnId, liters: 300 },
+      data: { kind: 'run', size: '40DC', locationId: loc.factoryId, liters: 300 },
     })
     const { id } = (await res.json()) as { id: string }
 
@@ -108,14 +129,14 @@ test.describe.serial('น้ำมันมาตรฐาน', () => {
     await page.getByTestId('fuel-standard-submit-btn').click()
 
     await expect(page.getByText('แก้ไขสำเร็จ')).toBeVisible()
-    await expect(page.getByRole('row').filter({ hasText: loc.names.pickup })).toContainText('320.00')
+    await expect(page.getByRole('row').filter({ hasText: loc.names.factory })).toContainText('320.00')
   })
 
-  test('Case 4: ลบผ่าน modal.confirm → หายจากตาราง', async ({ page }) => {
+  test('Case 5: ลบผ่าน modal.confirm → หายจากตาราง', async ({ page }) => {
     await login(page)
-    const loc = await seedLocations(page, 'C4')
+    const loc = await seedLocations(page, 'C5')
     const res = await page.request.post('/api/rates/fuel-standard', {
-      data: { size: '40DC', pickupLocationId: loc.pickupId, factoryLocationId: null, returnLocationId: loc.returnId, liters: 50 },
+      data: { kind: 'towing', size: '40DC', locationId: loc.towId, liters: 50 },
     })
     const { id } = (await res.json()) as { id: string }
 
@@ -124,16 +145,17 @@ test.describe.serial('น้ำมันมาตรฐาน', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'ลบ' }).click()
 
     await expect(page.getByText('ลบสำเร็จ')).toBeVisible()
-    await expect(page.getByRole('row').filter({ hasText: loc.names.pickup })).toHaveCount(0)
+    await expect(page.getByRole('row').filter({ hasText: loc.names.tow })).toHaveCount(0)
   })
 
-  test('Case 5: import — validate จับสถานที่ไม่พบ/ซ้ำในไฟล์, import ซ้ำ key เดิมอัปเดตลิตร', async ({ page }) => {
+  test('Case 6: import — validate จับสถานที่ไม่พบ/ซ้ำในไฟล์, import ซ้ำ key เดิมอัปเดตลิตร', async ({ page }) => {
     await login(page)
-    const { names } = await seedLocations(page, 'C5')
-    const good = { size: '40DC', pickupLocationName: names.pickup, factoryLocationName: names.factory, returnLocationName: names.ret, liters: '300' }
+    const { names } = await seedLocations(page, 'C6')
+    const good = { kind: 'วิ่ง', size: '40DC', locationName: names.factory, isLaemChabang: 'Y', liters: '450' }
+    const tow = { kind: 'ทอย', size: '40DC', locationName: names.tow, isLaemChabang: '', liters: '25' }
 
     const bad = await page.request.post('/api/rates/fuel-standard/import', {
-      data: { validate: true, rows: [good, { ...good, pickupLocationName: 'E2E_FUEL_NOPE' }, { ...good }] },
+      data: { validate: true, rows: [good, { ...good, locationName: 'E2E_FUEL_NOPE' }, { ...good }] },
     })
     const badBody = await bad.json()
     expect(badBody.valid).toBe(false)
@@ -144,16 +166,19 @@ test.describe.serial('น้ำมันมาตรฐาน', () => {
       ]),
     )
 
-    expect((await page.request.post('/api/rates/fuel-standard/import', { data: { rows: [good] } })).status()).toBe(201)
-    expect((await page.request.post('/api/rates/fuel-standard/import', { data: { rows: [{ ...good, liters: '333' }] } })).status()).toBe(201)
+    expect((await page.request.post('/api/rates/fuel-standard/import', { data: { rows: [good, tow] } })).status()).toBe(201)
+    expect((await page.request.post('/api/rates/fuel-standard/import', { data: { rows: [{ ...good, liters: '460' }] } })).status()).toBe(201)
 
-    const list = (await (await page.request.get('/api/rates/fuel-standard')).json()) as { pickupLocation: { name: string }; liters: string }[]
-    const mine = list.filter((r) => r.pickupLocation.name === names.pickup)
-    expect(mine).toHaveLength(1)
-    expect(Number(mine[0].liters)).toBe(333)
+    type Row = { kind: string; isLaemChabang: boolean; location: { name: string }; liters: string }
+    const list = (await (await page.request.get('/api/rates/fuel-standard')).json()) as Row[]
+    const run = list.filter((r) => r.location.name === names.factory)
+    expect(run).toHaveLength(1)
+    expect(run[0].isLaemChabang).toBe(true)
+    expect(Number(run[0].liters)).toBe(460)
+    expect(list.filter((r) => r.location.name === names.tow && r.kind === 'towing')).toHaveLength(1)
   })
 
-  test('Case 6: MANAGER เรียก API ได้ 403 และเข้าหน้าตรงๆ ถูก redirect', async ({ page }) => {
+  test('Case 7: MANAGER เรียก API ได้ 403 และเข้าหน้าตรงๆ ถูก redirect', async ({ page }) => {
     await login(page, 'testmanager')
     expect((await page.request.get('/api/rates/fuel-standard')).status()).toBe(403)
     await page.goto('/jobs/settings/fuel-standard')

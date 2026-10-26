@@ -1,7 +1,21 @@
-import { getPairedSize } from "@/types/job";
+import { getPairedSize, isTowingJobType } from "@/types/job";
 
 /** ลักษณะงานที่ไม่ใช่การวิ่งรถ — ไม่นับทั้งมาตรฐานและลิตรที่เติม */
 export const FUEL_EXCLUDED_JOB_TYPES = ["noJob", "advance"] as const;
+
+/** run = งานวิ่ง (key ด้วยโรงงาน), towing = งานทอย (key ด้วยสถานที่รับตู้) */
+export type FuelStandardKind = "run" | "towing";
+
+export const FUEL_STANDARD_KINDS: readonly FuelStandardKind[] = ["run", "towing"];
+
+export function fuelStandardKindOf(jobType: string): FuelStandardKind {
+  return isTowingJobType(jobType) ? "towing" : "run";
+}
+
+/** สถานที่แหลมฉบังดูจากชื่อ — ท่าเรืออื่นทั้งหมดถือเป็นโซนกรุงเทพ */
+export function isLaemChabangName(name: string | null | undefined): boolean {
+  return !!name && name.includes("แหลม");
+}
 
 export interface FuelJob {
   id: string;
@@ -10,10 +24,13 @@ export interface FuelJob {
   jobDate: string;
   jobType: string;
   isCancelled: boolean;
+  /** ทอยที่ถูกงานหลักดูดซับ — มาตรฐาน 0 เพราะค่าเที่ยวรวมอยู่กับงานหลักแล้ว */
+  isTowingAbsorbed: boolean;
   size: string | null;
   pickupLocationId: string | null;
   factoryLocationId: string | null;
-  returnLocationId: string | null;
+  /** รับหรือคืนตู้ที่แหลมฉบัง — คำนวณจากชื่อสถานที่ด้วย isLaemChabangName */
+  touchesLaemChabang: boolean;
   /** OFF + สด + เครดิต — มากกว่า 0 คือจุดเติมเต็มถัง */
   fuelLiters: number;
   pairRole: "primary" | "secondary" | null;
@@ -21,20 +38,22 @@ export interface FuelJob {
   pairPartnerId: string | null;
 }
 
-export interface FuelStandardEntry {
+export interface FuelStandardKey {
+  kind: FuelStandardKind;
+  /** size ที่ใช้หา — งานจับคู่ใบหลักเป็น paired size (2x20DC) */
+  size: string | null;
+  /** run = โรงงาน, towing = สถานที่รับตู้ */
+  locationId: string | null;
+  isLaemChabang: boolean;
+}
+
+export interface FuelStandardEntry extends FuelStandardKey {
   size: string;
-  pickupLocationId: string;
-  factoryLocationId: string | null;
-  returnLocationId: string;
+  locationId: string;
   liters: number;
 }
 
-export interface FuelMissingRoute {
-  /** size ที่ใช้หา — งานจับคู่ใบหลักเป็น paired size (2x20DC) */
-  size: string | null;
-  pickupLocationId: string | null;
-  factoryLocationId: string | null;
-  returnLocationId: string | null;
+export interface FuelMissingRoute extends FuelStandardKey {
   jobNumbers: string[];
 }
 
@@ -68,12 +87,8 @@ export interface FuelSegmentResult {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-const routeKey = (
-  size: string | null,
-  pickupLocationId: string | null,
-  factoryLocationId: string | null,
-  returnLocationId: string | null
-) => [size ?? "", pickupLocationId ?? "", factoryLocationId ?? "", returnLocationId ?? ""].join("|");
+const keyString = (k: FuelStandardKey) =>
+  [k.kind, k.size ?? "", k.locationId ?? "", k.isLaemChabang ? "1" : "0"].join("|");
 
 export function totalFuelLiters(j: {
   fuelOfficeLiters: number | null;
@@ -87,18 +102,22 @@ function isFuelCountedJob(job: FuelJob): boolean {
   return !job.isCancelled && !(FUEL_EXCLUDED_JOB_TYPES as readonly string[]).includes(job.jobType);
 }
 
-/** size ที่ใช้หามาตรฐาน + ลิตร (null = หาไม่เจอ) — ใบรองของงานจับคู่นับ 0 เพราะวิ่งเที่ยวเดียวกับใบหลัก */
-function resolveStandard(
-  job: FuelJob,
-  litersByKey: Map<string, number>
-): { lookupSize: string | null; liters: number | null } {
-  if (job.pairRole === "secondary") return { lookupSize: job.size, liters: 0 };
-  const lookupSize = job.pairRole === "primary" ? getPairedSize(job.size) ?? job.size : job.size;
-  if (!lookupSize || !job.pickupLocationId || !job.returnLocationId) return { lookupSize, liters: null };
-  const liters = litersByKey.get(
-    routeKey(lookupSize, job.pickupLocationId, job.factoryLocationId, job.returnLocationId)
-  );
-  return { lookupSize, liters: liters ?? null };
+/** key ที่ job นี้ใช้หามาตรฐาน — งานวิ่งดูโรงงาน (+ แหลมฉบัง), งานทอยดูสถานที่รับตู้ */
+export function fuelStandardKeyOf(job: FuelJob): FuelStandardKey {
+  const kind = fuelStandardKindOf(job.jobType);
+  const size = job.pairRole === "primary" ? getPairedSize(job.size) ?? job.size : job.size;
+  return kind === "towing"
+    ? { kind, size, locationId: job.pickupLocationId, isLaemChabang: false }
+    : { kind, size, locationId: job.factoryLocationId, isLaemChabang: job.touchesLaemChabang };
+}
+
+/** ลิตรมาตรฐานของ job (null = หาไม่เจอ) */
+function resolveStandard(job: FuelJob, litersByKey: Map<string, number>): { key: FuelStandardKey; liters: number | null } {
+  const key = fuelStandardKeyOf(job);
+  // ใบรองของงานจับคู่วิ่งเที่ยวเดียวกับใบหลัก, ทอยที่ถูกดูดซับรวมอยู่กับงานหลัก
+  if (job.pairRole === "secondary" || job.isTowingAbsorbed) return { key, liters: 0 };
+  if (!key.size || !key.locationId) return { key, liters: null };
+  return { key, liters: litersByKey.get(keyString(key)) ?? null };
 }
 
 /**
@@ -135,21 +154,14 @@ function buildSegment(
   const missing = new Map<string, FuelMissingRoute>();
 
   for (const job of jobs) {
-    const { lookupSize, liters } = resolveStandard(job, litersByKey);
+    const { key, liters } = resolveStandard(job, litersByKey);
     if (liters != null) {
       standard += liters;
       continue;
     }
-    const key = routeKey(lookupSize, job.pickupLocationId, job.factoryLocationId, job.returnLocationId);
-    const route = missing.get(key) ?? {
-      size: lookupSize,
-      pickupLocationId: job.pickupLocationId,
-      factoryLocationId: job.factoryLocationId,
-      returnLocationId: job.returnLocationId,
-      jobNumbers: [],
-    };
+    const route = missing.get(keyString(key)) ?? { ...key, jobNumbers: [] };
     route.jobNumbers.push(job.jobNumber);
-    missing.set(key, route);
+    missing.set(keyString(key), route);
   }
 
   const status: FuelSegmentStatus = noPreviousFill
@@ -183,12 +195,7 @@ export function computeFuelSegments(
   standards: FuelStandardEntry[],
   opts: { month: string; hasPreviousFill: boolean }
 ): FuelSegmentResult {
-  const litersByKey = new Map(
-    standards.map((s) => [
-      routeKey(s.size, s.pickupLocationId, s.factoryLocationId, s.returnLocationId),
-      s.liters,
-    ])
-  );
+  const litersByKey = new Map(standards.map((s) => [keyString(s), s.liters]));
 
   const segments: FuelSegment[] = [];
   let current: FuelJob[] = [];

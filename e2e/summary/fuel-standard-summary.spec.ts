@@ -35,8 +35,11 @@ test.describe.serial('น้ำมันมาตรฐานในหน้า�
     await login(page)
 
     await page.goto('/summary')
-    await page.getByRole('row').filter({ hasText: DRIVER }).click()
-    await expect(page).toHaveURL(/\/summary\/[a-z0-9]+/)
+    // ตารางอาจ render ซ้ำหลังโหลดข้อมูลเสร็จ — คลิกซ้ำจนกว่าจะไปหน้ารายคน
+    await expect(async () => {
+      await page.getByRole('row').filter({ hasText: DRIVER }).click()
+      await expect(page).toHaveURL(/\/summary\/[a-z0-9]+/, { timeout: 3000 })
+    }).toPass({ timeout: 20000 })
     const card = page.getByTestId('summary-month-card').first()
     await expect(card).toBeVisible({ timeout: 20000 })
 
@@ -50,11 +53,12 @@ test.describe.serial('น้ำมันมาตรฐานในหน้า�
     await expect(dialog).toBeVisible()
     await expect(dialog).toContainText('ไม่พบจุดเติมก่อนหน้า')
     await expect(dialog).toContainText('ไม่มีค่ามาตรฐาน')
-    await expect(dialog).toContainText('E2E_FUEL_SUM_P2')
-    await expect(dialog).toContainText('E2E-FUEL-4')
+    await expect(dialog).toContainText('วิ่ง · 40DC · E2E_FUEL_SUM_F1 · แหลมฉบัง')
+    await expect(dialog).toContainText('E2E-FUEL-5')
 
-    // quick-add: size/สถานที่ถูกกรอกไว้ให้แล้ว กรอกแค่ลิตร
+    // quick-add: ประเภท/size/โรงงาน/แหลมฉบังถูกกรอกไว้ให้แล้ว กรอกแค่ลิตร
     await dialog.getByTestId('fuel-quick-add-btn').click()
+    await expect(page.locator('#fuel-standard-laem')).toBeChecked()
     await page.getByTestId('fuel-standard-liters-input').fill('180')
     await page.getByTestId('fuel-standard-submit-btn').click()
     await expect(page.getByText('เพิ่มสำเร็จ')).toBeVisible()
