@@ -60,15 +60,8 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/stock/export")) return "stock-export";
     if (pathname?.startsWith("/stock/buyers")) return "stock-buyers";
     if (pathname === "/stock") return "stock-dashboard";
-    if (pathname?.startsWith("/jobs/settings/fuel-standard")) return "jobs-fuel-standard";
-    if (pathname?.startsWith("/jobs/settings/fuel-price")) return "jobs-fuel-price";
-    if (pathname?.startsWith("/jobs/settings/rates/transfer")) return "jobs-rates-transfer";
-    if (pathname?.startsWith("/jobs/settings/rates/income")) return "jobs-rates-income";
-    if (pathname?.startsWith("/jobs/settings/rates/driver-wage")) return "jobs-rates-driver-wage";
-    if (pathname?.startsWith("/jobs/settings/customers")) return "jobs-customers";
-    if (pathname?.startsWith("/jobs/settings/drivers")) return "jobs-drivers";
-    if (pathname?.startsWith("/jobs/settings/locations")) return "jobs-locations";
-    if (pathname?.startsWith("/jobs/settings/holidays")) return "jobs-holidays";
+    // หน้าย่อยของตั้งค่าข้อมูลมีเมนูรองของตัวเอง (SettingsNav)
+    if (pathname?.startsWith("/jobs/settings")) return "jobs-settings";
     if (pathname?.startsWith("/jobs")) return "jobs-list";
     if (pathname?.startsWith("/transport-documents")) return "documents";
     if (pathname?.startsWith("/work-orders")) return "work-orders";
@@ -82,7 +75,6 @@ export default function ProtectedLayoutClient({
     if (pathname?.startsWith("/stock")) keys.push("stock");
     // สรุปงานอยู่ใต้เมนูงานขนส่ง จึงต้องกาง "jobs" ด้วยเวลาอยู่หน้า /summary
     if (pathname?.startsWith("/jobs") || pathname?.startsWith("/summary")) keys.push("jobs");
-    if (pathname?.startsWith("/jobs/settings")) keys.push("jobs-settings");
     if (pathname?.startsWith("/renewals")) keys.push("renewals");
     return keys;
   };
@@ -105,29 +97,7 @@ export default function ProtectedLayoutClient({
       ] : []),
       {
         key: "jobs-settings",
-        label: "ตั้งค่าข้อมูล",
-        children: [
-          {
-            key: "jobs-customers",
-            label: <Link href="/jobs/settings/customers">ลูกค้า</Link>,
-          },
-          {
-            key: "jobs-drivers",
-            label: <Link href="/jobs/settings/drivers">คนขับรถ</Link>,
-          },
-          {
-            key: "jobs-locations",
-            label: <Link href="/jobs/settings/locations">สถานที่</Link>,
-          },
-          { key: "jobs-rates-transfer", label: <Link href="/jobs/settings/rates/transfer">ค่าคืนตู้รับตู้</Link> },
-          ...(isAdmin || isManager ? [
-            { key: "jobs-rates-income", label: <Link href="/jobs/settings/rates/income">ค่าขนส่ง</Link> },
-            { key: "jobs-rates-driver-wage", label: <Link href="/jobs/settings/rates/driver-wage">ค่าเที่ยวคนขับ</Link> },
-            { key: "jobs-fuel-price", label: <Link href="/jobs/settings/fuel-price">ราคาน้ำมัน</Link> },
-            { key: "jobs-fuel-standard", label: <Link href="/jobs/settings/fuel-standard">น้ำมันมาตรฐาน</Link> },
-            { key: "jobs-holidays", label: <Link href="/jobs/settings/holidays">วันหยุดบริษัท</Link> },
-          ] : []),
-        ],
+        label: <Link href="/jobs/settings">ตั้งค่าข้อมูล</Link>,
       },
     ],
   };

@@ -190,7 +190,7 @@ test.describe.serial('อัตราค่าคืนตู้รับตู�
     const { locGeneralName } = await seedRefData(page, test.info().testId)
 
     await page.goto('/jobs/settings/rates/transfer')
-    await expect(page.getByText('อัตราค่าคืนตู้รับตู้')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'อัตราค่าคืนตู้รับตู้' })).toBeVisible()
 
     const dialog = await openModal(page, 'rate-transfer-add-btn')
 
@@ -296,7 +296,7 @@ test.describe.serial('อัตราค่าขนส่ง — CRUD', () => {
     const { locFactoryName, customerName } = await seedRefData(page, test.info().testId)
 
     await page.goto('/jobs/settings/rates/income')
-    await expect(page.getByText('อัตราค่าขนส่ง')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'อัตราค่าขนส่ง' })).toBeVisible()
 
     const dialog = await openModal(page, 'rate-income-add-btn')
 
@@ -415,7 +415,7 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     const { locFactoryName } = await seedRefData(page, test.info().testId)
 
     await page.goto('/jobs/settings/rates/driver-wage')
-    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'อัตราค่าเที่ยวคนขับ' })).toBeVisible()
 
     const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
@@ -435,7 +435,7 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     await seedRefData(page, test.info().testId)
 
     await page.goto('/jobs/settings/rates/driver-wage')
-    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'อัตราค่าเที่ยวคนขับ' })).toBeVisible()
 
     const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
@@ -458,7 +458,7 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     const { locFactoryName } = await seedRefData(page, test.info().testId)
 
     await page.goto('/jobs/settings/rates/driver-wage')
-    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: 'อัตราค่าเที่ยวคนขับ' })).toBeVisible({ timeout: 10_000 })
     const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
     // 2 ลักษณะงาน x 2 SIZE x 1 โรงงาน = 4 รายการ
@@ -484,7 +484,7 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
     expect(seeded.ok()).toBeTruthy()
 
     await page.goto('/jobs/settings/rates/driver-wage')
-    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: 'อัตราค่าเที่ยวคนขับ' })).toBeVisible({ timeout: 10_000 })
     const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
     // ขาเข้า/20DC ซ้ำกับที่ seed ไว้ — อีก 1 รายการต้องเพิ่มได้
@@ -502,7 +502,7 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
 
   test('Case 3: validation — ส่ง form เปล่าต้องแสดง error', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
-    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: 'อัตราค่าเที่ยวคนขับ' })).toBeVisible({ timeout: 10_000 })
     const dialog = await openModal(page, 'rate-driver-wage-add-btn')
 
     await dialog.getByRole('button', { name: 'เพิ่ม' }).click()
@@ -513,7 +513,7 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
 
   test('Case 4: "เบิกล่วงหน้า" กับ "ไม่มีงาน" ต้องไม่อยู่ใน dropdown ลักษณะงาน', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
-    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: 'อัตราค่าเที่ยวคนขับ' })).toBeVisible({ timeout: 10_000 })
     await openModal(page, 'rate-driver-wage-add-btn')
 
     await page.locator('#rate-driver-wage-job-type').locator('..').locator('..').click()
@@ -566,7 +566,7 @@ test.describe.serial('อัตราค่าเที่ยวคนขับ 
 
   test('Case 7: SIZE dropdown แสดงทุกตัวเลือกไม่ขึ้นกับลักษณะงานที่เลือก', async ({ page }) => {
     await page.goto('/jobs/settings/rates/driver-wage')
-    await expect(page.getByText('อัตราค่าเที่ยวคนขับ')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: 'อัตราค่าเที่ยวคนขับ' })).toBeVisible({ timeout: 10_000 })
     await openModal(page, 'rate-driver-wage-add-btn')
 
     await selectMultiple(page, 'rate-driver-wage-job-type', ['พื้นเรียบ'])
