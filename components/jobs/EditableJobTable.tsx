@@ -8,6 +8,7 @@ import {
   DeleteOutlined,
   UnlockOutlined,
   ArrowLeftOutlined,
+  DashboardOutlined,
   DownloadOutlined,
   LoadingOutlined,
   CheckOutlined,
@@ -44,6 +45,8 @@ interface EditableJobTableProps {
   isAdmin: boolean
   /** ADMIN | SENIOR_STAFF — แยกจาก isAdmin ที่คุมการมองเห็นคอลัมน์การเงิน */
   canPairJobs: boolean
+  /** ADMIN | MANAGER — ปุ่มไปหน้าช่วงน้ำมัน */
+  canViewFuelSegments?: boolean
 }
 
 interface BannerRow {
@@ -70,6 +73,7 @@ export default function EditableJobTable({
   month,
   isAdmin,
   canPairJobs,
+  canViewFuelSegments = false,
 }: EditableJobTableProps) {
   const { message, modal } = App.useApp()
   const router = useRouter()
@@ -1081,6 +1085,17 @@ export default function EditableJobTable({
               บันทึกล้มเหลว
             </span>
           )}
+          {/* ปุ่มไอคอนอย่างเดียว — header เต็มแล้ว ถ้ายาวขึ้นจะตกบรรทัดและบีบปุ่มอื่น */}
+          {canViewFuelSegments && (
+            <Tooltip title="ช่วงน้ำมัน">
+              <Button
+                aria-label="ช่วงน้ำมัน"
+                data-testid="fuel-segments-btn"
+                icon={<DashboardOutlined />}
+                onClick={() => router.push(`/jobs/${driverId}/fuel?month=${month}`)}
+              />
+            </Tooltip>
+          )}
           <Button data-testid="manage-leave-btn" icon={<CalendarOutlined />} onClick={() => setLeaveModalOpen(true)}>
             จัดการวันลา
           </Button>
@@ -1160,9 +1175,9 @@ export default function EditableJobTable({
       />
       </div>
 
-      {/* Add Row Button */}
+      {/* Add Row Button — flexShrink 0: header ตกบรรทัดแล้วปุ่มต้องไม่ถูกบีบจนสูง 0 */}
       {modalEditMode && (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 12, flexShrink: 0 }}>
           <Button
             data-testid="add-job-btn"
             icon={<PlusOutlined />}

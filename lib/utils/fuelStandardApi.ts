@@ -13,7 +13,8 @@ export interface FuelStandardInput {
   kind: FuelStandardKind;
   size: string;
   locationId: string;
-  isLaemChabang: boolean;
+  pickupLaemChabang: boolean;
+  returnLaemChabang: boolean;
   liters: number;
 }
 
@@ -29,19 +30,24 @@ export function parseFuelStandardInput(body: unknown): { data: FuelStandardInput
   }
   if (!(FUEL_STANDARD_KINDS as readonly string[]).includes(kind)) return { error: `ประเภท "${kind}" ไม่ถูกต้อง` };
   if (!(SIZE_OPTIONS as readonly string[]).includes(size)) return { error: `SIZE "${size}" ไม่ถูกต้อง` };
-  if (b.isLaemChabang != null && typeof b.isLaemChabang !== "boolean") return { error: "ค่าแหลมฉบังไม่ถูกต้อง" };
-  const isLaemChabang = b.isLaemChabang === true;
-  if (isLaemChabang && kind === "towing") return { error: "งานทอยไม่ต้องระบุแหลมฉบัง" };
+  for (const field of ["pickupLaemChabang", "returnLaemChabang"]) {
+    if (b[field] != null && typeof b[field] !== "boolean") return { error: "ค่าแหลมฉบังไม่ถูกต้อง" };
+  }
+  const pickupLaemChabang = b.pickupLaemChabang === true;
+  const returnLaemChabang = b.returnLaemChabang === true;
+  if ((pickupLaemChabang || returnLaemChabang) && kind === "towing") return { error: "งานทอยไม่ต้องระบุแหลมฉบัง" };
   const parsed = parseFuelLiters(b.liters);
   if ("error" in parsed) return parsed;
 
-  return { data: { kind: kind as FuelStandardKind, size, locationId, isLaemChabang, liters: parsed.liters } };
+  return {
+    data: { kind: kind as FuelStandardKind, size, locationId, pickupLaemChabang, returnLaemChabang, liters: parsed.liters },
+  };
 }
 
 export async function findDuplicateFuelStandard(input: FuelStandardInput, excludeId?: string) {
-  const { kind, size, locationId, isLaemChabang } = input;
+  const { kind, size, locationId, pickupLaemChabang, returnLaemChabang } = input;
   return prisma.fuelStandard.findFirst({
-    where: { kind, size, locationId, isLaemChabang, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    where: { kind, size, locationId, pickupLaemChabang, returnLaemChabang, ...(excludeId ? { id: { not: excludeId } } : {}) },
     select: { id: true },
   });
 }

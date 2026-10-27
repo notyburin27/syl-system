@@ -13,9 +13,14 @@ export async function requireApiRoles(roles: readonly string[]): Promise<NextRes
   return null;
 }
 
-/** หน้าตั้งค่า: role ไม่อยู่ใน SETTINGS_GROUPS ของหน้านั้น → กลับหน้ารายการงาน */
-export async function requireSettingsPage(href: string): Promise<void> {
+/** หน้า: role ไม่อยู่ในรายการ → กลับหน้ารายการงาน */
+export async function requirePageRoles(roles: readonly string[]): Promise<void> {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!settingsPageRoles(href).includes(session.user.role)) redirect("/jobs");
+  if (!roles.includes(session.user.role)) redirect("/jobs");
+}
+
+/** หน้าตั้งค่า: ใช้ role ตาม SETTINGS_GROUPS ของหน้านั้น */
+export async function requireSettingsPage(href: string): Promise<void> {
+  await requirePageRoles(settingsPageRoles(href));
 }

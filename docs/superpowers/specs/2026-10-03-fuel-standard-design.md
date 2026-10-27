@@ -1,6 +1,6 @@
 # น้ำมันมาตรฐาน (Fuel Standard) — Design
 
-**Date:** 2026-10-03 · **Revised:** 2026-10-26 (key ใหม่: งานวิ่ง = size + โรงงาน + แหลมฉบัง, งานทอย = size + ที่ทอย)
+**Date:** 2026-10-03 · **Revised:** 2026-10-26 (key ใหม่: งานวิ่ง = size + โรงงาน + รับแหลมฉบัง + คืนแหลมฉบัง, งานทอย = size + ที่ทอย)
 **Status:** Approved (design)
 
 ## Goal
@@ -12,7 +12,9 @@
 
 ```
 วิ่ง  40DC  โรงงาน B               300 ลิตร   (รับ/คืนตู้โซนกรุงเทพ)
-วิ่ง  40DC  โรงงาน B  แหลมฉบัง     450 ลิตร   (รับหรือคืนตู้ที่แหลมฉบัง)
+วิ่ง  40DC  โรงงาน B  รับแหลมฉบัง  400 ลิตร   (รับตู้ที่แหลมฉบัง คืนตู้โซนกรุงเทพ)
+วิ่ง  40DC  โรงงาน B  คืนแหลมฉบัง  400 ลิตร   (รับตู้โซนกรุงเทพ คืนตู้ที่แหลมฉบัง)
+วิ่ง  40DC  โรงงาน B  รับ+คืนแหลม  500 ลิตร   (รับและคืนตู้ที่แหลมฉบัง)
 ทอย  40DC  WINWIN                  25 ลิตร
 ```
 
@@ -36,10 +38,11 @@ user เลือกดูโรงงานเป็นหลัก ยกเ�
 
 ## Behavior (confirmed with user)
 
-1. **Key ของค่ามาตรฐาน** = `ประเภท + size + สถานที่ + แหลมฉบัง`
+1. **Key ของค่ามาตรฐาน** = `ประเภท + size + สถานที่ + รับแหลมฉบัง + คืนแหลมฉบัง`
    - **งานวิ่ง** (jobType อื่นที่ไม่ใช่ทอย: ขาเข้า/ขาออก/พื้นเรียบ/โรงสี) — สถานที่ = **โรงงาน** ของ job,
-     แหลมฉบัง = สถานที่รับตู้ **หรือ** คืนตู้มีคำว่า `แหลม` ในชื่อ
-   - **งานทอย** (`towing`, `towingHeavy`) — สถานที่ = **สถานที่รับตู้** (ที่ทอย), แหลมฉบัง = false เสมอ
+     รับแหลมฉบัง = สถานที่รับตู้มีคำว่า `แหลม` ในชื่อ, คืนแหลมฉบัง = สถานที่คืนตู้มีคำว่า `แหลม` — ดูแยกกัน
+     โรงงานหนึ่งจึงมีได้ 4 ค่า (กรุงเทพ / รับแหลม / คืนแหลม / ทั้งคู่) ไม่มีค่าแบบที่ตรงกับงาน → missing ไม่ใช้ค่าแบบอื่นแทน
+   - **งานทอย** (`towing`, `towingHeavy`) — สถานที่ = **สถานที่รับตู้** (ที่ทอย), รับ/คืนแหลมฉบัง = false เสมอ
      (ที่ทอยเป็นแหลมฉบังก็คือสถานที่นั้นเองอยู่แล้ว)
    - **เช็คแหลมฉบังจากชื่อสถานที่** (`name.includes("แหลม")`) — ไม่มี field ใน Location
      สถานที่แหลมฉบังใน prod เปลี่ยนชื่อเป็นรูปแบบ `<ชื่อ> /แหลมฉบัง` แล้ว (`sql/rename-laem-locations-261026-v1.sql`)
@@ -71,20 +74,21 @@ Assumptions (ยืนยันกับ user แล้ว):
 [prisma/schema.prisma](../../../prisma/schema.prisma) หมวด Rate Tables ถัดจาก `RateDriverWage`:
 
 ```prisma
-// น้ำมันมาตรฐานต่อเที่ยว — งานวิ่ง: size + โรงงาน (+ แหลมฉบัง), งานทอย: size + ที่ทอย
+// น้ำมันมาตรฐานต่อเที่ยว — งานวิ่ง: size + โรงงาน (+ รับ/คืนแหลมฉบัง), งานทอย: size + ที่ทอย
 model FuelStandard {
   id            String   @id @default(cuid())
   kind          String   // "run" | "towing"
   size          String
   locationId    String   // run = โรงงาน, towing = สถานที่รับตู้ (ที่ทอย)
-  isLaemChabang Boolean  @default(false) // run เท่านั้น — รับหรือคืนตู้ที่แหลมฉบัง
+  pickupLaemChabang Boolean @default(false) // run เท่านั้น — สถานที่รับตู้ชื่อมีคำว่า "แหลม"
+  returnLaemChabang Boolean @default(false) // run เท่านั้น — สถานที่คืนตู้ชื่อมีคำว่า "แหลม"
   liters        Decimal  @db.Decimal(10, 2)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   location Location @relation("FuelStandardLocation", fields: [locationId], references: [id])
 
-  @@unique([kind, size, locationId, isLaemChabang])
+  @@unique([kind, size, locationId, pickupLaemChabang, returnLaemChabang])
   @@map("fuel_standard")
 }
 ```
@@ -110,22 +114,22 @@ Error message ภาษาไทย
 | DELETE | `/api/rates/fuel-standard/[id]` | ลบ |
 | POST | `/api/rates/fuel-standard/import` | import CSV (ดูด้านล่าง) |
 
-Body POST/PUT: `{ kind: "run" | "towing", size, locationId, isLaemChabang?: boolean, liters }`
+Body POST/PUT: `{ kind: "run" | "towing", size, locationId, pickupLaemChabang?: boolean, returnLaemChabang?: boolean, liters }`
 
 ### Import CSV
 
 ใช้ `ImportCSVModal` ตัวเดิม (validate → preview → import)
 
-- headers: `kind, size, locationName, isLaemChabang, liters`
-- headerLabels: `ประเภท, SIZE, สถานที่, แหลมฉบัง, ลิตร`
-- optional: `isLaemChabang`
+- headers: `kind, size, locationName, pickupLaemChabang, returnLaemChabang, liters`
+- headerLabels: `ประเภท, SIZE, สถานที่, รับแหลมฉบัง, คืนแหลมฉบัง, ลิตร`
+- optional: `pickupLaemChabang`, `returnLaemChabang`
 - exampleRow: `วิ่ง, 40DC, โรงงาน B, Y, 450`
 - Validation ต่อแถว:
   - ประเภท: `วิ่ง` / `ทอย` (รับ `run` / `towing` ด้วย)
   - size ต้องอยู่ใน `SIZE_OPTIONS`
   - **ชื่อสถานที่ต้องมีอยู่แล้วใน `Location` (isActive)** — ไม่เจอ → error `ไม่พบสถานที่ "X"`
   - งานวิ่ง: สถานที่ต้องเป็น `type = factory` — ไม่ใช่ → error
-  - แหลมฉบัง: ว่าง / `N` / `ไม่` / `0` = ไม่ใช่, `Y` / `ใช่` / `1` = ใช่ (ไม่สนตัวพิมพ์) อื่นๆ → error;
+  - รับแหลมฉบัง / คืนแหลมฉบัง (แต่ละช่อง): ว่าง / `N` / `ไม่` / `0` = ไม่ใช่, `Y` / `ใช่` / `1` = ใช่ (ไม่สนตัวพิมพ์) อื่นๆ → error;
     งานทอยติ๊กแหลมฉบัง → error
   - liters ต้องเป็นตัวเลข 0 ≤ liters ≤ 99,999,999.99 — ว่าง/Infinity/เกิน → error (POST/PUT ใช้กฎเดียวกัน)
   - key ซ้ำกันเองในไฟล์ → error
@@ -134,23 +138,23 @@ Body POST/PUT: `{ kind: "run" | "towing", size, locationId, isLaemChabang?: bool
 ### Export
 
 ปุ่ม Export สร้าง CSV ฝั่ง client จากข้อมูลที่โหลดอยู่ (หลังกรอง) headers เดียวกับ import
-ค่า kind เป็น `วิ่ง`/`ทอย`, แหลมฉบังเป็น `Y`/ว่าง — import กลับได้ทันที
+ค่า kind เป็น `วิ่ง`/`ทอย`, รับ/คืนแหลมฉบังเป็น `Y`/ว่าง — import กลับได้ทันที
 
 ## Settings Page
 
 - Route: `app/(protected)/jobs/settings/fuel-standard/page.tsx` — `requireSettingsPage` (ADMIN/MANAGER)
 - `components/jobs/FuelStandardManager.tsx`
-  - ตาราง `size="small"`: ประเภท | SIZE | สถานที่ | แหลมฉบัง | ลิตร | จัดการ
+  - ตาราง `size="small"`: ประเภท | SIZE | สถานที่ | รับแหลมฉบัง | คืนแหลมฉบัง | ลิตร | จัดการ (ช่องที่ติ๊กแสดง `CheckOutlined`)
   - Filter: ประเภท, size, สถานที่
   - ปุ่ม: เพิ่ม, Import, Export
-  - คำอธิบายใต้หัวข้อ: งานวิ่งใช้โรงงาน, งานทอยใช้สถานที่รับตู้, "แหลมฉบัง" ใช้เมื่อรับหรือคืนตู้ที่สถานที่ที่ชื่อมีคำว่า "แหลม"
+  - คำอธิบายใต้หัวข้อ: งานวิ่งใช้โรงงาน, งานทอยใช้สถานที่รับตู้, รับ/คืนแหลมฉบัง ดูจากชื่อสถานที่ที่มีคำว่า "แหลม"
   - ลบ: `modal.confirm`
 - `components/jobs/FuelStandardFormModal.tsx` รับ `initialValues` — ใช้ซ้ำจากหน้าสรุป (quick-add)
   - ประเภท (Radio วิ่ง/ทอย, `id="fuel-standard-kind"`)
   - SIZE (`id="fuel-standard-size"`)
   - สถานที่ (`id="fuel-standard-location"`) — วิ่ง: เฉพาะ `type = factory` label "โรงงาน"; ทอย: ทุกสถานที่ label "สถานที่รับตู้ (ที่ทอย)"
     เปลี่ยนประเภทแล้วสถานที่ที่เลือกไว้ไม่อยู่ในตัวเลือกใหม่ → ล้างค่า
-  - Checkbox แหลมฉบัง (`id="fuel-standard-laem"`) แสดงเฉพาะงานวิ่ง
+  - Checkbox รับแหลมฉบัง (`id="fuel-standard-pickup-laem"`) + คืนแหลมฉบัง (`id="fuel-standard-return-laem"`) แสดงเฉพาะงานวิ่ง ไม่มีข้อความอธิบายใต้ช่อง
   - ลิตร InputNumber min 0 precision 2
 - เมนู "น้ำมันมาตรฐาน" ใน [components/ProtectedLayoutClient.tsx](../../../components/ProtectedLayoutClient.tsx) (มีแล้ว)
 
@@ -171,20 +175,22 @@ interface FuelJob {
   size: string | null
   pickupLocationId: string | null
   factoryLocationId: string | null
-  /** รับหรือคืนตู้ที่แหลมฉบัง — query คำนวณจากชื่อสถานที่ด้วย isLaemChabangName */
-  touchesLaemChabang: boolean
+  /** query คำนวณจากชื่อสถานที่รับ/คืนตู้ด้วย isLaemChabangName */
+  pickupLaemChabang: boolean
+  returnLaemChabang: boolean
   fuelLiters: number            // OFF + สด + เครดิต (null → 0)
   pairRole: 'primary' | 'secondary' | null
   pairPartnerId: string | null
 }
 
-interface FuelStandardEntry { kind; size; locationId; isLaemChabang; liters }
+interface FuelStandardEntry { kind; size; locationId; pickupLaemChabang; returnLaemChabang; liters }
 
 interface FuelMissingRoute {
   kind: FuelStandardKind
   size: string | null           // size ที่ใช้หา (ใบหลักงานคู่ = paired size)
   locationId: string | null
-  isLaemChabang: boolean
+  pickupLaemChabang: boolean
+  returnLaemChabang: boolean
   jobNumbers: string[]
 }
 
@@ -201,8 +207,8 @@ function fuelStandardKindOf(jobType: string): FuelStandardKind
    - `pairRole = 'secondary'` หรือ `isTowingAbsorbed` → 0
    - kind = `towing` ถ้า jobType เป็นทอย, นอกนั้น `run`
    - size = `getPairedSize(size)` ถ้าเป็นใบ primary, นอกนั้น size เดิม
-   - run: locationId = factoryLocationId, isLaemChabang = touchesLaemChabang
-   - towing: locationId = pickupLocationId, isLaemChabang = false
+   - run: locationId = factoryLocationId, pickup/returnLaemChabang ตามงาน
+   - towing: locationId = pickupLocationId, pickup/returnLaemChabang = false
    - ไม่มี size/locationId หรือหาไม่เจอ → mark missing (group ตาม key)
 3. วนตามลำดับ สะสม job ลงช่วงปัจจุบัน เมื่อ `fuelLiters > 0` → ปิดช่วง
    - ช่วงแรกที่ปิด: ถ้า `hasPreviousFill = false` → `no_previous_fill`
@@ -221,7 +227,7 @@ function fuelStandardKindOf(jobType: string): FuelStandardKind
 
 1. หาจุดเติมล่าสุดก่อนต้นเดือน (`findFirst` เรียง `jobDate DESC, createdAt DESC`)
 2. ดึง job ตั้งแต่วันที่จุดเติมก่อนหน้า (หรือต้นเดือน) ถึงสิ้นเดือน เรียง `jobDate ASC, createdAt ASC`
-   select ชื่อสถานที่รับ/คืนตู้เพื่อคำนวณ `touchesLaemChabang`, และ `isTowingAbsorbed`
+   select ชื่อสถานที่รับ/คืนตู้เพื่อคำนวณ `pickupLaemChabang` / `returnLaemChabang`, และ `isTowingAbsorbed`
 3. ตัด job จนถึงจุดเติมก่อนหน้า (หาด้วย id) ออก → `computeFuelSegments`
 4. `FuelStandard` ทั้งหมดดึงครั้งเดียวต่อ request
 
@@ -233,7 +239,8 @@ interface FuelMissingRouteView {
   size: string | null
   locationId: string | null
   locationName: string | null
-  isLaemChabang: boolean
+  pickupLaemChabang: boolean
+  returnLaemChabang: boolean
   jobNumbers: string[]
 }
 ```
@@ -248,19 +255,26 @@ interface FuelMissingRouteView {
 |---|---|---|
 | น้ำมันเกินมาตรฐาน | `fuelStandard.excessLiters` ลิตร | สีแดงเมื่อ > 0; เว้นว่างเมื่อไม่มีช่วง `ok` เลย |
 | น้ำมันเกินสุทธิ | `fuelStandard.netDiffLiters` ลิตร | แดงเมื่อ > 0, เขียวเมื่อ < 0; เว้นว่างเมื่อไม่มีช่วง `ok` เลย |
-| ช่วงน้ำมัน | `N ช่วง` + `⚠ M ไม่ครบ` (ถ้ามี) + ปุ่ม "ดู" | |
+| ช่วงน้ำมัน | `N ช่วง` + `⚠ M ไม่ครบ` (ถ้ามี) + ลิงก์ "ดู" ไปหน้าช่วงน้ำมัน | |
 
 รถ NGV เว้นว่างทั้ง 3 แถว
 
-### `components/summary/FuelSegmentsModal.tsx`
+### หน้าช่วงน้ำมัน — `/jobs/[driverId]/fuel?month=YYYY-MM`
 
-ตาราง `size="small"`: `ช่วงวันที่ | จำนวน job | มาตรฐาน | ใช้จริง | ส่วนต่าง | สถานะ`
+แทน modal เดิม (ช่วงเยอะ ต้องการพื้นที่) — ADMIN/MANAGER (`RATE_ROLES`, สิทธิ์เดียวกับน้ำมันมาตรฐาน)
 
-- แถวที่มี missingRoutes ขยายได้ แสดง key ที่ขาด:
-  - `วิ่ง · 40DC · โรงงาน B · แหลมฉบัง  (JOB 123, 456)` / `ทอย · 40DC · WINWIN  (JOB 789)` + ปุ่ม "ตั้งค่า"
-  - ปุ่ม "ตั้งค่า" เปิด `FuelStandardFormModal` กรอก kind/size/สถานที่/แหลมฉบังไว้ให้ → บันทึก → refetch
-  - ไม่มี size หรือสถานที่ → ไม่แสดงปุ่ม แสดง "job กรอกข้อมูลไม่ครบ"
-- ท้ายตาราง: `รอปิดช่วง: N job หลังเติมครั้งล่าสุด`
+- ทางเข้า: ปุ่ม "ดู" ในการ์ดหน้าสรุป (ADMIN) และปุ่มไอคอน "ช่วงน้ำมัน" ในหน้ารายการงานของคนขับ (ADMIN/MANAGER)
+- API: `GET /api/fuel-segments/[driverId]?month=` → `{ driver, month, fuel }` (`buildFuelStandardSummaries(..., { includeJobs: true })`)
+  แยกจาก `/api/summary/[driverId]` ที่เป็น ADMIN-only และมีข้อมูลเงินเดือน
+- `components/summary/FuelSegmentsView.tsx`
+  - หัว: กลับ, ชื่อคนขับ, เลือกเดือน, ปุ่มไปรายการงานเดือนนี้
+  - กรอบสรุป: เกินมาตรฐาน, สุทธิ, ช่วงที่ปิดในเดือน, ไม่ครบ, รอปิดช่วง
+  - ตัวกรอง ทั้งหมด / ไม่ครบ
+  - ตาราง: เริ่ม | ถึง (วันเติม) | จำนวน job | มาตรฐาน | ใช้จริง | ส่วนต่าง | สถานะ | ค่าที่ขาด
+    - "ค่าที่ขาด" คอลัมน์ท้าย: key ที่ขาด + เลข JOB + ปุ่ม "ตั้งค่า" (หรือ "job กรอกข้อมูลไม่ครบ")
+    - กด "N งาน" → modal รายการ job ในช่วง: วันที่ | JOB | ลักษณะงาน | SIZE | รับตู้ | โรงงาน | คืนตู้ | มาตรฐาน | เติม + แถวรวม
+      มาตรฐานหาไม่เจอแสดง "ไม่มีค่า", ใบรองงานคู่/ทอยถูกดูดซับแสดง 0 พร้อมเหตุผล
+  - quick-add บันทึกแล้วโหลดใหม่เงียบๆ (ไม่สลับเป็น Spin)
 
 ## Out of Scope
 
@@ -278,7 +292,7 @@ interface FuelMissingRouteView {
 
 - ตัวอย่างหลัก: มาตรฐานรวม 80 เติม 97 → diff +17
 - งานวิ่ง match ด้วยโรงงาน ไม่สนสถานที่รับ/คืนตู้ (โซนกรุงเทพ)
-- งานวิ่งรับหรือคืนตู้ที่แหลมฉบัง → ใช้ค่า isLaemChabang = true; ไม่มีค่าแหลม → missing (ไม่ fallback ไปค่ากรุงเทพ)
+- งานวิ่งรับแหลม / คืนแหลม / ทั้งคู่ → ใช้ค่าแยกกัน; ไม่มีค่าแบบนั้น → missing (ไม่ fallback ไปค่าแบบอื่น)
 - งานทอย match ด้วยสถานที่รับตู้; `towingHeavy` เป็นทอย
 - งานวิ่งไม่มีโรงงาน / ทอยไม่มีที่รับตู้ / ไม่มี size → missing พร้อม kind
 - ทอยที่ถูกดูดซับ → 0 แต่ยังเป็นจุดเติมได้
@@ -291,7 +305,7 @@ interface FuelMissingRouteView {
 - ช่วงคร่อมเดือน
 - `isLaemChabangName`
 
-`lib/utils/__tests__/fuelStandardImport.test.ts`: ประเภทไทย/อังกฤษ, ประเภทผิด, วิ่งต้องเป็นโรงงาน, ทอยใช้สถานที่ใดก็ได้, แหลมฉบัง Y/ว่าง/ค่าผิด, ทอยติ๊กแหลม → error, ไม่พบสถานที่, ซ้ำในไฟล์, liters ผิด
+`lib/utils/__tests__/fuelStandardImport.test.ts`: ประเภทไทย/อังกฤษ, ประเภทผิด, วิ่งต้องเป็นโรงงาน, ทอยใช้สถานที่ใดก็ได้, รับ/คืนแหลมฉบัง Y/ว่าง/ค่าผิด แยกกัน, ทอยติ๊กแหลม → error, ไม่พบสถานที่, ซ้ำในไฟล์, liters ผิด
 
 ### E2E (Playwright)
 

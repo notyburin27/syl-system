@@ -56,21 +56,22 @@ function cleanup() {
 test.describe.serial('น้ำมันมาตรฐาน', () => {
   test.afterEach(() => cleanup())
 
-  test('Case 1: เพิ่มงานวิ่งแหลมฉบังผ่านหน้าจอ → แสดงในตาราง', async ({ page }) => {
+  test('Case 1: เพิ่มงานวิ่งคืนแหลมฉบังผ่านหน้าจอ → แสดงในตาราง', async ({ page }) => {
     await login(page)
     const { names } = await seedLocations(page, 'C1')
     await openAddForm(page)
 
     await selectOption(page, 'fuel-standard-size', '40DC')
     await selectOption(page, 'fuel-standard-location', names.factory)
-    await page.locator('#fuel-standard-laem').check()
+    await page.locator('#fuel-standard-return-laem').check()
     await page.getByTestId('fuel-standard-liters-input').fill('450')
     await page.getByTestId('fuel-standard-submit-btn').click()
 
     await expect(page.getByText('เพิ่มสำเร็จ')).toBeVisible()
     const row = page.getByRole('row').filter({ hasText: names.factory })
     await expect(row).toContainText('วิ่ง')
-    await expect(row).toContainText('✓')
+    // รับแหลม ไม่ติ๊ก, คืนแหลม ติ๊ก → มีไอคอนติ๊กถูกช่องเดียว
+    await expect(row.locator('.anticon-check')).toHaveCount(1)
     await expect(row).toContainText('450.00')
   })
 
@@ -80,7 +81,8 @@ test.describe.serial('น้ำมันมาตรฐาน', () => {
     await openAddForm(page)
 
     await page.getByRole('dialog').getByText('งานทอย').click()
-    await expect(page.locator('#fuel-standard-laem')).toHaveCount(0)
+    await expect(page.locator('#fuel-standard-pickup-laem')).toHaveCount(0)
+    await expect(page.locator('#fuel-standard-return-laem')).toHaveCount(0)
     await selectOption(page, 'fuel-standard-size', '20DC')
     await selectOption(page, 'fuel-standard-location', names.tow)
     await page.getByTestId('fuel-standard-liters-input').fill('25')
@@ -92,21 +94,23 @@ test.describe.serial('น้ำมันมาตรฐาน', () => {
     await expect(row).toContainText('25.00')
   })
 
-  test('Case 3: key ซ้ำ → 409, แหลมฉบังคนละ key, ทอยติ๊กแหลมฉบัง → 400', async ({ page }) => {
+  test('Case 3: key ซ้ำ → 409, รับ/คืนแหลมฉบังคนละ key, ทอยติ๊กแหลมฉบัง → 400', async ({ page }) => {
     await login(page)
     const loc = await seedLocations(page, 'C3')
-    const body = { kind: 'run', size: '20DC', locationId: loc.factoryId, isLaemChabang: false, liters: 100 }
+    const body = { kind: 'run', size: '20DC', locationId: loc.factoryId, pickupLaemChabang: false, returnLaemChabang: false, liters: 100 }
 
     expect((await page.request.post('/api/rates/fuel-standard', { data: body })).status()).toBe(201)
     const dup = await page.request.post('/api/rates/fuel-standard', { data: { ...body, liters: 120 } })
     expect(dup.status()).toBe(409)
     expect((await dup.json()).error).toBe('มีข้อมูลนี้อยู่แล้ว')
 
-    const laem = await page.request.post('/api/rates/fuel-standard', { data: { ...body, isLaemChabang: true } })
-    expect(laem.status()).toBe(201)
+    for (const flags of [{ pickupLaemChabang: true }, { returnLaemChabang: true }, { pickupLaemChabang: true, returnLaemChabang: true }]) {
+      const laem = await page.request.post('/api/rates/fuel-standard', { data: { ...body, ...flags } })
+      expect(laem.status(), JSON.stringify(flags)).toBe(201)
+    }
 
     const towLaem = await page.request.post('/api/rates/fuel-standard', {
-      data: { kind: 'towing', size: '20DC', locationId: loc.towId, isLaemChabang: true, liters: 20 },
+      data: { kind: 'towing', size: '20DC', locationId: loc.towId, returnLaemChabang: true, liters: 20 },
     })
     expect(towLaem.status()).toBe(400)
     expect((await towLaem.json()).error).toBe('งานทอยไม่ต้องระบุแหลมฉบัง')
@@ -151,8 +155,8 @@ test.describe.serial('น้ำมันมาตรฐาน', () => {
   test('Case 6: import — validate จับสถานที่ไม่พบ/ซ้ำในไฟล์, import ซ้ำ key เดิมอัปเดตลิตร', async ({ page }) => {
     await login(page)
     const { names } = await seedLocations(page, 'C6')
-    const good = { kind: 'วิ่ง', size: '40DC', locationName: names.factory, isLaemChabang: 'Y', liters: '450' }
-    const tow = { kind: 'ทอย', size: '40DC', locationName: names.tow, isLaemChabang: '', liters: '25' }
+    const good = { kind: 'วิ่ง', size: '40DC', locationName: names.factory, pickupLaemChabang: 'Y', returnLaemChabang: '', liters: '450' }
+    const tow = { kind: 'ทอย', size: '40DC', locationName: names.tow, pickupLaemChabang: '', returnLaemChabang: '', liters: '25' }
 
     const bad = await page.request.post('/api/rates/fuel-standard/import', {
       data: { validate: true, rows: [good, { ...good, locationName: 'E2E_FUEL_NOPE' }, { ...good }] },
@@ -169,11 +173,12 @@ test.describe.serial('น้ำมันมาตรฐาน', () => {
     expect((await page.request.post('/api/rates/fuel-standard/import', { data: { rows: [good, tow] } })).status()).toBe(201)
     expect((await page.request.post('/api/rates/fuel-standard/import', { data: { rows: [{ ...good, liters: '460' }] } })).status()).toBe(201)
 
-    type Row = { kind: string; isLaemChabang: boolean; location: { name: string }; liters: string }
+    type Row = { kind: string; pickupLaemChabang: boolean; returnLaemChabang: boolean; location: { name: string }; liters: string }
     const list = (await (await page.request.get('/api/rates/fuel-standard')).json()) as Row[]
     const run = list.filter((r) => r.location.name === names.factory)
     expect(run).toHaveLength(1)
-    expect(run[0].isLaemChabang).toBe(true)
+    expect(run[0].pickupLaemChabang).toBe(true)
+    expect(run[0].returnLaemChabang).toBe(false)
     expect(Number(run[0].liters)).toBe(460)
     expect(list.filter((r) => r.location.name === names.tow && r.kind === 'towing')).toHaveLength(1)
   })

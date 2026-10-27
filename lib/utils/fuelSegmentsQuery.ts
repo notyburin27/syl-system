@@ -9,7 +9,7 @@ import {
   type FuelSegmentResult,
   type FuelStandardEntry,
 } from "@/lib/utils/fuelSegments";
-import type { FuelStandardSummary } from "@/types/job";
+import type { FuelSegmentJobView, FuelStandardSummary } from "@/types/job";
 
 const num = (v: { toString(): string } | null) => (v != null ? Number(v) : null);
 
@@ -29,7 +29,7 @@ async function computeForDriver(
   monthStart: Date,
   monthEnd: Date,
   standards: FuelStandardEntry[]
-): Promise<FuelSegmentResult> {
+): Promise<{ result: FuelSegmentResult; jobInfo: Map<string, Omit<FuelSegmentJobView, "standardLiters">> }> {
   // ช่วงแรกของเดือนเริ่มหลังจุดเติมล่าสุดก่อนต้นเดือน — ต้องย้อนไปหาก่อน
   const prevFill = await prisma.job.findFirst({
     where: { driverId, jobDate: { lt: monthStart }, ...FILL_WHERE },
@@ -51,6 +51,7 @@ async function computeForDriver(
       pickupLocationId: true,
       factoryLocationId: true,
       pickupLocation: { select: { name: true } },
+      factoryLocation: { select: { name: true } },
       returnLocation: { select: { name: true } },
       fuelOfficeLiters: true,
       fuelCashLiters: true,
@@ -72,7 +73,8 @@ async function computeForDriver(
     size: r.size,
     pickupLocationId: r.pickupLocationId,
     factoryLocationId: r.factoryLocationId,
-    touchesLaemChabang: isLaemChabangName(r.pickupLocation?.name) || isLaemChabangName(r.returnLocation?.name),
+    pickupLaemChabang: isLaemChabangName(r.pickupLocation?.name),
+    returnLaemChabang: isLaemChabangName(r.returnLocation?.name),
     fuelLiters: totalFuelLiters({
       fuelOfficeLiters: num(r.fuelOfficeLiters),
       fuelCashLiters: num(r.fuelCashLiters),
@@ -82,13 +84,39 @@ async function computeForDriver(
     pairPartnerId: r.pairLinkAsPrimary?.secondaryJobId ?? r.pairLinkAsSecondary?.primaryJobId ?? null,
   }));
 
-  return computeFuelSegments(jobs, standards, { month, hasPreviousFill: !!prevFill });
+  // ข้อมูลแสดงผลของแต่ละ job — ใช้เฉพาะตอนขอ includeJobs
+  const jobInfo = new Map(
+    rows.slice(start).map((r, i) => {
+      const j = jobs[i];
+      const note: FuelSegmentJobView["note"] =
+        j.pairRole === "secondary" ? "pair_secondary" : j.isTowingAbsorbed ? "towing_absorbed" : null;
+      return [
+        r.id,
+        {
+          id: r.id,
+          jobNumber: r.jobNumber,
+          jobDate: j.jobDate,
+          jobType: r.jobType,
+          size: r.size,
+          pickupLocationName: r.pickupLocation?.name ?? null,
+          factoryLocationName: r.factoryLocation?.name ?? null,
+          returnLocationName: r.returnLocation?.name ?? null,
+          fuelLiters: j.fuelLiters,
+          note,
+        },
+      ] as const;
+    })
+  );
+
+  return { result: computeFuelSegments(jobs, standards, { month, hasPreviousFill: !!prevFill }), jobInfo };
 }
 
 /** น้ำมันเกินมาตรฐานของเดือนต่อคนขับ — คำนวณสดจาก job และตาราง fuel_standard */
 export async function buildFuelStandardSummaries(
   month: string,
-  driverIds: string[]
+  driverIds: string[],
+  /** includeJobs: แนบรายการ job ของแต่ละช่วง (หน้าช่วงน้ำมัน) — การ์ดสรุปไม่ต้องใช้ */
+  opts: { includeJobs?: boolean } = {}
 ): Promise<Map<string, FuelStandardSummary>> {
   const result = new Map<string, FuelStandardSummary>();
   if (driverIds.length === 0) return result;
@@ -101,7 +129,8 @@ export async function buildFuelStandardSummaries(
     kind: s.kind as FuelStandardKind,
     size: s.size,
     locationId: s.locationId,
-    isLaemChabang: s.isLaemChabang,
+    pickupLaemChabang: s.pickupLaemChabang,
+    returnLaemChabang: s.returnLaemChabang,
     liters: Number(s.liters),
   }));
 
@@ -112,7 +141,7 @@ export async function buildFuelStandardSummaries(
   );
 
   const locationIds = new Set<string>();
-  for (const [, r] of perDriver)
+  for (const [, { result: r }] of perDriver)
     for (const s of r.segments)
       for (const m of s.missingRoutes) if (m.locationId) locationIds.add(m.locationId);
   const locations = locationIds.size
@@ -120,17 +149,20 @@ export async function buildFuelStandardSummaries(
     : [];
   const nameById = new Map(locations.map((l) => [l.id, l.name]));
 
-  for (const [driverId, r] of perDriver) {
+  for (const [driverId, { result: r, jobInfo }] of perDriver) {
     result.set(driverId, {
       excessLiters: r.excessLiters,
       netDiffLiters: r.netDiffLiters,
       pendingJobCount: r.pendingJobCount,
-      segments: r.segments.map((s) => ({
+      segments: r.segments.map(({ jobs, ...s }) => ({
         ...s,
         missingRoutes: s.missingRoutes.map((m) => ({
           ...m,
           locationName: m.locationId ? nameById.get(m.locationId) ?? null : null,
         })),
+        ...(opts.includeJobs
+          ? { jobs: jobs.map((j) => ({ ...jobInfo.get(j.id)!, standardLiters: j.standardLiters })) }
+          : {}),
       })),
     });
   }

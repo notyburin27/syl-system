@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Modal, Form, Select, InputNumber, Radio, Checkbox, App } from 'antd'
+import { Modal, Form, Select, InputNumber, Radio, Checkbox, Space, App } from 'antd'
 import type { Location } from '@/types/job'
 import { SIZE_OPTIONS } from '@/types/job'
 import type { FuelStandardKind } from '@/lib/utils/fuelSegments'
@@ -12,7 +12,8 @@ export interface FuelStandardRecord {
   kind: FuelStandardKind
   size: string
   locationId: string
-  isLaemChabang: boolean
+  pickupLaemChabang: boolean
+  returnLaemChabang: boolean
   liters: number | string
   location: { id: string; name: string }
 }
@@ -21,7 +22,8 @@ export interface FuelStandardFormValues {
   kind?: FuelStandardKind
   size?: string
   locationId?: string
-  isLaemChabang?: boolean
+  pickupLaemChabang?: boolean
+  returnLaemChabang?: boolean
   liters?: number
 }
 
@@ -35,12 +37,18 @@ interface Props {
   onSaved: () => void
 }
 
-/** ชื่อ key สำหรับแสดงผล เช่น "วิ่ง · 40DC · โรงงาน B · แหลมฉบัง" */
+/** ชื่อ key สำหรับแสดงผล เช่น "วิ่ง · 40DC · โรงงาน B · รับแหลมฉบัง" */
 export function fuelStandardLabel(
-  r: { kind: FuelStandardKind; size: string | null; isLaemChabang: boolean },
+  r: { kind: FuelStandardKind; size: string | null; pickupLaemChabang: boolean; returnLaemChabang: boolean },
   locationName: string | null,
 ) {
-  return [FUEL_KIND_LABELS[r.kind], r.size ?? '?', locationName ?? '?', ...(r.isLaemChabang ? ['แหลมฉบัง'] : [])].join(' · ')
+  return [
+    FUEL_KIND_LABELS[r.kind],
+    r.size ?? '?',
+    locationName ?? '?',
+    ...(r.pickupLaemChabang ? ['รับแหลมฉบัง'] : []),
+    ...(r.returnLaemChabang ? ['คืนแหลมฉบัง'] : []),
+  ].join(' · ')
 }
 
 const filterByLabel = (input: string, option?: { label?: string }) =>
@@ -71,10 +79,11 @@ export default function FuelStandardFormModal({ open, editing, initialValues, on
             kind: editing.kind,
             size: editing.size,
             locationId: editing.locationId,
-            isLaemChabang: editing.isLaemChabang,
+            pickupLaemChabang: editing.pickupLaemChabang,
+            returnLaemChabang: editing.returnLaemChabang,
             liters: Number(editing.liters),
           }
-        : { kind: 'run', isLaemChabang: false, ...initialValues },
+        : { kind: 'run', pickupLaemChabang: false, returnLaemChabang: false, ...initialValues },
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -93,7 +102,7 @@ export default function FuelStandardFormModal({ open, editing, initialValues, on
     const locationId = form.getFieldValue('locationId')
     const loc = locations.find((l) => l.id === locationId)
     if (next === 'run' && loc && loc.type !== 'factory') form.setFieldValue('locationId', undefined)
-    if (next === 'towing') form.setFieldValue('isLaemChabang', false)
+    if (next === 'towing') form.setFieldsValue({ pickupLaemChabang: false, returnLaemChabang: false })
   }
 
   const handleSubmit = async (values: FuelStandardFormValues) => {
@@ -102,7 +111,11 @@ export default function FuelStandardFormModal({ open, editing, initialValues, on
       const res = await fetch(editing ? `/api/rates/fuel-standard/${editing.id}` : '/api/rates/fuel-standard', {
         method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, isLaemChabang: values.kind === 'run' && !!values.isLaemChabang }),
+        body: JSON.stringify({
+          ...values,
+          pickupLaemChabang: values.kind === 'run' && !!values.pickupLaemChabang,
+          returnLaemChabang: values.kind === 'run' && !!values.returnLaemChabang,
+        }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -146,13 +159,14 @@ export default function FuelStandardFormModal({ open, editing, initialValues, on
           <Select id="fuel-standard-location" showSearch options={locationOptions} filterOption={filterByLabel} placeholder={`เลือก${locationLabel}`} />
         </Form.Item>
         {kind === 'run' && (
-          <Form.Item
-            name="isLaemChabang"
-            valuePropName="checked"
-            extra='ใช้เมื่อรับหรือคืนตู้ที่สถานที่ที่ชื่อมีคำว่า "แหลม" — ไม่ติ๊ก = โซนกรุงเทพ'
-          >
-            <Checkbox id="fuel-standard-laem">แหลมฉบัง</Checkbox>
-          </Form.Item>
+          <Space size="large" style={{ marginBottom: 24 }}>
+            <Form.Item name="pickupLaemChabang" valuePropName="checked" noStyle>
+              <Checkbox id="fuel-standard-pickup-laem">รับแหลมฉบัง</Checkbox>
+            </Form.Item>
+            <Form.Item name="returnLaemChabang" valuePropName="checked" noStyle>
+              <Checkbox id="fuel-standard-return-laem">คืนแหลมฉบัง</Checkbox>
+            </Form.Item>
+          </Space>
         )}
         <Form.Item name="liters" label="ลิตร" rules={[{ required: true, message: 'กรุณากรอกจำนวนลิตร' }]}>
           <InputNumber style={{ width: '100%' }} min={0} precision={2} placeholder="0" data-testid="fuel-standard-liters-input" />

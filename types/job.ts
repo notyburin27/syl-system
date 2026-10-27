@@ -300,8 +300,26 @@ export interface FuelMissingRouteView {
   size: string | null;
   locationId: string | null;
   locationName: string | null;
-  isLaemChabang: boolean;
+  pickupLaemChabang: boolean;
+  returnLaemChabang: boolean;
   jobNumbers: string[];
+}
+
+/** job หนึ่งใบในช่วงน้ำมัน — สำหรับหน้าช่วงน้ำมัน */
+export interface FuelSegmentJobView {
+  id: string;
+  jobNumber: string;
+  jobDate: string;            // 'YYYY-MM-DD'
+  jobType: string;
+  size: string | null;
+  pickupLocationName: string | null;
+  factoryLocationName: string | null;
+  returnLocationName: string | null;
+  fuelLiters: number;         // OFF + สด + เครดิต
+  /** null = หาค่ามาตรฐานไม่เจอ */
+  standardLiters: number | null;
+  /** เหตุที่มาตรฐานเป็น 0 */
+  note: "pair_secondary" | "towing_absorbed" | null;
 }
 
 /** หนึ่งช่วงเติมน้ำมัน (จากจุดเติมก่อนหน้าถึงจุดเติมนี้) */
@@ -315,6 +333,8 @@ export interface FuelSegmentView {
   diffLiters: number | null;  // ใช้จริง − มาตรฐาน
   status: "ok" | "missing_standard" | "no_previous_fill";
   missingRoutes: FuelMissingRouteView[];
+  /** มีเฉพาะเมื่อขอ includeJobs (หน้าช่วงน้ำมัน) */
+  jobs?: FuelSegmentJobView[];
 }
 
 /** น้ำมันเกินมาตรฐานของเดือน — ลิตรเท่านั้น ไม่คิดเงิน */

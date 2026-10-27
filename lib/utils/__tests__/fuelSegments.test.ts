@@ -23,7 +23,8 @@ function job(over: Partial<FuelJob> = {}): FuelJob {
     size: '40DC',
     pickupLocationId: 'P1',
     factoryLocationId: 'F1',
-    touchesLaemChabang: false,
+    pickupLaemChabang: false,
+    returnLaemChabang: false,
     fuelLiters: 0,
     pairRole: null,
     pairPartnerId: null,
@@ -32,10 +33,12 @@ function job(over: Partial<FuelJob> = {}): FuelJob {
 }
 
 const STD: FuelStandardEntry[] = [
-  { kind: 'run', size: '40DC', locationId: 'F1', isLaemChabang: false, liters: 40 },
-  { kind: 'run', size: '40DC', locationId: 'F1', isLaemChabang: true, liters: 70 },
-  { kind: 'run', size: '2x20DC', locationId: 'F1', isLaemChabang: false, liters: 50 },
-  { kind: 'towing', size: '20DC', locationId: 'P1', isLaemChabang: false, liters: 15 },
+  { kind: 'run', size: '40DC', locationId: 'F1', pickupLaemChabang: false, returnLaemChabang: false, liters: 40 },
+  { kind: 'run', size: '40DC', locationId: 'F1', pickupLaemChabang: true, returnLaemChabang: false, liters: 60 },
+  { kind: 'run', size: '40DC', locationId: 'F1', pickupLaemChabang: false, returnLaemChabang: true, liters: 65 },
+  { kind: 'run', size: '40DC', locationId: 'F1', pickupLaemChabang: true, returnLaemChabang: true, liters: 90 },
+  { kind: 'run', size: '2x20DC', locationId: 'F1', pickupLaemChabang: false, returnLaemChabang: false, liters: 50 },
+  { kind: 'towing', size: '20DC', locationId: 'P1', pickupLaemChabang: false, returnLaemChabang: false, liters: 15 },
 ]
 
 function run(jobs: FuelJob[], opts: Partial<{ month: string; hasPreviousFill: boolean }> = {}) {
@@ -61,6 +64,21 @@ test('ตัวอย่างหลัก: B ไม่เติม, H เติ
   assert.equal(r.pendingJobCount, 0)
 })
 
+test('ช่วงเก็บรายการ job ตามลำดับ พร้อมมาตรฐานต่อใบ (หาไม่เจอ = null, ใบรองงานคู่ = 0)', () => {
+  const a = job()
+  const b = job({ factoryLocationId: 'F2' })
+  // ใบรองถูกย้ายไปหลังใบหลัก — เติมที่ใบรองจึงปิดช่วงหลังทั้งคู่
+  const s = job({ id: 'S', size: '20DC', pairRole: 'secondary', pairPartnerId: 'P', fuelLiters: 200 })
+  const p = job({ id: 'P', size: '20DC', pairRole: 'primary', pairPartnerId: 'S' })
+  const r = run([a, b, s, p])
+  assert.deepEqual(r.segments[0].jobs, [
+    { id: a.id, standardLiters: 40 },
+    { id: b.id, standardLiters: null },
+    { id: 'P', standardLiters: 50 },
+    { id: 'S', standardLiters: 0 },
+  ])
+})
+
 test('totalFuelLiters: รวม OFF + สด + เครดิต, null นับเป็น 0', () => {
   assert.equal(totalFuelLiters({ fuelOfficeLiters: 50, fuelCashLiters: 20.5, fuelCreditLiters: null }), 70.5)
   assert.equal(totalFuelLiters({ fuelOfficeLiters: null, fuelCashLiters: null, fuelCreditLiters: null }), 0)
@@ -75,7 +93,7 @@ test('ช่วงที่มี job ไม่มีค่ามาตรฐา
   assert.equal(s.standardLiters, null)
   assert.equal(s.diffLiters, null)
   assert.deepEqual(s.missingRoutes, [
-    { kind: 'run', size: '40DC', locationId: 'F2', isLaemChabang: false, jobNumbers: [a.jobNumber, b.jobNumber] },
+    { kind: 'run', size: '40DC', locationId: 'F2', pickupLaemChabang: false, returnLaemChabang: false, jobNumbers: [a.jobNumber, b.jobNumber] },
   ])
   assert.equal(r.excessLiters, 0)
   assert.equal(r.netDiffLiters, 0)
@@ -167,23 +185,31 @@ test('งานวิ่ง match ด้วยโรงงาน — สถา�
   assert.equal(r.segments[0].standardLiters, 80)
 })
 
-test('งานวิ่งรับหรือคืนตู้ที่แหลมฉบัง → ใช้ค่าแหลมฉบัง', () => {
-  const r = run([job({ touchesLaemChabang: true, fuelLiters: 70 })])
-  assert.equal(r.segments[0].standardLiters, 70)
+test('งานวิ่ง: รับแหลม / คืนแหลม / ทั้งคู่ ใช้ค่าแยกกัน', () => {
+  const cases: [Partial<FuelJob>, number][] = [
+    [{ pickupLaemChabang: true }, 60],
+    [{ returnLaemChabang: true }, 65],
+    [{ pickupLaemChabang: true, returnLaemChabang: true }, 90],
+  ]
+  for (const [over, expected] of cases) {
+    const r = run([job({ ...over, fuelLiters: 100 })])
+    assert.equal(r.segments[0].standardLiters, expected, JSON.stringify(over))
+  }
 })
 
-test('งานวิ่งแหลมฉบังที่ยังไม่มีค่าแหลม → missing (ไม่ใช้ค่ากรุงเทพแทน)', () => {
-  const r = run([job({ factoryLocationId: 'F2', touchesLaemChabang: true, fuelLiters: 70 })])
+test('งานวิ่งแหลมฉบังที่ยังไม่มีค่าแบบนั้น → missing (ไม่ใช้ค่าแบบอื่นแทน)', () => {
+  const r = run([job({ factoryLocationId: 'F2', returnLaemChabang: true, fuelLiters: 70 })])
   assert.equal(r.segments[0].status, 'missing_standard')
   assert.deepEqual(r.segments[0].missingRoutes[0], {
-    kind: 'run', size: '40DC', locationId: 'F2', isLaemChabang: true, jobNumbers: [r.segments[0].closingJobNumber],
+    kind: 'run', size: '40DC', locationId: 'F2', pickupLaemChabang: false, returnLaemChabang: true,
+    jobNumbers: [r.segments[0].closingJobNumber],
   })
 })
 
 test('งานทอย match ด้วยสถานที่รับตู้ ไม่สนโรงงาน; ทอยหนักนับเป็นทอย', () => {
   const r = run([
     job({ jobType: 'towing', size: '20DC', factoryLocationId: null }),
-    job({ jobType: 'towingHeavy', size: '20DC', factoryLocationId: 'F9', touchesLaemChabang: true, fuelLiters: 40 }),
+    job({ jobType: 'towingHeavy', size: '20DC', factoryLocationId: 'F9', pickupLaemChabang: true, returnLaemChabang: true, fuelLiters: 40 }),
   ])
   assert.equal(r.segments[0].status, 'ok')
   assert.equal(r.segments[0].standardLiters, 30)
@@ -194,7 +220,8 @@ test('งานทอยที่สถานที่รับตู้ไม�
   assert.equal(r.segments[0].status, 'missing_standard')
   assert.equal(r.segments[0].missingRoutes[0].kind, 'towing')
   assert.equal(r.segments[0].missingRoutes[0].locationId, 'P2')
-  assert.equal(r.segments[0].missingRoutes[0].isLaemChabang, false)
+  assert.equal(r.segments[0].missingRoutes[0].pickupLaemChabang, false)
+  assert.equal(r.segments[0].missingRoutes[0].returnLaemChabang, false)
 })
 
 test('ทอยที่ถูกดูดซับ → มาตรฐาน 0 แม้ไม่มีค่า แต่ยังเป็นจุดเติมได้', () => {
@@ -251,7 +278,7 @@ test('คร่อมเดือน: ช่วงที่ปิดเดือ
 test('ปัดทศนิยม 2 ตำแหน่ง', () => {
   const r = computeFuelSegments(
     [job({ fuelLiters: 0 }), job({ fuelLiters: 97.3 })],
-    [{ kind: 'run', size: '40DC', locationId: 'F1', isLaemChabang: false, liters: 40.15 }],
+    [{ kind: 'run', size: '40DC', locationId: 'F1', pickupLaemChabang: false, returnLaemChabang: false, liters: 40.15 }],
     { month: MONTH, hasPreviousFill: true },
   )
   assert.equal(r.segments[0].standardLiters, 80.3)

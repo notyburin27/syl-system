@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Select, App, Space, Row, Col, Typography } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, ExportOutlined, CheckOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
 import FuelStandardFormModal, { fuelStandardLabel, type FuelStandardRecord } from './FuelStandardFormModal'
 import { SIZE_OPTIONS } from '@/types/job'
 import type { FuelStandardKind } from '@/lib/utils/fuelSegments'
 import { FUEL_KIND_LABELS } from '@/lib/utils/fuelStandardImport'
 
-const CSV_HEADERS = ['kind', 'size', 'locationName', 'isLaemChabang', 'liters']
+const CSV_HEADERS = ['kind', 'size', 'locationName', 'pickupLaemChabang', 'returnLaemChabang', 'liters']
 
 const KIND_OPTIONS = (Object.keys(FUEL_KIND_LABELS) as FuelStandardKind[]).map((k) => ({
   value: k,
@@ -87,7 +87,14 @@ export default function FuelStandardManager() {
   // ไม่มีแถว label ภาษาไทย — แก้ไฟล์แล้ว import กลับได้ทันที
   const handleExport = () => {
     const lines = filteredRows.map((r) =>
-      [FUEL_KIND_LABELS[r.kind], r.size, r.location.name, r.isLaemChabang ? 'Y' : '', Number(r.liters)].join(','),
+      [
+        FUEL_KIND_LABELS[r.kind],
+        r.size,
+        r.location.name,
+        r.pickupLaemChabang ? 'Y' : '',
+        r.returnLaemChabang ? 'Y' : '',
+        Number(r.liters),
+      ].join(','),
     )
     const csv = [CSV_HEADERS.join(','), ...lines].join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -104,8 +111,12 @@ export default function FuelStandardManager() {
     { title: 'SIZE', dataIndex: 'size', key: 'size', width: 90 },
     { title: 'สถานที่', key: 'location', render: (_: unknown, r: FuelStandardRecord) => r.location.name },
     {
-      title: 'แหลมฉบัง', dataIndex: 'isLaemChabang', key: 'laem', width: 90, align: 'center' as const,
-      render: (v: boolean) => (v ? '✓' : ''),
+      title: 'รับแหลมฉบัง', dataIndex: 'pickupLaemChabang', key: 'pickupLaem', width: 110, align: 'center' as const,
+      render: (v: boolean) => (v ? <CheckOutlined style={{ color: '#52c41a' }} /> : null),
+    },
+    {
+      title: 'คืนแหลมฉบัง', dataIndex: 'returnLaemChabang', key: 'returnLaem', width: 110, align: 'center' as const,
+      render: (v: boolean) => (v ? <CheckOutlined style={{ color: '#52c41a' }} /> : null),
     },
     {
       title: 'ลิตร', dataIndex: 'liters', key: 'liters', width: 110, align: 'right' as const,
@@ -128,7 +139,7 @@ export default function FuelStandardManager() {
         <div>
           <h2 style={{ margin: 0 }}>น้ำมันมาตรฐาน</h2>
           <Typography.Text type="secondary">
-            งานวิ่งใช้ค่าตามโรงงาน · งานทอยใช้ค่าตามสถานที่รับตู้ · &quot;แหลมฉบัง&quot; ใช้เมื่อรับหรือคืนตู้ที่สถานที่ที่ชื่อมีคำว่า &quot;แหลม&quot;
+            งานวิ่งใช้ค่าตามโรงงาน · งานทอยใช้ค่าตามสถานที่รับตู้ · รับ/คืนแหลมฉบัง ดูจากชื่อสถานที่ที่มีคำว่า &quot;แหลม&quot;
           </Typography.Text>
         </div>
         <Space>
@@ -175,11 +186,12 @@ export default function FuelStandardManager() {
           kind: 'ประเภท (วิ่ง/ทอย)',
           size: 'SIZE',
           locationName: 'สถานที่ (วิ่ง = โรงงาน, ทอย = ที่รับตู้)',
-          isLaemChabang: 'แหลมฉบัง (Y/ว่าง)',
+          pickupLaemChabang: 'รับแหลมฉบัง (Y/ว่าง)',
+          returnLaemChabang: 'คืนแหลมฉบัง (Y/ว่าง)',
           liters: 'ลิตร',
         }}
-        optionalHeaders={['isLaemChabang']}
-        exampleRow={['วิ่ง', '40DC', 'โรงงาน B', 'Y', '450']}
+        optionalHeaders={['pickupLaemChabang', 'returnLaemChabang']}
+        exampleRow={['วิ่ง', '40DC', 'โรงงาน B', 'Y', '', '400']}
         templateFileName="fuel_standard_template.csv"
         onClose={() => setImportOpen(false)}
         onSuccess={fetchRows}

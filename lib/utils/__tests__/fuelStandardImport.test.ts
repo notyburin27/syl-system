@@ -12,7 +12,8 @@ const row = (over: Partial<FuelStandardImportRow> = {}): FuelStandardImportRow =
   kind: 'วิ่ง',
   size: '40DC',
   locationName: 'โรงงาน B',
-  isLaemChabang: '',
+  pickupLaemChabang: '',
+  returnLaemChabang: '',
   liters: '300',
   ...over,
 })
@@ -21,26 +22,34 @@ test('แถวงานวิ่งถูกต้อง → resolve เป็�
   const r = validateFuelStandardRows([row()], LOCS)
   assert.deepEqual(r.errors, [])
   assert.deepEqual(r.resolved, [
-    { kind: 'run', size: '40DC', locationId: 'f1', isLaemChabang: false, liters: 300 },
+    { kind: 'run', size: '40DC', locationId: 'f1', pickupLaemChabang: false, returnLaemChabang: false, liters: 300 },
   ])
 })
 
-test('ประเภทรับทั้งไทยและอังกฤษ, แหลมฉบัง Y/ใช่/1 = true', () => {
+test('ประเภทรับทั้งไทยและอังกฤษ, รับ/คืนแหลมฉบัง Y/ใช่/1 = true แยกกัน', () => {
   const r = validateFuelStandardRows(
     [
-      row({ kind: 'run', isLaemChabang: 'Y' }),
-      row({ kind: 'ทอย', locationName: 'WINWIN', isLaemChabang: undefined }),
-      row({ kind: 'Towing', size: '20DC', locationName: 'WINWIN', isLaemChabang: 'N' }),
+      row({ kind: 'run', pickupLaemChabang: 'Y' }),
+      row({ returnLaemChabang: 'Y', size: '20DC' }),
+      row({ pickupLaemChabang: 'Y', returnLaemChabang: 'ใช่', size: '20RF' }),
+      row({ kind: 'ทอย', locationName: 'WINWIN', pickupLaemChabang: undefined, returnLaemChabang: undefined }),
+      row({ kind: 'Towing', size: '20DC', locationName: 'WINWIN', pickupLaemChabang: 'N' }),
     ],
     LOCS,
   )
   assert.deepEqual(r.errors, [])
   assert.deepEqual(
-    r.resolved.map((x) => [x.kind, x.locationId, x.isLaemChabang]),
-    [['run', 'f1', true], ['towing', 'w1', false], ['towing', 'w1', false]],
+    r.resolved.map((x) => [x.kind, x.locationId, x.pickupLaemChabang, x.returnLaemChabang]),
+    [
+      ['run', 'f1', true, false],
+      ['run', 'f1', false, true],
+      ['run', 'f1', true, true],
+      ['towing', 'w1', false, false],
+      ['towing', 'w1', false, false],
+    ],
   )
   for (const v of ['ใช่', '1', ' y ']) {
-    assert.equal(validateFuelStandardRows([row({ isLaemChabang: v })], LOCS).resolved[0].isLaemChabang, true)
+    assert.equal(validateFuelStandardRows([row({ pickupLaemChabang: v })], LOCS).resolved[0].pickupLaemChabang, true)
   }
 })
 
@@ -65,14 +74,14 @@ test('งานวิ่งต้องเป็นโรงงาน, งาน
 
 test('แหลมฉบังค่าผิด หรืองานทอยติ๊กแหลมฉบัง → error', () => {
   const r = validateFuelStandardRows(
-    [row({ isLaemChabang: 'maybe' }), row({ kind: 'ทอย', locationName: 'WINWIN', isLaemChabang: 'Y' })],
+    [row({ returnLaemChabang: 'maybe' }), row({ kind: 'ทอย', locationName: 'WINWIN', pickupLaemChabang: 'Y' })],
     LOCS,
   )
   assert.deepEqual(
     r.errors.map((e) => [e.row, e.field, e.message]),
     [
-      [1, 'isLaemChabang', 'แหลมฉบัง "maybe" ไม่ถูกต้อง (ใช้ Y หรือเว้นว่าง)'],
-      [2, 'isLaemChabang', 'งานทอยไม่ต้องระบุแหลมฉบัง'],
+      [1, 'returnLaemChabang', 'คืนแหลมฉบัง "maybe" ไม่ถูกต้อง (ใช้ Y หรือเว้นว่าง)'],
+      [2, 'pickupLaemChabang', 'งานทอยไม่ต้องระบุรับแหลมฉบัง'],
     ],
   )
 })
@@ -89,13 +98,16 @@ test('ลิตรไม่ใช่ตัวเลข หรือติดล�
 })
 
 test('key ซ้ำกันในไฟล์ → error ที่แถวหลัง (เทียบหลังแปลงค่า)', () => {
-  const r = validateFuelStandardRows([row({ isLaemChabang: 'Y' }), row({ kind: 'run', isLaemChabang: 'ใช่', liters: '310' })], LOCS)
+  const r = validateFuelStandardRows([row({ pickupLaemChabang: 'Y' }), row({ kind: 'run', pickupLaemChabang: 'ใช่', liters: '310' })], LOCS)
   assert.deepEqual(r.errors, [{ row: 2, field: 'kind', message: 'ข้อมูลซ้ำในไฟล์ (แถว 1, 2)' }])
-  assert.equal(validateFuelStandardRows([row({ isLaemChabang: '' }), row({ isLaemChabang: 'N' })], LOCS).errors.length, 1)
+  assert.equal(validateFuelStandardRows([row({ returnLaemChabang: '' }), row({ returnLaemChabang: 'N' })], LOCS).errors.length, 1)
 })
 
-test('แหลมฉบังกับกรุงเทพของโรงงานเดียวกันไม่ถือว่าซ้ำ', () => {
-  assert.deepEqual(validateFuelStandardRows([row(), row({ isLaemChabang: 'Y' })], LOCS).errors, [])
+test('กรุงเทพ / รับแหลม / คืนแหลม ของโรงงานเดียวกันไม่ถือว่าซ้ำ', () => {
+  assert.deepEqual(
+    validateFuelStandardRows([row(), row({ pickupLaemChabang: 'Y' }), row({ returnLaemChabang: 'Y' })], LOCS).errors,
+    [],
+  )
 })
 
 test('ลิตรว่างเปล่า / ช่องว่าง / infinity / เกิน Decimal(10,2) → error', () => {

@@ -10,7 +10,8 @@ import dayjs from 'dayjs'
 import ExportRangeModal from './ExportRangeModal'
 import EditableSummaryRow, { type EditableField, ROW_HEIGHT } from './EditableSummaryRow'
 import SummaryDriverSwitchModal from './SummaryDriverSwitchModal'
-import FuelSegmentsModal, { fmtSignedLiters, diffColor } from './FuelSegmentsModal'
+import Link from 'next/link'
+import { fmtSignedLiters, diffColor } from '@/lib/utils/fuelFormat'
 
 function fmt(value: number | null) {
   if (value == null) return ''
@@ -74,8 +75,8 @@ function RowGap() {
   return <div style={{ borderTop: '1px solid #f0f0f0', margin: '6px 0' }} />
 }
 
-/** แถว "ช่วงน้ำมัน" — จำนวนช่วง + เตือนช่วงที่ข้อมูลไม่ครบ + ปุ่มเปิดรายละเอียด */
-function FuelSegmentsRow({ fuel, onOpen }: { fuel: FuelStandardSummary | null; onOpen: () => void }) {
+/** แถว "ช่วงน้ำมัน" — จำนวนช่วง + เตือนช่วงที่ข้อมูลไม่ครบ + ลิงก์ไปหน้าช่วงน้ำมัน */
+function FuelSegmentsRow({ fuel, href }: { fuel: FuelStandardSummary | null; href: string }) {
   const incomplete = fuel ? fuel.segments.filter((s) => s.status !== 'ok').length : 0
   return (
     <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px', height: ROW_HEIGHT, gap: 8 }}>
@@ -94,9 +95,9 @@ function FuelSegmentsRow({ fuel, onOpen }: { fuel: FuelStandardSummary | null; o
       </span>
       <span style={{ width: 38, minWidth: 38, flexShrink: 0 }}>
         {fuel && (
-          <Button type="link" size="small" style={{ padding: 0 }} onClick={onOpen} data-testid="fuel-segments-view-btn">
+          <Link href={href} data-testid="fuel-segments-view-btn">
             ดู
-          </Button>
+          </Link>
         )}
       </span>
     </div>
@@ -108,11 +109,9 @@ function MonthCard({
   s,
   saving,
   onSave,
-  onOpenFuelSegments,
 }: {
   s: DriverMonthlySummary
   saving: boolean
-  onOpenFuelSegments: () => void
   onSave: (month: string, values: Record<EditableField, number | null>) => Promise<boolean>
 }) {
   const [editing, setEditing] = useState(false)
@@ -269,7 +268,7 @@ function MonthCard({
         color={fuelStdComputed ? diffColor(fuelStdComputed.netDiffLiters) : undefined}
         testId="fuel-net-value"
       />
-      <FuelSegmentsRow fuel={fuelStd} onOpen={onOpenFuelSegments} />
+      <FuelSegmentsRow fuel={fuelStd} href={`/jobs/${s.driverId}/fuel?month=${s.month}`} />
 
       <RowGap />
 
@@ -322,7 +321,6 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
   const [exportOpen, setExportOpen] = useState(false)
   const [switchOpen, setSwitchOpen] = useState(false)
   const [savingMonth, setSavingMonth] = useState<string | null>(null)
-  const [fuelMonth, setFuelMonth] = useState<string | null>(null)
   const { message } = App.useApp()
 
   const handleSaveCard = useCallback(
@@ -367,9 +365,8 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
   )
 
   const fetchYear = useCallback(
-    async (y: dayjs.Dayjs, opts: { silent?: boolean } = {}) => {
-      // silent = refresh เบื้องหลัง ไม่สลับเป็น Spin (ไม่เสีย scroll ของแถบการ์ด)
-      if (!opts.silent) setLoading(true)
+    async (y: dayjs.Dayjs) => {
+      setLoading(true)
       try {
         const yyyy = y.format('YYYY')
         // API คืนเดือนล่าสุดก่อนอยู่แล้ว — ครอบทั้งปี ม.ค. ถึง ธ.ค.
@@ -378,7 +375,7 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
       } catch {
         console.error('Error fetching summary')
       } finally {
-        if (!opts.silent) setLoading(false)
+        setLoading(false)
       }
     },
     [driverId]
@@ -401,12 +398,6 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
     const currentMonth = dayjs().format('YYYY-MM')
     return months.filter((s) => s.month < currentMonth)
   }, [months])
-
-  // อ่านจาก months ทุกครั้ง — หลัง quick-add แล้ว refetch modal จะเห็นตัวเลขใหม่ทันที
-  const fuelMonthSummary = useMemo(
-    () => (fuelMonth ? months.find((m) => m.month === fuelMonth) ?? null : null),
-    [months, fuelMonth]
-  )
 
   // ช่วง default ตอน export = ม.ค. ถึงเดือนล่าสุดที่จบแล้ว ให้ตรงกับการ์ดที่เห็นบนหน้าจอ
   // ปีเก่าที่จบไปแล้วเอาถึง ธ.ค. ได้เต็มปี
@@ -480,20 +471,11 @@ export default function SummaryDetail({ driverId }: { driverId: string }) {
                 s={s}
                 saving={savingMonth === s.month}
                 onSave={handleSaveCard}
-                onOpenFuelSegments={() => setFuelMonth(s.month)}
               />
             </div>
           ))}
         </div>
       )}
-
-      <FuelSegmentsModal
-        open={fuelMonth !== null}
-        month={fuelMonth}
-        fuel={fuelMonthSummary?.fuelStandard ?? null}
-        onClose={() => setFuelMonth(null)}
-        onStandardSaved={() => fetchYear(year, { silent: true })}
-      />
 
       <SummaryDriverSwitchModal
         open={switchOpen}

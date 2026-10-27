@@ -5,7 +5,8 @@ export interface FuelStandardImportRow {
   kind?: string;
   size?: string;
   locationName?: string;
-  isLaemChabang?: string;
+  pickupLaemChabang?: string;
+  returnLaemChabang?: string;
   liters?: string;
 }
 
@@ -25,7 +26,8 @@ export interface ResolvedFuelStandardRow {
   kind: FuelStandardKind;
   size: string;
   locationId: string;
-  isLaemChabang: boolean;
+  pickupLaemChabang: boolean;
+  returnLaemChabang: boolean;
   liters: number;
 }
 
@@ -69,12 +71,15 @@ export function validateFuelStandardRows(
   const resolved: ResolvedFuelStandardRow[] = [];
 
   const kindOf = (r: FuelStandardImportRow) => KIND_BY_TEXT[(r.kind ?? "").trim().toLowerCase()];
-  const laemText = (r: FuelStandardImportRow) => (r.isLaemChabang ?? "").trim().toLowerCase();
+  const laemText = (v: string | undefined) => (v ?? "").trim().toLowerCase();
 
   // ซ้ำในไฟล์เทียบด้วยค่าที่แปลงแล้ว — "วิ่ง" กับ "run", "Y" กับ "ใช่" คือ key เดียวกัน
-  const laemKey = (t: string) => (LAEM_TRUE.includes(t) ? "1" : LAEM_FALSE.includes(t) ? "0" : t);
+  const laemKey = (v: string | undefined) => {
+    const t = laemText(v);
+    return LAEM_TRUE.includes(t) ? "1" : LAEM_FALSE.includes(t) ? "0" : t;
+  };
   const keyOf = (r: FuelStandardImportRow) =>
-    [kindOf(r) ?? r.kind ?? "", r.size ?? "", r.locationName ?? "", laemKey(laemText(r))].join("|");
+    [kindOf(r) ?? r.kind ?? "", r.size ?? "", r.locationName ?? "", laemKey(r.pickupLaemChabang), laemKey(r.returnLaemChabang)].join("|");
   const rowsByKey = new Map<string, number[]>();
   rows.forEach((r, i) => rowsByKey.set(keyOf(r), [...(rowsByKey.get(keyOf(r)) ?? []), i + 1]));
 
@@ -100,11 +105,16 @@ export function validateFuelStandardRows(
         err("locationName", `"${r.locationName}" ไม่ใช่สถานที่ประเภทโรงงาน (งานวิ่งต้องเป็นโรงงาน)`);
     }
 
-    const laem = laemText(r);
-    const isLaemChabang = LAEM_TRUE.includes(laem);
-    if (!isLaemChabang && !LAEM_FALSE.includes(laem))
-      err("isLaemChabang", `แหลมฉบัง "${r.isLaemChabang}" ไม่ถูกต้อง (ใช้ Y หรือเว้นว่าง)`);
-    else if (isLaemChabang && kind === "towing") err("isLaemChabang", "งานทอยไม่ต้องระบุแหลมฉบัง");
+    const parseLaem = (field: "pickupLaemChabang" | "returnLaemChabang", label: string) => {
+      const value = laemText(r[field]);
+      const checked = LAEM_TRUE.includes(value);
+      if (!checked && !LAEM_FALSE.includes(value))
+        err(field, `${label} "${r[field]}" ไม่ถูกต้อง (ใช้ Y หรือเว้นว่าง)`);
+      else if (checked && kind === "towing") err(field, `งานทอยไม่ต้องระบุ${label}`);
+      return checked;
+    };
+    const pickupLaemChabang = parseLaem("pickupLaemChabang", "รับแหลมฉบัง");
+    const returnLaemChabang = parseLaem("returnLaemChabang", "คืนแหลมฉบัง");
 
     const parsedLiters = parseFuelLiters(r.liters);
     if ("error" in parsedLiters) err("liters", parsedLiters.error);
@@ -114,12 +124,12 @@ export function validateFuelStandardRows(
     if (dups.length > 1 && dups[0] !== rowNum) err("kind", `ข้อมูลซ้ำในไฟล์ (แถว ${dups.join(", ")})`);
 
     // ตำแหน่ง error ให้เรียง field ตามคอลัมน์ในไฟล์
-    const order = ["kind", "size", "locationName", "isLaemChabang", "liters"];
+    const order = ["kind", "size", "locationName", "pickupLaemChabang", "returnLaemChabang", "liters"];
     rowErrors.sort((a, b) => order.indexOf(a.field) - order.indexOf(b.field));
     errors.push(...rowErrors);
 
     if (rowErrors.length === 0 && kind && location) {
-      resolved.push({ kind, size: r.size!, locationId: location.id, isLaemChabang, liters });
+      resolved.push({ kind, size: r.size!, locationId: location.id, pickupLaemChabang, returnLaemChabang, liters });
     }
   });
 

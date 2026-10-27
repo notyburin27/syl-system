@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import EditableJobTable from '@/components/jobs/EditableJobTable'
 import dayjs from 'dayjs'
+import { RATE_ROLES } from '@/lib/settingsNav'
 
 interface Props {
   params: Promise<{ driverId: string }>
@@ -28,6 +29,8 @@ export default async function DriverJobPage({ params, searchParams }: Props) {
   const role = (session.user as { role?: string }).role
   const isAdmin = role === 'ADMIN'
   const canPairJobs = role === 'ADMIN' || role === 'SENIOR_STAFF'
+  // ช่วงน้ำมันใช้สิทธิ์เดียวกับน้ำมันมาตรฐาน
+  const canViewFuelSegments = !!role && RATE_ROLES.includes(role)
 
   return (
     <Suspense>
@@ -38,6 +41,7 @@ export default async function DriverJobPage({ params, searchParams }: Props) {
         month={currentMonth}
         isAdmin={isAdmin}
         canPairJobs={canPairJobs}
+        canViewFuelSegments={canViewFuelSegments}
       />
     </Suspense>
   )

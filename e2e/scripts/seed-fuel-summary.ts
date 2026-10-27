@@ -24,13 +24,13 @@ async function main() {
   const fac = await loc('E2E_FUEL_SUM_F1', 'factory')
   const tow = await loc('E2E_FUEL_SUM_TOW', 'general')
   const ret = await loc('E2E_FUEL_SUM_RET', 'general')
-  // ชื่อมีคำว่า "แหลม" → งานวิ่งที่รับตู้ที่นี่ใช้ค่าแหลมฉบังของโรงงาน
+  // ชื่อมีคำว่า "แหลม" → งานวิ่งที่รับตู้ที่นี่ใช้ค่า "รับแหลมฉบัง" ของโรงงาน
   const laem = await loc('E2E_FUEL_SUM_แหลม', 'general')
 
   await prisma.fuelStandard.createMany({
     data: [
-      { kind: 'run', size: '40DC', locationId: fac.id, isLaemChabang: false, liters: 300 },
-      { kind: 'towing', size: '40DC', locationId: tow.id, isLaemChabang: false, liters: 25 },
+      { kind: 'run', size: '40DC', locationId: fac.id, liters: 300 },
+      { kind: 'towing', size: '40DC', locationId: tow.id, liters: 25 },
     ],
   })
 
@@ -46,7 +46,7 @@ async function main() {
     data: { jobType: 'towing', size: '40DC', driverId: driver.id, createdById: admin.id, jobNumber: 'E2E-FUEL-3', jobDate: day(2), pickupLocationId: tow.id },
   })
   await prisma.job.create({ data: { ...run, jobNumber: 'E2E-FUEL-4', jobDate: day(3), pickupLocationId: ret.id, fuelCashLiters: 675 } })
-  // ช่วง 3: รับตู้ที่แหลมฉบัง ยังไม่มีค่าแหลมฉบัง → ไม่ครบ
+  // ช่วง 3: รับตู้ที่แหลมฉบัง ยังไม่มีค่ารับแหลมฉบัง → ไม่ครบ
   await prisma.job.create({ data: { ...run, jobNumber: 'E2E-FUEL-5', jobDate: day(4), pickupLocationId: laem.id, fuelCreditLiters: 200 } })
 
   console.log(`🌱 [Playwright] seed น้ำมันมาตรฐานเดือน ${month}`)
