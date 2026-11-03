@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Card, DatePicker, Spin, Empty, Button, App } from 'antd'
-import { DownloadOutlined, ArrowLeftOutlined, SwapOutlined, EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import { Card, DatePicker, Spin, Empty, Button, App, Tooltip } from 'antd'
+import { DownloadOutlined, ArrowLeftOutlined, SwapOutlined, EditOutlined, CheckOutlined, CloseOutlined, DashboardOutlined } from '@ant-design/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DriverMonthlySummary, FuelStandardSummary } from '@/types/job'
 import { toThaiMonthYear } from '@/lib/utils/thaiDate'
@@ -10,7 +10,6 @@ import dayjs from 'dayjs'
 import ExportRangeModal from './ExportRangeModal'
 import EditableSummaryRow, { type EditableField, ROW_HEIGHT } from './EditableSummaryRow'
 import SummaryDriverSwitchModal from './SummaryDriverSwitchModal'
-import Link from 'next/link'
 import { fmtSignedLiters, diffColor } from '@/lib/utils/fuelFormat'
 
 function fmt(value: number | null) {
@@ -75,8 +74,9 @@ function RowGap() {
   return <div style={{ borderTop: '1px solid #f0f0f0', margin: '6px 0' }} />
 }
 
-/** แถว "ช่วงน้ำมัน" — จำนวนช่วง + เตือนช่วงที่ข้อมูลไม่ครบ + ลิงก์ไปหน้าช่วงน้ำมัน */
+/** แถว "ช่วงน้ำมัน" — จำนวนช่วง + เตือนช่วงที่ข้อมูลไม่ครบ + ปุ่มไปหน้าช่วงน้ำมัน */
 function FuelSegmentsRow({ fuel, href }: { fuel: FuelStandardSummary | null; href: string }) {
+  const router = useRouter()
   const incomplete = fuel ? fuel.segments.filter((s) => s.status !== 'ok').length : 0
   return (
     <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px', height: ROW_HEIGHT, gap: 8 }}>
@@ -95,9 +95,15 @@ function FuelSegmentsRow({ fuel, href }: { fuel: FuelStandardSummary | null; hre
       </span>
       <span style={{ width: 38, minWidth: 38, flexShrink: 0 }}>
         {fuel && (
-          <Link href={href} data-testid="fuel-segments-view-btn">
-            ดู
-          </Link>
+          <Tooltip title="ดูช่วงน้ำมัน">
+            <Button
+              size="small"
+              aria-label="ดูช่วงน้ำมัน"
+              data-testid="fuel-segments-view-btn"
+              icon={<DashboardOutlined />}
+              onClick={() => router.push(href)}
+            />
+          </Tooltip>
         )}
       </span>
     </div>

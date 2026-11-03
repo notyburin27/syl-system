@@ -83,17 +83,29 @@ export default function FuelSegmentsView({ driverId, month }: { driverId: string
   const rows = filter === 'incomplete' ? incomplete : segments
 
   const renderMissing = (missingRoutes: FuelMissingRouteView[]) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {missingRoutes.map((m) => {
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {missingRoutes.map((m, i) => {
         const label = fuelStandardLabel(m, m.locationName)
         return (
-          <div key={`${label}|${m.jobNumbers.join(',')}`} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span>
+          <div
+            key={`${label}|${m.jobNumbers.join(',')}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              padding: '4px 0',
+              // ปุ่มชิดขวาห่างจากข้อความ — เส้นประช่วยให้ไล่ตาว่าปุ่มไหนของรายการไหน
+              borderTop: i > 0 ? '1px dashed #f0f0f0' : undefined,
+            }}
+          >
+            <span style={{ flex: '1 1 auto' }}>
               {label} <Typography.Text type="secondary">({m.jobNumbers.join(', ')})</Typography.Text>
             </span>
             {m.size && m.locationId ? (
               <Button
                 size="small"
+                style={{ marginLeft: 'auto' }}
                 data-testid="fuel-quick-add-btn"
                 onClick={() =>
                   setQuickAdd({
@@ -108,7 +120,7 @@ export default function FuelSegmentsView({ driverId, month }: { driverId: string
                 ตั้งค่า
               </Button>
             ) : (
-              <Typography.Text type="warning">job กรอกข้อมูลไม่ครบ</Typography.Text>
+              <Typography.Text type="warning" style={{ marginLeft: 'auto' }}>job กรอกข้อมูลไม่ครบ</Typography.Text>
             )}
           </div>
         )
@@ -257,7 +269,9 @@ export default function FuelSegmentsView({ driverId, month }: { driverId: string
         open={jobsOf !== null}
         onCancel={() => setJobsOf(null)}
         footer={null}
-        width={1100}
+        width="calc(100vw - 32px)"
+        style={{ top: 16, paddingBottom: 0 }}
+        styles={{ body: { height: 'calc(100vh - 110px)', overflow: 'auto' } }}
         destroyOnClose
       >
         {jobsOf && (
