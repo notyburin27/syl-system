@@ -22,6 +22,12 @@ const FIELD_LABEL = { customer: 'ลูกค้า', factory: 'โรงงา�
 const jobCount = (groups: { status: MissingStatus; jobs: unknown[] }[], status: MissingStatus) =>
   groups.filter((g) => g.status === status).reduce((s, g) => s + g.jobs.length, 0)
 
+// นับงานไม่ซ้ำข้าม income + wage (งานที่ขาดทั้งสองฝั่งนับครั้งเดียว)
+const uniqueJobCount = (
+  groups: { status: MissingStatus; jobs: { id: string }[] }[],
+  status: MissingStatus,
+) => new Set(groups.filter((g) => g.status === status).flatMap((g) => g.jobs.map((j) => j.id))).size
+
 const fmtFuel = (min: number | null, max: number | null) => {
   if (min === null || max === null) return '-'
   return min === max ? min.toFixed(2) : `${min.toFixed(2)}–${max.toFixed(2)}`
@@ -215,10 +221,10 @@ export default function MissingRatesDashboard() {
               <Statistic title="ไม่มีค่าเที่ยว" value={jobCount(wage, 'noRate')} suffix="งาน" />
             </Card>
             <Card size="small" style={{ minWidth: 170 }} data-testid="missing-card-hasrate">
-              <Statistic title="มีอัตราแล้ว ยังไม่เติม" value={jobCount(income, 'hasRate') + jobCount(wage, 'hasRate')} suffix="งาน" />
+              <Statistic title="มีอัตราแล้ว ยังไม่เติม" value={uniqueJobCount([...income, ...wage], 'hasRate')} suffix="งาน" />
             </Card>
             <Card size="small" style={{ minWidth: 170 }} data-testid="missing-card-incomplete">
-              <Statistic title="ข้อมูลไม่ครบ" value={jobCount(income, 'incomplete') + jobCount(wage, 'incomplete')} suffix="งาน" />
+              <Statistic title="ข้อมูลไม่ครบ" value={uniqueJobCount([...income, ...wage], 'incomplete')} suffix="งาน" />
             </Card>
           </div>
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Alert, App, InputNumber, Modal, Table, Typography } from 'antd'
 import type { IncomeGroup, WageGroup, PricedRange } from '@/lib/utils/missingRates'
 import { getJobTypeLabel } from '@/types/job'
+import { fromStoredMax } from '@/lib/utils/fuelRateExcel'
 
 const fmt = (n: number) => n.toFixed(2)
 
@@ -105,7 +106,7 @@ export function MissingIncomeRateModal({ group, onClose, onSaved }: IncomeProps)
               rowKey="idx"
               dataSource={rows}
               columns={[
-                { title: 'ราคาน้ำมัน', key: 'range', render: (_: unknown, r) => `${fmt(r.range.fuelPriceMin)} – ${fmt(r.range.fuelPriceMax)}` },
+                { title: 'ราคาน้ำมัน', key: 'range', render: (_: unknown, r) => `${fmt(r.range.fuelPriceMin)} – ${fmt(fromStoredMax(r.range.fuelPriceMax))}` },
                 { title: 'จำนวน job', key: 'count', align: 'right' as const, width: 100, render: (_: unknown, r) => r.count },
                 {
                   title: 'ราคา', key: 'price', width: 140,

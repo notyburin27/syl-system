@@ -93,6 +93,18 @@ export function pickCustomerRanges(
   return latest.ranges
 }
 
+// ช่วง default ของราคา p ที่ตัดไม่ให้ทับช่วงในตารางของลูกค้า (ตารางอาจไม่ตรงขั้น 2 บาท)
+function clippedDefaultRange(p: number, table: FuelRange[] | null): FuelRange {
+  const d = defaultFuelRange(p)
+  if (!table || table.length === 0) return d
+  const lows = table.filter((r) => r.fuelPriceMax <= p).map((r) => r.fuelPriceMax)
+  const highs = table.filter((r) => r.fuelPriceMin > p).map((r) => r.fuelPriceMin)
+  return {
+    fuelPriceMin: round2(Math.max(d.fuelPriceMin, ...lows)),
+    fuelPriceMax: round2(Math.min(d.fuelPriceMax, ...highs)),
+  }
+}
+
 export function suggestIncomeRanges(
   prices: (number | null)[],
   customerRanges: FuelRange[] | null,
@@ -104,7 +116,7 @@ export function suggestIncomeRanges(
     const found = customerRanges?.find((r) => r.fuelPriceMin <= p && p < r.fuelPriceMax)
     const range = found
       ? { fuelPriceMin: found.fuelPriceMin, fuelPriceMax: found.fuelPriceMax }
-      : defaultFuelRange(p)
+      : clippedDefaultRange(p, customerRanges)
     seen.set(`${range.fuelPriceMin}|${range.fuelPriceMax}`, range)
   }
   const ranges = [...seen.values()].sort((a, b) => a.fuelPriceMin - b.fuelPriceMin)

@@ -19,6 +19,7 @@ export function monthBounds(month: string): { start: Date; end: Date } {
 const hasLink = (j: { pairLinkAsPrimary: { id: string } | null; pairLinkAsSecondary: { id: string } | null }) =>
   !!j.pairLinkAsPrimary || !!j.pairLinkAsSecondary
 
+// mirror ของขั้น "ดูดซับทอยตู้" ใน app/api/jobs/prefill-rates/route.ts (ต้นแบบที่ถูกต้อง) — แก้สองที่พร้อมกัน
 /** id ของทอยตู้ที่ขั้น "ดูดซับทอยตู้" (prefill-rates) จะดูดซับในเดือนนี้ แต่ยังไม่ได้ถูกดูดซับ */
 export async function wouldBeAbsorbedIds(month: string, tx?: Prisma.TransactionClient): Promise<Set<string>> {
   const db: Db = tx ?? prisma

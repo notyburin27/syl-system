@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   previousMonth, defaultFuelRange, suggestIncomeRanges, pickCustomerRanges,
-  buildIncomeRateData, incomeForRate, validateIncomeInput, groupMissing, incomeKey, wageKey,
+  buildIncomeRateData, fuelPriceAt, incomeForRate, validateIncomeInput, groupMissing, incomeKey, wageKey,
   type MissingJobInput,
 } from '../missingRates'
 
@@ -145,4 +145,45 @@ test('groupMissing: job ที่มีค่าแล้วไม่ถูก�
   const r = groupMissing({ ...base, jobs: [job({ income: 5000 })] })
   assert.deepEqual(r.income, [])
   assert.equal(r.driverWage.length, 1)
+})
+
+test('suggestIncomeRanges: fallback ถูกตัดไม่ให้ทับช่วงตารางที่ไม่ตรงขั้น 2 บาท', () => {
+  const table = [{ fuelPriceMin: 41.01, fuelPriceMax: 42.01 }, { fuelPriceMin: 42.01, fuelPriceMax: 43.01 }]
+  const r = suggestIncomeRanges([42.5, 43.5], table)
+  assert.deepEqual(r.ranges, [
+    { fuelPriceMin: 42.01, fuelPriceMax: 43.01 },
+    { fuelPriceMin: 43.01, fuelPriceMax: 44.01 },
+  ])
+  assert.equal(validateIncomeInput(r.ranges.map((x) => ({ ...x, price: 100 })), null), null)
+})
+test('suggestIncomeRanges: ตัดด้านล่างของช่องว่าง', () => {
+  assert.deepEqual(
+    suggestIncomeRanges([41.5], [{ fuelPriceMin: 42.01, fuelPriceMax: 43.01 }]).ranges,
+    [{ fuelPriceMin: 40.01, fuelPriceMax: 42.01 }])
+  assert.deepEqual(
+    suggestIncomeRanges([40.5], [{ fuelPriceMin: 41.01, fuelPriceMax: 42.01 }]).ranges,
+    [{ fuelPriceMin: 40.01, fuelPriceMax: 41.01 }])
+})
+test('fuelPriceAt: เลือก log ล่าสุดที่ effectiveDate <= jobDate, ไม่มีคืน null', () => {
+  const logs = [
+    { effectiveDate: new Date('2026-10-10'), pricePerLiter: 43 },
+    { effectiveDate: new Date('2026-10-01'), pricePerLiter: 42 },
+  ]
+  assert.equal(fuelPriceAt(logs, new Date('2026-10-15')), 43)
+  assert.equal(fuelPriceAt(logs, new Date('2026-10-05')), 42)
+  assert.equal(fuelPriceAt(logs, new Date('2026-09-30')), null)
+})
+test('groupMissing: wage hasRate', () => {
+  const r = groupMissing({ ...base, wageRateKeys: new Set([wageKey('outbound', '20DC', 'f1')]), jobs: [job({ income: 1 })] })
+  assert.equal(r.driverWage[0].status, 'hasRate')
+})
+test('groupMissing: wage incomplete เมื่อไม่ใช่ towing และไม่มีโรงงาน', () => {
+  const r = groupMissing({ ...base, jobs: [job({ income: 1, factoryLocationId: null })] })
+  assert.equal(r.driverWage[0].status, 'incomplete')
+  assert.deepEqual(r.driverWage[0].missingFields, ['factory'])
+})
+test('groupMissing: noRate income ที่มี job ไม่มีราคาน้ำมัน -> hasMissingFuelPrice', () => {
+  const r = groupMissing({ ...base, jobs: [job({ fuelPrice: null }), job({ id: 'j2', fuelPrice: 41.44 })] })
+  assert.equal(r.income[0].status, 'noRate')
+  assert.equal(r.income[0].hasMissingFuelPrice, true)
 })
