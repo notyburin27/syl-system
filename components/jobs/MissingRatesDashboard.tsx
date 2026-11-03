@@ -5,7 +5,7 @@ import { App, Button, Card, Empty, Modal, Segmented, Spin, Statistic, Table, Tag
 import { ReloadOutlined } from '@ant-design/icons'
 import type { IncomeGroup, MissingJobView, MissingRatesData, MissingStatus, WageGroup } from '@/lib/utils/missingRates'
 import { getJobTypeLabel } from '@/types/job'
-import { toThaiMonthYear, toThaiShortDate } from '@/lib/utils/thaiDate'
+import { toThaiMonthFullYear, toThaiShortDate } from '@/lib/utils/thaiDate'
 import { MissingIncomeRateModal, MissingWageRateModal } from '@/components/jobs/MissingRateModals'
 
 type Tab = 'income' | 'wage'
@@ -194,7 +194,7 @@ export default function MissingRatesDashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
-          ค่าที่ยังขาด{data ? ` · ${toThaiMonthYear(data.month)}` : ''}
+          ค่าที่ยังขาด{data ? ` · ${toThaiMonthFullYear(data.month)}` : ''}
         </Typography.Title>
         <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading} data-testid="missing-refresh-btn">
           รีเฟรช

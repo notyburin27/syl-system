@@ -88,7 +88,7 @@ export function MissingIncomeRateModal({ group, onClose, onSaved }: IncomeProps)
       {group && (
         <>
           <Typography.Paragraph>
-            {group.customerName} · {group.factoryName} · {getJobTypeLabel(group.jobType)} · {group.size}
+            {group.customerName} · {group.factoryName} · {getJobTypeLabel(group.jobType)} · {group.size} · {group.jobs.length} งาน
           </Typography.Paragraph>
           {group.hasMissingFuelPrice && (
             <Alert
@@ -191,7 +191,7 @@ export function MissingWageRateModal({ group, onClose, onSaved }: WageProps) {
       {group && (
         <>
           <Typography.Paragraph>
-            {group.factoryName ?? '—'} · {getJobTypeLabel(group.jobType)} · {group.size}
+            {group.factoryName ?? '—'} · {getJobTypeLabel(group.jobType)} · {group.size} · {group.jobs.length} งาน
           </Typography.Paragraph>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>ค่าเที่ยว</span>
