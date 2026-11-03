@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { RATE_ROLES } from "@/lib/settingsNav";
 import { prisma } from "@/lib/prisma";
 import { isTowingJobType } from "@/types/job";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(RATE_ROLES);
+  if (denied) return denied;
 
   const rates = await prisma.rateDriverWage.findMany({
     include: {
@@ -17,8 +18,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(RATE_ROLES);
+  if (denied) return denied;
 
   try {
     const { jobType, size, factoryLocationId, driverWage } = await req.json();

@@ -293,6 +293,58 @@ export interface JobSearchResponse {
   jobs: JobSearchResult[];
 }
 
+/** key ที่ยังไม่มีน้ำมันมาตรฐาน — ชื่อสถานที่ resolve ฝั่ง server ไว้แสดงและทำ quick-add */
+export interface FuelMissingRouteView {
+  /** run = งานวิ่ง (สถานที่ = โรงงาน), towing = งานทอย (สถานที่ = สถานที่รับตู้) */
+  kind: "run" | "towing";
+  size: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  pickupLaemChabang: boolean;
+  returnLaemChabang: boolean;
+  jobNumbers: string[];
+}
+
+/** job หนึ่งใบในช่วงน้ำมัน — สำหรับหน้าช่วงน้ำมัน */
+export interface FuelSegmentJobView {
+  id: string;
+  jobNumber: string;
+  jobDate: string;            // 'YYYY-MM-DD'
+  jobType: string;
+  size: string | null;
+  pickupLocationName: string | null;
+  factoryLocationName: string | null;
+  returnLocationName: string | null;
+  fuelLiters: number;         // OFF + สด + เครดิต
+  /** null = หาค่ามาตรฐานไม่เจอ */
+  standardLiters: number | null;
+  /** เหตุที่มาตรฐานเป็น 0 */
+  note: "pair_secondary" | "towing_absorbed" | null;
+}
+
+/** หนึ่งช่วงเติมน้ำมัน (จากจุดเติมก่อนหน้าถึงจุดเติมนี้) */
+export interface FuelSegmentView {
+  startDate: string;          // 'YYYY-MM-DD'
+  endDate: string;            // วันของจุดเติมที่ปิดช่วง
+  closingJobNumber: string;
+  jobCount: number;
+  actualLiters: number;
+  standardLiters: number | null;
+  diffLiters: number | null;  // ใช้จริง − มาตรฐาน
+  status: "ok" | "missing_standard" | "no_previous_fill";
+  missingRoutes: FuelMissingRouteView[];
+  /** มีเฉพาะเมื่อขอ includeJobs (หน้าช่วงน้ำมัน) */
+  jobs?: FuelSegmentJobView[];
+}
+
+/** น้ำมันเกินมาตรฐานของเดือน — ลิตรเท่านั้น ไม่คิดเงิน */
+export interface FuelStandardSummary {
+  excessLiters: number;       // Σ ส่วนต่างที่ > 0
+  netDiffLiters: number;      // Σ ส่วนต่างทุกช่วง
+  segments: FuelSegmentView[];
+  pendingJobCount: number;    // job หลังเติมครั้งล่าสุด ยังรอปิดช่วง
+}
+
 /** สรุปงานคนขับ 1 คน 1 เดือน — ช่องที่ระบบไม่มีข้อมูลจะเป็น null (เว้นว่างใน Excel ให้กรอกเอง) */
 export interface DriverMonthlySummary {
   month: string;              // 'YYYY-MM'
@@ -333,6 +385,12 @@ export interface DriverMonthlySummary {
   fuelLiters: number;         // จำนวนน้ำมัน
   driverWage: number;         // ค่าเที่ยว
   baseSalary: number | null;  // เงินเดือน
+
+  /**
+   * น้ำมันเกินมาตรฐาน — มีเฉพาะเมื่อเรียก buildMonthSummaries ด้วย includeFuelStandard
+   * null = รถก๊าซ (ไม่คำนวณ)
+   */
+  fuelStandard?: FuelStandardSummary | null;
 }
 
 /**

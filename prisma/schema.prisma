@@ -262,6 +262,7 @@ model Location {
   rateTransfers         RateTransfer[]   @relation("RateTransferLocation")
   rateIncomeFactory     RateIncome[]     @relation("RateIncomeFactory")
   rateDriverWageFactory RateDriverWage[] @relation("RateDriverWageFactory")
+  fuelStandards         FuelStandard[]   @relation("FuelStandardLocation")
 
   @@index([name])
   @@index([type])
@@ -512,6 +513,26 @@ model RateDriverWage {
 
   @@unique([jobType, size, factoryLocationId])
   @@map("rate_driver_wage")
+}
+
+// น้ำมันมาตรฐานต่อเที่ยว — งานวิ่ง: size + โรงงาน (+ รับ/คืนแหลมฉบัง), งานทอย: size + ที่ทอย
+model FuelStandard {
+  id            String   @id @default(cuid())
+  kind          String // "run" | "towing"
+  size          String
+  locationId    String // run = โรงงาน, towing = สถานที่รับตู้ (ที่ทอย)
+  /// run เท่านั้น — สถานที่รับตู้ชื่อมีคำว่า "แหลม"
+  pickupLaemChabang Boolean @default(false)
+  /// run เท่านั้น — สถานที่คืนตู้ชื่อมีคำว่า "แหลม"
+  returnLaemChabang Boolean @default(false)
+  liters        Decimal  @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  location Location @relation("FuelStandardLocation", fields: [locationId], references: [id])
+
+  @@unique([kind, size, locationId, pickupLaemChabang, returnLaemChabang])
+  @@map("fuel_standard")
 }
 
 // ==================== LINE Bot Module ====================

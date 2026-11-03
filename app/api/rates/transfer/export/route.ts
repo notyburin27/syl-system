@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiRoles } from "@/lib/utils/roleGuard";
+import { MASTER_DATA_ROLES } from "@/lib/settingsNav";
 import { prisma } from "@/lib/prisma";
 import { writeRowsToBuffer } from "@/lib/utils/excel";
 import { getJobTypeLabel } from "@/types/job";
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = await requireApiRoles(MASTER_DATA_ROLES);
+  if (denied) return denied;
 
   const { searchParams } = new URL(req.url);
   const jobType = searchParams.get("jobType");

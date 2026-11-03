@@ -1,13 +1,9 @@
-import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { requireSettingsPage } from '@/lib/utils/roleGuard'
 import { App } from 'antd'
 import RateIncomeManager from '@/components/jobs/RateIncomeManager'
 
 export default async function RateIncomePage() {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
-  const isAdmin = (session.user as { role?: string }).role === 'ADMIN'
-  if (!isAdmin) redirect('/jobs')
+  await requireSettingsPage('/jobs/settings/rates/income')
 
   return (
     <App>
