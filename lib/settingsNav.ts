@@ -8,6 +8,9 @@ export const MASTER_DATA_ROLES: readonly string[] = ['ADMIN', 'MANAGER', 'SENIOR
 /** อัตรา / น้ำมัน / วันหยุด */
 export const RATE_ROLES: readonly string[] = ['ADMIN', 'MANAGER']
 
+/** เฉพาะ ADMIN — หน้าค่าที่ยังขาด (ใช้กับ /api/rates/missing) */
+export const ADMIN_ROLES: readonly string[] = ['ADMIN']
+
 interface SettingsPage {
   href: string
   label: string
@@ -29,6 +32,7 @@ export const SETTINGS_GROUPS: { label: string; pages: SettingsPage[] }[] = [
       { href: '/jobs/settings/rates/transfer', label: 'ค่าคืนตู้รับตู้', roles: MASTER_DATA_ROLES },
       { href: '/jobs/settings/rates/income', label: 'ค่าขนส่ง', roles: RATE_ROLES },
       { href: '/jobs/settings/rates/driver-wage', label: 'ค่าเที่ยวคนขับ', roles: RATE_ROLES },
+      { href: '/jobs/settings/rates/missing', label: 'ค่าที่ยังขาด', roles: ADMIN_ROLES },
     ],
   },
   {
@@ -58,6 +62,3 @@ export function visibleGroups(role: string | undefined) {
 export function settingsPageRoles(href: string): readonly string[] {
   return SETTINGS_GROUPS.flatMap((g) => g.pages).find((p) => p.href === href)?.roles ?? []
 }
-
-/** เฉพาะ ADMIN — หน้าค่าที่ยังขาด (ใช้กับ /api/rates/missing) */
-export const ADMIN_ROLES: readonly string[] = ['ADMIN']
