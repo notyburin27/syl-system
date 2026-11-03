@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       if (existing) throw new DuplicateError()
       await tx.rateIncome.create({ data: { ...key, income, fuelSurcharges: { create: surcharges } } })
       return fillIncomeGroup(tx, previousMonth(new Date()), key)
-    })
+    }, { timeout: 30000 })
     return NextResponse.json({ filled }, { status: 201 })
   } catch (error) {
     if (error instanceof DuplicateError || (error as { code?: string })?.code === 'P2002') {

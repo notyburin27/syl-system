@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         where: { jobType_size_factoryLocationId_customerId: key }, select: { id: true },
       })
       if (!exists) return notFound()
-      const filled = await prisma.$transaction((tx) => fillIncomeGroup(tx, month, key))
+      const filled = await prisma.$transaction((tx) => fillIncomeGroup(tx, month, key), { timeout: 30000 })
       return NextResponse.json({ filled })
     }
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       const key = { jobType, size, factoryLocationId }
       const exists = await prisma.rateDriverWage.findFirst({ where: key, select: { id: true } })
       if (!exists) return notFound()
-      const filled = await prisma.$transaction((tx) => fillWageGroup(tx, month, key))
+      const filled = await prisma.$transaction((tx) => fillWageGroup(tx, month, key), { timeout: 30000 })
       return NextResponse.json({ filled })
     }
 

@@ -160,11 +160,17 @@ export async function fillIncomeGroup(
     }),
     loadFuelLogs(tx),
   ])
-  let filled = 0
+  const idsByIncome = new Map<number, string[]>()
   for (const j of jobs) {
     if (rateSizeOf(j.size, j.pairLinkAsPrimary ? 'primary' : null) !== key.size) continue
     const income = incomeForRate(rate, fuelPriceAt(logs, j.jobDate))
-    const r = await tx.job.updateMany({ where: { id: j.id, income: null }, data: { income } })
+    const list = idsByIncome.get(income)
+    if (list) list.push(j.id)
+    else idsByIncome.set(income, [j.id])
+  }
+  let filled = 0
+  for (const [income, ids] of idsByIncome) {
+    const r = await tx.job.updateMany({ where: { id: { in: ids }, income: null }, data: { income } })
     filled += r.count
   }
   return filled
@@ -197,12 +203,10 @@ export async function fillWageGroup(
     }),
     wouldBeAbsorbedIds(month, tx),
   ])
-  let filled = 0
-  for (const j of jobs) {
-    if (absorbed.has(j.id)) continue
-    if (rateSizeOf(j.size, j.pairLinkAsPrimary ? 'primary' : null) !== key.size) continue
-    const r = await tx.job.updateMany({ where: { id: j.id, driverWage: null }, data: { driverWage } })
-    filled += r.count
-  }
-  return filled
+  const ids = jobs
+    .filter((j) => !absorbed.has(j.id) && rateSizeOf(j.size, j.pairLinkAsPrimary ? 'primary' : null) === key.size)
+    .map((j) => j.id)
+  if (ids.length === 0) return 0
+  const r = await tx.job.updateMany({ where: { id: { in: ids }, driverWage: null }, data: { driverWage } })
+  return r.count
 }
