@@ -7,6 +7,7 @@ import {
   DollarOutlined,
   RiseOutlined,
   WarningOutlined,
+  InboxOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { MonthlySummary } from '@/types/stock'
@@ -36,22 +37,33 @@ export default function StockDashboardPage() {
     fetchSummary()
   }, [fetchSummary])
 
+  // แยกกำไรข้าว: สินค้าที่ชื่อขึ้นต้นด้วย "ข้าว"
+  const isRice = (productName: string) => productName.trim().startsWith('ข้าว')
+  const riceProfit = (summary?.details ?? [])
+    .filter(d => isRice(d.productName))
+    .reduce((sum, d) => sum + d.revenue - d.cost, 0)
+  const otherProfit = (summary?.profit ?? 0) - riceProfit
+  const profitColor = (v: number) => (v >= 0 ? '#3f8600' : '#cf1322')
+
   const detailColumns: ColumnsType<MonthlySummary['details'][0]> = [
     {
       title: 'สินค้า',
       dataIndex: 'productName',
       key: 'productName',
+      sorter: (a, b) => a.productName.localeCompare(b.productName, 'th', { numeric: true }),
     },
     {
       title: 'จำนวนขาย',
       dataIndex: 'quantitySold',
       key: 'quantitySold',
+      sorter: (a, b) => a.quantitySold - b.quantitySold,
       align: 'right',
     },
     {
       title: 'ยอดขาย (บาท)',
       dataIndex: 'revenue',
       key: 'revenue',
+      sorter: (a, b) => a.revenue - b.revenue,
       render: (v: number) => v.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
@@ -59,18 +71,21 @@ export default function StockDashboardPage() {
       title: 'จำนวนซื้อ',
       dataIndex: 'quantityPurchased',
       key: 'quantityPurchased',
+      sorter: (a, b) => a.quantityPurchased - b.quantityPurchased,
       align: 'right',
     },
     {
-      title: 'ต้นทุน (บาท)',
+      title: 'ต้นทุนขาย (บาท)',
       dataIndex: 'cost',
       key: 'cost',
+      sorter: (a, b) => a.cost - b.cost,
       render: (v: number) => v.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
     {
       title: 'กำไร (บาท)',
       key: 'profit',
+      sorter: (a, b) => (a.revenue - a.cost) - (b.revenue - b.cost),
       render: (_, record) => {
         const profit = record.revenue - record.cost
         return (
@@ -87,8 +102,8 @@ export default function StockDashboardPage() {
     <div>
       <h2 style={{ marginBottom: 16 }}>ภาพรวมคลังสินค้า</h2>
 
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="จำนวนสินค้า"
@@ -98,7 +113,18 @@ export default function StockDashboardPage() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col flex="1 1 200px">
+          <Card>
+            <Statistic
+              title="มูลค่าสต๊อกคงค้าง (ราคาทุน)"
+              value={summary?.stockValue ?? 0}
+              precision={2}
+              prefix={<InboxOutlined />}
+              suffix="บาท"
+            />
+          </Card>
+        </Col>
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="ยอดขายเดือนนี้"
@@ -110,7 +136,7 @@ export default function StockDashboardPage() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="กำไรเดือนนี้"
@@ -118,11 +144,35 @@ export default function StockDashboardPage() {
               precision={2}
               prefix={<RiseOutlined />}
               suffix="บาท"
-              valueStyle={{ color: (summary?.profit ?? 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: profitColor(summary?.profit ?? 0) }}
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col flex="1 1 200px">
+          <Card>
+            <Statistic
+              title="กำไรข้าว"
+              value={riceProfit}
+              precision={2}
+              prefix={<RiseOutlined />}
+              suffix="บาท"
+              valueStyle={{ color: profitColor(riceProfit) }}
+            />
+          </Card>
+        </Col>
+        <Col flex="1 1 200px">
+          <Card>
+            <Statistic
+              title="กำไรสินค้าอื่น"
+              value={otherProfit}
+              precision={2}
+              prefix={<RiseOutlined />}
+              suffix="บาท"
+              valueStyle={{ color: profitColor(otherProfit) }}
+            />
+          </Card>
+        </Col>
+        <Col flex="1 1 200px">
           <Card>
             <Statistic
               title="ยอดค้างชำระรวม"
@@ -140,6 +190,7 @@ export default function StockDashboardPage() {
         title="สรุปกำไรรายเดือน"
         extra={
           <DatePicker
+            id="summary-month"
             picker="month"
             value={selectedMonth}
             onChange={(date) => date && setSelectedMonth(date)}

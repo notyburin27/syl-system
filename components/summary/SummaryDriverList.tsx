@@ -18,7 +18,8 @@ export default function SummaryDriverList() {
   const [loading, setLoading] = useState(false)
   const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   const [searchText, setSearchText] = useState('')
-  const [exportOpen, setExportOpen] = useState(false)
+  // byGroup = ดาวน์โหลดแยกไฟล์ละกลุ่ม, null = ปิด modal
+  const [exportMode, setExportMode] = useState<'combined' | 'byGroup' | null>(null)
 
   const fetchDrivers = useCallback(async () => {
     setLoading(true)
@@ -110,9 +111,17 @@ export default function SummaryDriverList() {
           <Button
             data-testid="summary-export-btn"
             icon={<DownloadOutlined />}
-            onClick={() => setExportOpen(true)}
+            onClick={() => setExportMode('combined')}
           >
             ดาวน์โหลด Excel
+          </Button>
+          <Button
+            data-testid="summary-export-by-group-btn"
+            icon={<DownloadOutlined />}
+            onClick={() => setExportMode('byGroup')}
+            disabled={groupOptions.length === 0}
+          >
+            ดาวน์โหลดแยกตามกลุ่ม
           </Button>
           <Input
             data-testid="summary-search-input"
@@ -159,19 +168,27 @@ export default function SummaryDriverList() {
       />
 
       <ExportRangeModal
-        open={exportOpen}
+        open={exportMode !== null}
         defaultRange={exportDefaultRange}
-        onClose={() => setExportOpen(false)}
+        onClose={() => setExportMode(null)}
         buildUrl={(from, to) => {
-          const params = new URLSearchParams({ from, to })
-          if (selectedGroups.length > 0) {
-            // กลุ่มอื่นๆ ส่งเป็น sentinel (UNGROUPED) ให้ API เข้าใจว่าคือคนที่ไม่มีกลุ่ม
-            params.set(
-              'groups',
-              selectedGroups.map((g) => (g === OTHER_GROUP_LABEL ? UNGROUPED : g)).join(',')
-            )
+          const urlFor = (groups: string[]) => {
+            const params = new URLSearchParams({ from, to })
+            if (groups.length > 0) {
+              // กลุ่มอื่นๆ ส่งเป็น sentinel (UNGROUPED) ให้ API เข้าใจว่าคือคนที่ไม่มีกลุ่ม
+              params.set(
+                'groups',
+                groups.map((g) => (g === OTHER_GROUP_LABEL ? UNGROUPED : g)).join(',')
+              )
+            }
+            return `/api/summary/export?${params.toString()}`
           }
-          return `/api/summary/export?${params.toString()}`
+          if (exportMode !== 'byGroup') return urlFor(selectedGroups)
+          // แยกกลุ่ม: กรองกลุ่มไว้ = เฉพาะกลุ่มที่เลือก, ไม่กรอง = ทุกกลุ่ม (เรียงตาม dropdown)
+          const groups = selectedGroups.length > 0
+            ? groupOptions.map((o) => o.value).filter((g) => selectedGroups.includes(g))
+            : groupOptions.map((o) => o.value)
+          return groups.map((g) => urlFor([g]))
         }}
       />
     </div>

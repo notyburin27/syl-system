@@ -192,4 +192,30 @@ test.describe.serial('สรุปงาน', () => {
     expect(req.url()).toContain(`groups=${UNGROUPED}`)
     expect(req.url()).not.toMatch(/groups=(&|$)/)
   })
+
+  test('Case 11: ดาวน์โหลดแยกตามกลุ่ม ได้ไฟล์ละกลุ่ม ตามกลุ่มที่กรองไว้', async ({ page }) => {
+    await login(page, 'testadmin')
+    await createDriver(page, DRIVER_A, 'SUM-01', GROUP_A)
+    await createDriver(page, DRIVER_B, 'SUM-02', GROUP_B)
+
+    await page.goto('/summary')
+
+    // กรองไว้ 2 กลุ่ม — DB ทดสอบมีคนขับกลุ่มอื่นจาก seed ด้วย จึงต้องได้แค่ 2 ไฟล์นี้
+    await page.locator('#summary-group-filter').click()
+    await page.getByTitle(GROUP_A, { exact: true }).click()
+    await page.getByTitle(GROUP_B, { exact: true }).click()
+    await page.keyboard.press('Escape')
+
+    await page.getByTestId('summary-export-by-group-btn').click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    const filenames: string[] = []
+    page.on('download', (d) => filenames.push(d.suggestedFilename()))
+    await page.getByTestId('export-confirm-btn').click()
+
+    await expect.poll(() => filenames.length, { timeout: 20_000 }).toBe(2)
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+    expect(filenames.some((f) => f.startsWith(`สรุป${GROUP_A} `))).toBe(true)
+    expect(filenames.some((f) => f.startsWith(`สรุป${GROUP_B} `))).toBe(true)
+  })
 })

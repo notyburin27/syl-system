@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, App, Space } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons'
+import { Table, Button, Card, App, Space, Input } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { Buyer } from '@/types/stock'
 import BuyerFormModal from '@/components/stock/BuyerFormModal'
+import { compareDateNullsLast } from '@/lib/utils/tableSort'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 
@@ -16,6 +17,7 @@ export default function BuyersPage() {
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBuyer, setEditingBuyer] = useState<Buyer | null>(null)
+  const [search, setSearch] = useState('')
 
   const fetchBuyers = async () => {
     setLoading(true)
@@ -55,17 +57,13 @@ export default function BuyersPage() {
       title: 'ชื่อลูกค้า',
       dataIndex: 'name',
       key: 'name',
-    },
-    {
-      title: 'เบอร์โทร',
-      dataIndex: 'phone',
-      key: 'phone',
-      render: (phone: string | null) => phone || '-',
+      sorter: (a, b) => a.name.localeCompare(b.name, 'th', { numeric: true }),
     },
     {
       title: 'ยอดค้างชำระ (บาท)',
       dataIndex: 'outstandingAmount',
       key: 'outstandingAmount',
+      sorter: (a, b) => (a.outstandingAmount ?? 0) - (b.outstandingAmount ?? 0),
       render: (amount: number) => (
         <span style={{ color: amount > 0 ? '#cf1322' : '#3f8600', fontWeight: 500 }}>
           {(amount ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
@@ -74,10 +72,11 @@ export default function BuyersPage() {
       align: 'right',
     },
     {
-      title: 'วันที่สร้าง',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
+      title: 'วันครบกำหนดชำระ',
+      dataIndex: 'nextDueDate',
+      key: 'nextDueDate',
+      render: (date: string | null) => (date ? dayjs(date).format('DD/MM/YYYY') : '-'),
+      sorter: (a, b, sortOrder) => compareDateNullsLast(a.nextDueDate, b.nextDueDate, sortOrder),
     },
     {
       title: 'การดำเนินการ',
@@ -124,30 +123,45 @@ export default function BuyersPage() {
     },
   ]
 
+  const keyword = search.trim().toLowerCase()
+  const filteredBuyers = keyword
+    ? buyers.filter(b => b.name.toLowerCase().includes(keyword) || b.phone?.includes(keyword))
+    : buyers
+
   return (
     <div>
       <Card
         title="รายการลูกค้า"
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingBuyer(null)
-              setModalOpen(true)
-            }}
-          >
-            เพิ่มลูกค้า
-          </Button>
+          <Space>
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="ค้นหาชื่อ/เบอร์โทร"
+              style={{ width: 220 }}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingBuyer(null)
+                setModalOpen(true)
+              }}
+            >
+              เพิ่มลูกค้า
+            </Button>
+          </Space>
         }
       >
         <Table
           columns={columns}
-          dataSource={buyers}
+          dataSource={filteredBuyers}
           rowKey="id"
           loading={loading}
           size="small"
-          pagination={{ pageSize: 10 }}
+          pagination={{ defaultPageSize: 100 }}
         />
       </Card>
 

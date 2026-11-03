@@ -1,0 +1,169 @@
+import { test, expect, type Page } from '@playwright/test'
+import { login, expectJson } from '../renewals/helpers'
+
+type Summary = { revenue: number; cost: number; profit: number; stockValue: number }
+
+const suffix = Date.now()
+// เดือนไกลในอนาคต — ยอดขาย/กำไรของเดือนนี้มาจากข้อมูลของ spec นี้เท่านั้น
+const YEAR = 2099
+const MONTH = 3
+
+async function summary(page: Page): Promise<Summary> {
+  return expectJson<Summary>(await page.request.get(`/api/stock/summary?year=${YEAR}&month=${MONTH}`))
+}
+
+async function post<T>(page: Page, url: string, data: unknown): Promise<T> {
+  return expectJson<T>(await page.request.post(url, { data }))
+}
+
+test.describe('ภาพรวมคลังสินค้า — กำไรจากสินค้าที่ขาย และมูลค่าสต๊อกคงค้าง', () => {
+  const created = { stockIns: [] as string[], stockOuts: [] as string[], invoices: [] as string[] }
+  let productId: string
+  let buyerId: string
+
+  test.beforeEach(async ({ page }) => {
+    await login(page, 'testadmin', /:\d+\/(?!login)/)
+    productId = (await post<{ id: string }>(page, '/api/stock/products', { name: `E2E กำไร ${suffix}`, sellingPrice: 100 })).id
+    buyerId = (await post<{ id: string }>(page, '/api/stock/buyers', { name: `E2E กำไร ลูกค้า ${suffix}` })).id
+  })
+
+  test.afterEach(async ({ page }) => {
+    for (const id of created.invoices) await page.request.delete(`/api/stock/invoices/${id}`)
+    for (const id of created.stockOuts) await page.request.delete(`/api/stock/export/${id}`)
+    for (const id of created.stockIns) await page.request.delete(`/api/stock/import/${id}`)
+    await page.request.delete(`/api/stock/products/${productId}`)
+    await page.request.delete(`/api/stock/buyers/${buyerId}`)
+  })
+
+  test('กำไร = ยอดขาย − (จำนวนขาย × ต้นทุนเฉลี่ย), ไม่หักของที่ซื้อแต่ยังไม่ขาย', async ({ page }) => {
+    const before = await summary(page)
+
+    // ซื้อ 10 ชิ้น @50 + 10 ชิ้น @70 ในเดือนเดียวกัน → ต้นทุนเฉลี่ย 60
+    for (const purchasePrice of [50, 70]) {
+      const si = await post<{ id: string }>(page, '/api/stock/import', {
+        productId, purchasePrice, quantity: 10, date: `${YEAR}-0${MONTH}-05T00:00:00.000Z`,
+      })
+      created.stockIns.push(si.id)
+    }
+    // ขาย 5 ชิ้น @100
+    const so = await post<{ id: string }>(page, '/api/stock/export', {
+      buyerId, productId, quantity: 5, sellingPrice: 100, date: `${YEAR}-0${MONTH}-10T00:00:00.000Z`,
+    })
+    created.stockOuts.push(so.id)
+
+    const after = await summary(page)
+    expect(after.revenue - before.revenue).toBeCloseTo(500)
+    expect(after.cost - before.cost).toBeCloseTo(300)
+    expect(after.profit - before.profit).toBeCloseTo(200)
+    // คงเหลือ 15 ชิ้น × 60
+    expect(after.stockValue - before.stockValue).toBeCloseTo(900)
+
+    await page.goto('/stock')
+    await expect(page.getByText('มูลค่าสต๊อกคงค้าง (ราคาทุน)')).toBeVisible()
+  })
+
+  test('การ์ดกำไรแยกข้าว (ชื่อขึ้นต้นด้วย "ข้าว") กับสินค้าอื่น', async ({ page }) => {
+    const riceId = (await post<{ id: string }>(page, '/api/stock/products', { name: `ข้าว E2E ${suffix}`, sellingPrice: 80 })).id
+    try {
+      // ข้าว: ซื้อ @50 ขาย 2 @80 → กำไร 60 / สินค้าอื่น: ซื้อ @50 ขาย 1 @100 → กำไร 50
+      for (const [pid, sellingPrice, quantity] of [[riceId, 80, 2], [productId, 100, 1]] as const) {
+        const si = await post<{ id: string }>(page, '/api/stock/import', {
+          productId: pid, purchasePrice: 50, quantity: 10, date: `${YEAR}-0${MONTH}-05T00:00:00.000Z`,
+        })
+        created.stockIns.push(si.id)
+        const so = await post<{ id: string }>(page, '/api/stock/export', {
+          buyerId, productId: pid, quantity, sellingPrice, date: `${YEAR}-0${MONTH}-10T00:00:00.000Z`,
+        })
+        created.stockOuts.push(so.id)
+      }
+
+      await page.goto('/stock')
+      await page.locator('#summary-month').click()
+      await page.locator('#summary-month').fill(`0${MONTH}/${YEAR}`)
+      await page.locator('#summary-month').press('Enter')
+
+      const card = (title: string) => page.locator('.ant-statistic').filter({ has: page.getByText(title, { exact: true }) })
+      await expect(card('กำไรข้าว')).toContainText('60.00')
+      await expect(card('กำไรสินค้าอื่น')).toContainText('50.00')
+      await expect(card('กำไรเดือนนี้')).toContainText('110.00')
+    } finally {
+      for (const id of created.stockOuts) await page.request.delete(`/api/stock/export/${id}`)
+      for (const id of created.stockIns) await page.request.delete(`/api/stock/import/${id}`)
+      created.stockOuts = []
+      created.stockIns = []
+      await page.request.delete(`/api/stock/products/${riceId}`)
+    }
+  })
+
+  test('รายการลูกค้า: กดหัวคอลัมน์วันครบกำหนดเพื่อเรียง, ไม่มีวันครบกำหนดอยู่ท้ายเสมอ', async ({ page }) => {
+    const si = await post<{ id: string }>(page, '/api/stock/import', {
+      productId, purchasePrice: 50, quantity: 10, date: `${YEAR}-0${MONTH}-05T00:00:00.000Z`,
+    })
+    created.stockIns.push(si.id)
+
+    // ชื่อเรียงตามตัวอักษร ก < ข < ค แต่วันครบกำหนดสลับลำดับ, ค ไม่มีใบเสร็จ
+    const tag = `E2E เรียง ${suffix}`
+    const buyers = [
+      { name: `${tag} ก`, due: '2099-06-01' },
+      { name: `${tag} ข`, due: '2099-04-01' },
+      { name: `${tag} ค`, due: null },
+    ]
+    const extraBuyerIds: string[] = []
+    try {
+      for (const b of buyers) {
+        const id = (await post<{ id: string }>(page, '/api/stock/buyers', { name: b.name })).id
+        extraBuyerIds.push(id)
+        if (!b.due) continue
+        const so = await post<{ id: string }>(page, '/api/stock/export', {
+          buyerId: id, productId, quantity: 1, sellingPrice: 100, date: `${YEAR}-0${MONTH}-10T00:00:00.000Z`,
+        })
+        created.stockOuts.push(so.id)
+        const inv = await post<{ id: string }>(page, '/api/stock/invoices', {
+          buyerId: id, stockOutIds: [so.id], dueDate: `${b.due}T00:00:00.000Z`,
+        })
+        created.invoices.push(inv.id)
+      }
+
+      await page.goto('/stock/buyers')
+      await page.getByPlaceholder('ค้นหาชื่อ/เบอร์โทร').fill(tag)
+      const names = page.locator('tbody tr td:first-child')
+      await expect(names).toHaveText([`${tag} ก`, `${tag} ข`, `${tag} ค`])
+
+      const header = page.getByRole('columnheader', { name: 'วันครบกำหนดชำระ' })
+      await header.click()
+      await expect(names).toHaveText([`${tag} ข`, `${tag} ก`, `${tag} ค`])
+      await header.click()
+      await expect(names).toHaveText([`${tag} ก`, `${tag} ข`, `${tag} ค`])
+    } finally {
+      for (const id of created.invoices) await page.request.delete(`/api/stock/invoices/${id}`)
+      for (const id of created.stockOuts) await page.request.delete(`/api/stock/export/${id}`)
+      created.invoices = []
+      created.stockOuts = []
+      for (const id of extraBuyerIds) await page.request.delete(`/api/stock/buyers/${id}`)
+    }
+  })
+
+  test('รายการลูกค้า: แสดงวันครบกำหนดที่ใกล้ที่สุดของใบเสร็จที่ยังไม่ชำระ', async ({ page }) => {
+    const si = await post<{ id: string }>(page, '/api/stock/import', {
+      productId, purchasePrice: 50, quantity: 10, date: `${YEAR}-0${MONTH}-05T00:00:00.000Z`,
+    })
+    created.stockIns.push(si.id)
+
+    for (const [day, due] of [[10, '2099-05-20'], [11, '2099-04-15']] as const) {
+      const so = await post<{ id: string }>(page, '/api/stock/export', {
+        buyerId, productId, quantity: 1, sellingPrice: 100, date: `${YEAR}-0${MONTH}-${day}T00:00:00.000Z`,
+      })
+      created.stockOuts.push(so.id)
+      const inv = await post<{ id: string }>(page, '/api/stock/invoices', {
+        buyerId, stockOutIds: [so.id], dueDate: `${due}T00:00:00.000Z`,
+      })
+      created.invoices.push(inv.id)
+    }
+
+    await page.goto('/stock/buyers')
+    await expect(page.getByRole('columnheader', { name: 'เบอร์โทร' })).toHaveCount(0)
+    await expect(page.getByRole('columnheader', { name: 'วันครบกำหนดชำระ' })).toBeVisible()
+    const row = page.getByRole('row', { name: new RegExp(`E2E กำไร ลูกค้า ${suffix}`) })
+    await expect(row).toContainText('15/04/2099')
+  })
+})

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, App, Space, Image } from 'antd'
+import { Table, Button, Card, App, Space } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { Product } from '@/types/stock'
@@ -50,28 +50,17 @@ export default function ProductsPage() {
 
   const columns: ColumnsType<Product> = [
     {
-      title: 'รูปภาพ',
-      dataIndex: 'image',
-      key: 'image',
-      width: 80,
-      render: (image: string | null) =>
-        image ? (
-          <Image src={image} alt="product" width={50} height={50} style={{ objectFit: 'cover', borderRadius: 4 }} />
-        ) : (
-          <div style={{ width: 50, height: 50, background: '#f0f0f0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 12 }}>
-            ไม่มีรูป
-          </div>
-        ),
-    },
-    {
       title: 'ชื่อสินค้า',
       dataIndex: 'name',
       key: 'name',
+      // numeric: เรียง "5 กก." < "14 กก." < "40 กก." ตามตัวเลข ไม่ใช่ตามตัวอักษร
+      sorter: (a, b) => a.name.localeCompare(b.name, 'th', { numeric: true }),
     },
     {
       title: 'ราคาขาย (บาท)',
       dataIndex: 'sellingPrice',
       key: 'sellingPrice',
+      sorter: (a, b) => a.sellingPrice - b.sellingPrice,
       render: (price: number) => price.toLocaleString('th-TH', { minimumFractionDigits: 2 }),
       align: 'right',
     },
@@ -79,6 +68,7 @@ export default function ProductsPage() {
       title: 'สต็อกคงเหลือ',
       dataIndex: 'stockRemaining',
       key: 'stockRemaining',
+      sorter: (a, b) => (a.stockRemaining ?? 0) - (b.stockRemaining ?? 0),
       render: (qty: number) => qty ?? 0,
       align: 'right',
     },
@@ -86,6 +76,7 @@ export default function ProductsPage() {
       title: 'วันที่สร้าง',
       dataIndex: 'createdAt',
       key: 'createdAt',
+      sorter: (a, b) => dayjs(a.createdAt).valueOf() - dayjs(b.createdAt).valueOf(),
       render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
     },
     {
@@ -148,7 +139,7 @@ export default function ProductsPage() {
           rowKey="id"
           loading={loading}
           size="small"
-          pagination={{ pageSize: 10 }}
+          pagination={{ defaultPageSize: 100 }}
         />
       </Card>
 

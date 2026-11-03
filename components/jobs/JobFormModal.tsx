@@ -177,6 +177,8 @@ export default function JobFormModal({
   const completedTransferSum = transfers
     .filter((t) => t.isCompleted)
     .reduce((s, t) => s + Number(t.amount), 0);
+  // ยกเลิกได้เมื่อมีรายการโอนที่ ✓ แล้ว — เช็คผลรวมไม่ได้ เพราะโอนแล้วโอนคืนเต็มจำนวนจะรวมเป็น 0
+  const hasCompletedTransfer = transfers.some((t) => t.isCompleted);
 
   const difference =
     (isCancelled ? 0 : driverOverall) - Number(watchActualTransfer) - completedTransferSum;
@@ -1070,11 +1072,11 @@ export default function JobFormModal({
                   ไม่ใช่ที่ checkbox ตัวแรก ไม่งั้นตัวถัดไปจะถูกดันไปติดปุ่มฝั่งขวา */}
               {!isSpecialType && activeJob && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: "auto" }}>
-                  <Tooltip title={completedTransferSum > 0 ? "" : "ต้องมียอดโอนก่อน"}>
+                  <Tooltip title={hasCompletedTransfer ? "" : "ต้องมียอดโอนก่อน"}>
                     <Checkbox
                       data-testid="job-cancel-checkbox"
                       checked={isCancelled}
-                      disabled={isCleared || completedTransferSum === 0}
+                      disabled={isCleared || !hasCompletedTransfer}
                       onChange={async (e) => {
                         const next = e.target.checked;
                         setIsCancelled(next);

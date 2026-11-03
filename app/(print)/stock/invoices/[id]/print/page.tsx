@@ -95,6 +95,7 @@ export default function InvoicePrintPage() {
           <thead>
             <tr>
               <th className="center" style={{ width: 48 }}>ลำดับ</th>
+              <th className="center" style={{ width: 96 }}>วันที่</th>
               <th>รายการ</th>
               <th className="num" style={{ width: 72 }}>จำนวน</th>
               <th className="num" style={{ width: 110 }}>ราคา/หน่วย</th>
@@ -105,6 +106,7 @@ export default function InvoicePrintPage() {
             {items.map((item, i) => (
               <tr key={item.id}>
                 <td className="center">{i + 1}</td>
+                <td className="center">{dayjs(item.date).format('DD/MM/YYYY')}</td>
                 <td>{item.product?.name}</td>
                 <td className="num">{item.quantity.toLocaleString('th-TH')}</td>
                 <td className="num">{formatMoney(item.sellingPrice)}</td>
@@ -114,7 +116,7 @@ export default function InvoicePrintPage() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={3} className="center">({bahtText(invoice.totalAmount)})</td>
+              <td colSpan={4} className="center">({bahtText(invoice.totalAmount)})</td>
               <td className="num"><strong>รวมทั้งสิ้น</strong></td>
               <td className="num"><strong>{formatMoney(invoice.totalAmount)}</strong></td>
             </tr>
