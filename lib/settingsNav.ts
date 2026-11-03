@@ -58,3 +58,6 @@ export function visibleGroups(role: string | undefined) {
 export function settingsPageRoles(href: string): readonly string[] {
   return SETTINGS_GROUPS.flatMap((g) => g.pages).find((p) => p.href === href)?.roles ?? []
 }
+
+/** เฉพาะ ADMIN — หน้าค่าที่ยังขาด (ใช้กับ /api/rates/missing) */
+export const ADMIN_ROLES: readonly string[] = ['ADMIN']
