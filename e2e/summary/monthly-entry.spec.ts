@@ -3,6 +3,7 @@ import { execSync } from 'child_process'
 import * as dotenv from 'dotenv'
 import path from 'path'
 import dayjs from 'dayjs'
+import { openAddDriverModal } from './helpers'
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
 
@@ -22,8 +23,7 @@ async function login(page: import('@playwright/test').Page, username: string) {
 }
 
 async function createDriverAndOpen(page: import('@playwright/test').Page) {
-  await page.goto('/jobs/settings/drivers')
-  await page.getByTestId('add-driver-btn').click()
+  await openAddDriverModal(page)
   await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER)
   await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill(VEHICLE)
   await page.getByTestId('driver-submit-btn').click()
@@ -92,8 +92,7 @@ test.describe.serial('ช่องกรอกมือรายเดือน'
 
   test('Case 3: MANAGER ยิง PATCH entry ไม่ได้ (403)', async ({ page }) => {
     await login(page, 'testadmin')
-    await page.goto('/jobs/settings/drivers')
-    await page.getByTestId('add-driver-btn').click()
+    await openAddDriverModal(page)
     await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER)
     await page.getByTestId('driver-submit-btn').click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
@@ -112,8 +111,7 @@ test.describe.serial('ช่องกรอกมือรายเดือน'
 
   test('Case 4: field นอก whitelist ถูกปฏิเสธ (400)', async ({ page }) => {
     await login(page, 'testadmin')
-    await page.goto('/jobs/settings/drivers')
-    await page.getByTestId('add-driver-btn').click()
+    await openAddDriverModal(page)
     await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(DRIVER)
     await page.getByTestId('driver-submit-btn').click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
