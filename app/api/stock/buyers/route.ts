@@ -35,6 +35,8 @@ export async function GET() {
       return {
         ...buyer,
         outstandingAmount: uninvoiced + unpaidInvoices,
+        // ยอดค้างเฉพาะใบเสร็จที่ออกแล้วแต่ยังไม่จ่าย (ไม่รวมรายการที่ยังไม่ออกใบเสร็จ)
+        invoicedOutstandingAmount: unpaidInvoices,
         nextDueDate: dueTimes.length ? new Date(Math.min(...dueTimes)) : null,
       }
     })
