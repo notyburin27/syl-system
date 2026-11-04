@@ -3,6 +3,7 @@ import { execSync } from 'child_process'
 import * as dotenv from 'dotenv'
 import path from 'path'
 import dayjs from 'dayjs'
+import { openAddDriverModal } from './helpers'
 import { UNGROUPED } from '@/types/job'
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
@@ -27,8 +28,7 @@ async function createDriver(
   vehicleNumber: string,
   group: string
 ) {
-  await page.goto('/jobs/settings/drivers')
-  await page.getByTestId('add-driver-btn').click()
+  await openAddDriverModal(page)
   await page.getByRole('dialog').getByPlaceholder('ชื่อคนขับ').fill(name)
   await page.getByRole('dialog').getByPlaceholder('เบอร์รถ').fill(vehicleNumber)
   await page.locator('#driver-group-name').fill(group)
