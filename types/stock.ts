@@ -15,6 +15,7 @@ export interface Buyer {
   phone: string | null
   defaultDueDay: number | null
   outstandingAmount?: number
+  invoicedOutstandingAmount?: number
   nextDueDate?: string | null
   createdAt: string
   updatedAt: string

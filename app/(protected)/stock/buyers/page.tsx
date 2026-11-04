@@ -10,6 +10,12 @@ import { compareDateNullsLast } from '@/lib/utils/tableSort'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
 
+const renderAmount = (amount: number | undefined) => (
+  <span style={{ color: (amount ?? 0) > 0 ? '#cf1322' : '#3f8600', fontWeight: 500 }}>
+    {(amount ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+  </span>
+)
+
 export default function BuyersPage() {
   const { message, modal } = App.useApp()
   const router = useRouter()
@@ -64,11 +70,15 @@ export default function BuyersPage() {
       dataIndex: 'outstandingAmount',
       key: 'outstandingAmount',
       sorter: (a, b) => (a.outstandingAmount ?? 0) - (b.outstandingAmount ?? 0),
-      render: (amount: number) => (
-        <span style={{ color: amount > 0 ? '#cf1322' : '#3f8600', fontWeight: 500 }}>
-          {(amount ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-        </span>
-      ),
+      render: renderAmount,
+      align: 'right',
+    },
+    {
+      title: 'ค้างตามใบเสร็จ (บาท)',
+      dataIndex: 'invoicedOutstandingAmount',
+      key: 'invoicedOutstandingAmount',
+      sorter: (a, b) => (a.invoicedOutstandingAmount ?? 0) - (b.invoicedOutstandingAmount ?? 0),
+      render: renderAmount,
       align: 'right',
     },
     {
