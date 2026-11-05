@@ -10,6 +10,12 @@ export function toThaiMonthYear(month: string): string {
   return `${THAI_MONTHS[mon - 1]} ${String(buddhistYear).padStart(2, "0")}`;
 }
 
+/** '2026-10' → 'ตุลาคม 2569' (ชื่อเดือนไทย + ปี พ.ศ. 4 หลัก) */
+export function toThaiMonthFullYear(month: string): string {
+  const [year, mon] = month.split("-").map(Number);
+  return `${THAI_MONTHS[mon - 1]} ${year + 543}`;
+}
+
 /**
  * วันจ่ายเงินเดือน = วันที่ 15 ของเดือนถัดจากเดือนที่สรุป
  * '2026-07' → '15/8/69' (จ่ายเงินเดือน ก.ค. ในวันที่ 15 ส.ค.)
