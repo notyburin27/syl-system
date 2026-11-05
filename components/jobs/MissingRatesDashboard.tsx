@@ -78,13 +78,13 @@ export default function MissingRatesDashboard() {
       })
       const result = await res.json()
       if (!res.ok) {
-        message.error(result.error || 'เกิดข้อผิดพลาดในการเติมค่า')
+        message.error(result.error || 'เกิดข้อผิดพลาดในการดึงข้อมูล')
         return
       }
-      message.success(`เติมค่า ${result.filled} งาน`)
+      message.success(`ดึงข้อมูล ${result.filled} งาน`)
       fetchData()
     } catch {
-      message.error('เกิดข้อผิดพลาดในการเติมค่า')
+      message.error('เกิดข้อผิดพลาดในการดึงข้อมูล')
     } finally {
       setFillingKey(null)
     }
@@ -106,7 +106,7 @@ export default function MissingRatesDashboard() {
     if (shown.length === 0) return null
     return (
       <Typography.Text type="warning">
-        job กรอกข้อมูลไม่ครบ (ไม่มี {shown.map((f) => FIELD_LABEL[f]).join('/')})
+        ไม่มี {shown.map((f) => FIELD_LABEL[f]).join('/')}
       </Typography.Text>
     )
   }
@@ -139,7 +139,7 @@ export default function MissingRatesDashboard() {
                 })
               }
             >
-              เติมเลย
+              ดึงข้อมูล
             </Button>
           )
         }
@@ -174,7 +174,7 @@ export default function MissingRatesDashboard() {
                 })
               }
             >
-              เติมเลย
+              ดึงข้อมูล
             </Button>
           )
         }
@@ -200,7 +200,7 @@ export default function MissingRatesDashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
-          ค่าที่ยังขาด{data ? ` · ${toThaiMonthFullYear(data.month)}` : ''}
+          งานที่ยังไม่มีค่า{data ? ` · ${toThaiMonthFullYear(data.month)}` : ''}
         </Typography.Title>
         <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading} data-testid="missing-refresh-btn">
           รีเฟรช
@@ -221,7 +221,7 @@ export default function MissingRatesDashboard() {
               <Statistic title="ไม่มีค่าเที่ยว" value={jobCount(wage, 'noRate')} suffix="งาน" />
             </Card>
             <Card size="small" style={{ minWidth: 170 }} data-testid="missing-card-hasrate">
-              <Statistic title="มีอัตราแล้ว ยังไม่เติม" value={uniqueJobCount([...income, ...wage], 'hasRate')} suffix="งาน" />
+              <Statistic title="มีอัตราแล้ว ยังไม่ดึงข้อมูล" value={uniqueJobCount([...income, ...wage], 'hasRate')} suffix="งาน" />
             </Card>
             <Card size="small" style={{ minWidth: 170 }} data-testid="missing-card-incomplete">
               <Statistic title="ข้อมูลไม่ครบ" value={uniqueJobCount([...income, ...wage], 'incomplete')} suffix="งาน" />

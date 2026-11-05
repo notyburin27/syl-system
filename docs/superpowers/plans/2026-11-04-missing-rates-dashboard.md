@@ -1,4 +1,4 @@
-# Dashboard ค่าที่ยังขาด (เดือนก่อนหน้า) Implementation Plan
+# Dashboard งานที่ยังไม่มีค่า (เดือนก่อนหน้า) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -46,7 +46,7 @@
 | `app/api/rates/missing/income/route.ts` (new) | POST สร้าง RateIncome จากช่วง + เติม |
 | `app/api/rates/missing/driver-wage/route.ts` (new) | POST สร้าง RateDriverWage + เติม |
 | `app/api/rates/missing/fill/route.ts` (new) | POST เติมจากอัตราที่มี |
-| `lib/settingsNav.ts` | เพิ่มหน้า "ค่าที่ยังขาด" ในกลุ่ม "อัตรา" |
+| `lib/settingsNav.ts` | เพิ่มหน้า "งานที่ยังไม่มีค่า" ในกลุ่ม "อัตรา" |
 | `app/(protected)/jobs/settings/rates/missing/page.tsx` (new) | server page |
 | `components/jobs/MissingRatesDashboard.tsx` (new) | การ์ด + Segmented + ตาราง + modal รายการงาน |
 | `components/jobs/MissingRateModals.tsx` (new) | `MissingIncomeRateModal`, `MissingWageRateModal` |
@@ -209,7 +209,7 @@ test('validateIncomeInput', () => {
 - [ ] **Step 2: รัน `npx tsx --test lib/utils/__tests__/missingRates.test.ts`** — Expected: FAIL (module ไม่มี)
 - [ ] **Step 3: implement `lib/utils/missingRates.ts`** ตาม Interfaces และกฎด้านบน
 - [ ] **Step 4: รัน test ไฟล์นี้ แล้ว `npm run test:unit`** — Expected: PASS ทั้งหมด
-- [ ] **Step 5: Commit** `feat(missing-rates): pure logic จัดกลุ่มค่าที่ยังขาดและแนะนำช่วงน้ำมัน`
+- [ ] **Step 5: Commit** `feat(missing-rates): pure logic จัดกลุ่มงานที่ยังไม่มีค่าและแนะนำช่วงน้ำมัน`
 
 ---
 
@@ -268,14 +268,14 @@ export async function fillWageGroup(tx: Prisma.TransactionClient, month: string,
 
 - [ ] **Step 1: implement 3 routes**
 - [ ] **Step 2: `npx tsc --noEmit -p .`** — Expected: ไม่มี error ในไฟล์ใหม่
-- [ ] **Step 3: Commit** `feat(missing-rates): API ตั้งอัตราจากหน้าค่าที่ยังขาดแล้วเติมงาน`
+- [ ] **Step 3: Commit** `feat(missing-rates): API ตั้งอัตราจากหน้างานที่ยังไม่มีค่าแล้วเติมงาน`
 
 ---
 
 ### Task 4: หน้า UI + เมนู
 
 **Files:**
-- Modify: `lib/settingsNav.ts` (กลุ่ม `'อัตรา'` เพิ่มท้าย `{ href: '/jobs/settings/rates/missing', label: 'ค่าที่ยังขาด', roles: ADMIN_ROLES }` — `ADMIN_ROLES` ถูกสร้างใน Task 2)
+- Modify: `lib/settingsNav.ts` (กลุ่ม `'อัตรา'` เพิ่มท้าย `{ href: '/jobs/settings/rates/missing', label: 'งานที่ยังไม่มีค่า', roles: ADMIN_ROLES }` — `ADMIN_ROLES` ถูกสร้างใน Task 2)
 - Create: `app/(protected)/jobs/settings/rates/missing/page.tsx`, `components/jobs/MissingRatesDashboard.tsx`, `components/jobs/MissingRateModals.tsx`
 
 **Interfaces:**
@@ -286,7 +286,7 @@ export async function fillWageGroup(tx: Prisma.TransactionClient, month: string,
   - modal ค่าขนส่ง: InputNumber `missing-range-price-0`, `missing-range-price-1`, ... , `missing-base-price` (แสดงเมื่อ `hasMissingFuelPrice`) ; modal ค่าเที่ยว: `missing-wage-input` ; ปุ่มบันทึกคือ OK ของ Modal ข้อความ `บันทึก`
 
 รายละเอียดหน้าจอตาม spec หัวข้อ "หน้าจอ":
-- หัว `ค่าที่ยังขาด · <ชื่อเดือนไทย> <ปี พ.ศ.>` + ปุ่ม `รีเฟรช`
+- หัว `งานที่ยังไม่มีค่า · <ชื่อเดือนไทย> <ปี พ.ศ.>` + ปุ่ม `รีเฟรช`
 - การ์ด 4 ใบ (จำนวน **job**): ไม่มีค่าขนส่ง (income noRate), ไม่มีค่าเที่ยว (wage noRate), มีอัตราแล้ว ยังไม่เติม (hasRate ทั้งสองฝั่ง), ข้อมูลไม่ครบ (incomplete ทั้งสองฝั่ง)
 - Segmented หลัก `ค่าขนส่ง (n กลุ่ม)` / `ค่าเที่ยว (n กลุ่ม)` ; Segmented ย่อย `ทั้งหมด` / `ไม่มีอัตรา` / `มีอัตราแล้ว` / `ข้อมูลไม่ครบ`
 - ตารางค่าขนส่ง: ลูกค้า | โรงงาน | ลักษณะงาน | SIZE | จำนวน job (`missing-jobs-btn` "N งาน") | ราคาน้ำมัน (`41.44–43.54`, เท่ากันแสดงค่าเดียว, null แสดง `-`) | สถานะ (Tag: noRate orange `ไม่มีอัตรา`, hasRate blue `มีอัตราแล้ว`, incomplete gold `ข้อมูลไม่ครบ`) | action ชิดขวา
@@ -301,7 +301,7 @@ export async function fillWageGroup(tx: Prisma.TransactionClient, month: string,
 - [ ] **Step 1: GitNexus impact `SETTINGS_GROUPS`** แล้วเพิ่ม entry
 - [ ] **Step 2: page + components**
 - [ ] **Step 3: `npx tsc --noEmit -p .` และ `npm run lint`** — Expected: ไม่มี error ในไฟล์ใหม่/ไฟล์ที่แก้
-- [ ] **Step 4: Commit** `feat(missing-rates): หน้า dashboard ค่าที่ยังขาด`
+- [ ] **Step 4: Commit** `feat(missing-rates): หน้า dashboard งานที่ยังไม่มีค่า`
 
 ---
 
@@ -326,7 +326,7 @@ Cases (`test.describe.serial`, beforeEach cleanup+seed, afterEach cleanup, login
 2. `Case 2: ตั้งค่าค่าเที่ยวแล้วเติมงาน` — Segmented `ค่าเที่ยว` → แถว F1 `ตั้งค่า` → 500 → `บันทึกและเติมค่าเที่ยว 2 งาน`
 3. `Case 3: เติมเลยจากอัตราที่มีอยู่` — แถว F2 `เติมเลย` → `เติมค่า 1 งาน` ; J3.income = 4000
 4. `Case 4: งานข้อมูลไม่ครบแสดงข้อความแทนปุ่ม` — มีข้อความ `job กรอกข้อมูลไม่ครบ (ไม่มี โรงงาน)`
-5. `Case 5: MANAGER เข้าหน้านี้ไม่ได้` — login `testmanager` (role MANAGER จาก `e2e/scripts/seed.ts`) เปิด `/jobs/settings/rates/missing` แล้วถูก redirect ไป `/jobs` และเมนู `ค่าที่ยังขาด` ไม่แสดง
+5. `Case 5: MANAGER เข้าหน้านี้ไม่ได้` — login `testmanager` (role MANAGER จาก `e2e/scripts/seed.ts`) เปิด `/jobs/settings/rates/missing` แล้วถูก redirect ไป `/jobs` และเมนู `งานที่ยังไม่มีค่า` ไม่แสดง
 6. `Case 6: ทอยที่จะถูกดูดซับไม่อยู่ในค่าเที่ยว` — seed เพิ่ม J5 towing 20DC C1 วันที่ 15 (สร้างก่อน) + J6 outbound 20DC C1/F1 วันที่ 15 pickup location `คาหาง` (upsert ตามชื่อ — cleanup ห้ามลบถ้ามีอยู่ก่อน ; สร้าง job หลัง, driverWage 500, income 5000) ; ฝั่งค่าเที่ยวต้องไม่มีกลุ่ม towing 20DC
 
 - [ ] **Step 1: seed + cleanup scripts**
@@ -334,4 +334,4 @@ Cases (`test.describe.serial`, beforeEach cleanup+seed, afterEach cleanup, login
 - [ ] **Step 3: `npx playwright test e2e/jobs/missing-rates.spec.ts --workers=1`** — Expected: 6 passed (แก้โค้ด Task 2–4 ถ้า fail เพราะ bug จริง)
 - [ ] **Step 4: `npx playwright test e2e/jobs/settings-access.spec.ts e2e/jobs/settings.spec.ts --workers=1`** — Expected: pass (เมนูใหม่ไม่ทำของเดิมพัง ; "อัตราค่าเที่ยวคนขับ Case 1" ใน settings.spec เป็น flaky ที่รู้อยู่แล้วเมื่อรันต่อจาก test อื่น)
 - [ ] **Step 5: `npm run build`** — Expected: สำเร็จ
-- [ ] **Step 6: Commit** `test(missing-rates): e2e หน้าค่าที่ยังขาด`
+- [ ] **Step 6: Commit** `test(missing-rates): e2e หน้างานที่ยังไม่มีค่า`

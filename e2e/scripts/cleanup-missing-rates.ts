@@ -14,7 +14,7 @@ const adapter = new PrismaPg({
 })
 const prisma = new PrismaClient({ adapter })
 
-// ลบเฉพาะของ spec ค่าที่ยังขาด — สถานที่ "คาหาง" เป็นชื่อจริงตามโดเมน อาจมีอยู่ก่อน จึงไม่ลบ
+// ลบเฉพาะของ spec งานที่ยังไม่มีค่า — สถานที่ "คาหาง" เป็นชื่อจริงตามโดเมน อาจมีอยู่ก่อน จึงไม่ลบ
 async function main() {
   const drivers = await prisma.driver.findMany({ where: { name: 'E2E_MISS Driver' } })
   for (const driver of drivers) {
@@ -40,7 +40,7 @@ async function main() {
   await prisma.customer.deleteMany({ where: { id: { in: customerIds } } })
 
   console.log(
-    `🧹 [Playwright] ลบข้อมูลค่าที่ยังขาด (คนขับ ${drivers.length}, สถานที่ ${locationIds.length}, ลูกค้า ${customerIds.length})`,
+    `🧹 [Playwright] ลบข้อมูลงานที่ยังไม่มีค่า (คนขับ ${drivers.length}, สถานที่ ${locationIds.length}, ลูกค้า ${customerIds.length})`,
   )
 }
 

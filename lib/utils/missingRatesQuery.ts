@@ -1,4 +1,4 @@
-// DB layer ของหน้าค่าที่ยังขาด — server only (import prisma / towingAbsorb)
+// DB layer ของหน้างานที่ยังไม่มีค่า — server only (import prisma / towingAbsorb)
 import type { Prisma } from '@/app/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { isAbsorbPickupName, isAbsorbedBy, type AbsorbJob } from '@/lib/utils/towingAbsorb'

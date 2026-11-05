@@ -7,7 +7,7 @@ import dayjs from 'dayjs'
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test') })
 
-// หน้าค่าที่ยังขาดดูได้เฉพาะเดือนก่อนหน้า — seed ลงเดือนนั้น
+// หน้างานที่ยังไม่มีค่าดูได้เฉพาะเดือนก่อนหน้า — seed ลงเดือนนั้น
 const MONTH = dayjs().subtract(1, 'month')
 const ROOT = path.resolve(__dirname, '../..')
 const PAGE = '/jobs/settings/rates/missing'
@@ -63,7 +63,7 @@ async function cardValue(page: Page, testId: string) {
   return Number(await page.getByTestId(testId).locator('.ant-statistic-content-value').innerText())
 }
 
-test.describe.serial('ค่าที่ยังขาด', () => {
+test.describe.serial('งานที่ยังไม่มีค่า', () => {
   test.beforeEach(() => {
     cleanup()
     seed()
@@ -77,13 +77,13 @@ test.describe.serial('ค่าที่ยังขาด', () => {
     await page.goto('/jobs/settings/rates/income')
     const nav = page.getByRole('navigation', { name: 'เมนูตั้งค่าข้อมูล' })
     await expect(async () => {
-      await nav.getByRole('link', { name: 'ค่าที่ยังขาด' }).click()
+      await nav.getByRole('link', { name: 'งานที่ยังไม่มีค่า' }).click()
       await expect(page).toHaveURL(new RegExp(`${PAGE}$`), { timeout: 3000 })
     }).toPass({ timeout: 20000 })
 
     await expect(page.getByTestId('missing-card-income')).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('heading', { name: /^ค่าที่ยังขาด/ })).toHaveText(
-      `ค่าที่ยังขาด · ${THAI_MONTHS[MONTH.month()]} ${MONTH.year() + 543}`,
+    await expect(page.getByRole('heading', { name: /^งานที่ยังไม่มีค่า/ })).toHaveText(
+      `งานที่ยังไม่มีค่า · ${THAI_MONTHS[MONTH.month()]} ${MONTH.year() + 543}`,
     )
 
     const row = rowOf(page, 'E2E_MISS_F1')
@@ -97,13 +97,16 @@ test.describe.serial('ค่าที่ยังขาด', () => {
     await row.getByTestId('missing-setup-btn').click()
     const dialog = page.getByRole('dialog', { name: 'ตั้งค่าขนส่ง' })
     await expect(dialog).toBeVisible()
-    await expect(dialog).toContainText('E2E_MISS_C1 · E2E_MISS_F1 · ขาออก · 20DC · 2 งาน')
+    await expect(dialog).toContainText('E2E_MISS_C1E2E_MISS_F1ขาออก20DC')
     await expect(dialog).toContainText('40.01 – 42.00')
     await expect(dialog).toContainText('42.01 – 44.00')
     await dialog.getByTestId('missing-range-price-0').fill('6000')
     await dialog.getByTestId('missing-range-price-1').fill('6300')
+    // ช่วงต่ำสุดเป็นฐาน ช่วงอื่นแสดงส่วนต่าง
+    await expect(dialog.getByText('ฐาน', { exact: true })).toBeVisible()
+    await expect(dialog).toContainText('+300')
     await dialog.getByRole('button', { name: 'บันทึก' }).click()
-    await expect(page.getByText('บันทึกและเติมค่าขนส่ง 2 งาน')).toBeVisible()
+    await expect(page.getByText('บันทึกและดึงข้อมูลค่าขนส่ง 2 งาน')).toBeVisible()
     await expect(dialog).toBeHidden()
 
     expect((await jobValues('E2E-MISS-1')).income).toBe(6000)
@@ -142,10 +145,12 @@ test.describe.serial('ค่าที่ยังขาด', () => {
     await row.getByTestId('missing-setup-btn').click()
     const dialog = page.getByRole('dialog', { name: 'ตั้งค่าเที่ยว' })
     await expect(dialog).toBeVisible()
-    await expect(dialog).toContainText('E2E_MISS_F1 · ขาออก · 20DC · 2 งาน')
+    await expect(dialog).toContainText('E2E_MISS_F1ขาออก20DC')
+    await expect(dialog).toContainText('2 งาน')
+    await expect(dialog).not.toContainText('ลูกค้า')
     await dialog.getByTestId('missing-wage-input').fill('500')
     await dialog.getByRole('button', { name: 'บันทึก' }).click()
-    await expect(page.getByText('บันทึกและเติมค่าเที่ยว 2 งาน')).toBeVisible()
+    await expect(page.getByText('บันทึกและดึงข้อมูลค่าเที่ยว 2 งาน')).toBeVisible()
 
     expect((await jobValues('E2E-MISS-1')).driverWage).toBe(500)
     expect((await jobValues('E2E-MISS-2')).driverWage).toBe(500)
@@ -154,7 +159,7 @@ test.describe.serial('ค่าที่ยังขาด', () => {
     await expect(rowOf(page, 'E2E_MISS_F1')).toHaveCount(0)
   })
 
-  test('Case 3: เติมเลยจากอัตราที่มีอยู่', async ({ page }) => {
+  test('Case 3: ดึงข้อมูลจากอัตราที่มีอยู่', async ({ page }) => {
     await login(page)
     await openPage(page)
 
@@ -164,7 +169,7 @@ test.describe.serial('ค่าที่ยังขาด', () => {
     await expect(row.getByTestId('missing-setup-btn')).toHaveCount(0)
 
     await row.getByTestId('missing-fill-btn').click()
-    await expect(page.getByText('เติมค่า 1 งาน')).toBeVisible()
+    await expect(page.getByText('ดึงข้อมูล 1 งาน')).toBeVisible()
     expect(await jobValues('E2E-MISS-3')).toEqual({ income: 4000, driverWage: null })
     await expect(rowOf(page, 'E2E_MISS_F2')).toHaveCount(0)
 
@@ -173,7 +178,7 @@ test.describe.serial('ค่าที่ยังขาด', () => {
     const wageRow = rowOf(page, 'E2E_MISS_F2')
     await expect(wageRow).toContainText('มีอัตราแล้ว')
     await wageRow.getByTestId('missing-fill-btn').click()
-    await expect(page.getByText('เติมค่า 1 งาน').last()).toBeVisible()
+    await expect(page.getByText('ดึงข้อมูล 1 งาน').last()).toBeVisible()
     await expect(async () => {
       expect((await jobValues('E2E-MISS-3')).driverWage).toBe(350)
     }).toPass({ timeout: 10000 })
@@ -185,7 +190,7 @@ test.describe.serial('ค่าที่ยังขาด', () => {
 
     const row = rowOf(page, 'E2E_MISS_C1').filter({ hasText: 'ข้อมูลไม่ครบ' })
     await expect(row).toHaveCount(1)
-    await expect(row).toContainText('job กรอกข้อมูลไม่ครบ (ไม่มี โรงงาน)')
+    await expect(row).toContainText('ไม่มี โรงงาน')
     await expect(row.getByTestId('missing-setup-btn')).toHaveCount(0)
     await expect(row.getByTestId('missing-fill-btn')).toHaveCount(0)
 
@@ -204,7 +209,7 @@ test.describe.serial('ค่าที่ยังขาด', () => {
     // "ข้อมูลไม่ครบ" ซ้ำกับชื่อการ์ดและ tag สถานะ — คลิกที่ Segmented ย่อยเท่านั้น
     await page.locator('.ant-segmented-item').filter({ hasText: /^ข้อมูลไม่ครบ$/ }).click()
     await expect(rowOf(page, 'E2E_MISS_F1')).toHaveCount(0)
-    await expect(rowOf(page, 'job กรอกข้อมูลไม่ครบ (ไม่มี โรงงาน)').first()).toBeVisible()
+    await expect(rowOf(page, 'ไม่มี โรงงาน').first()).toBeVisible()
   })
 
   test('Case 5: MANAGER เข้าหน้านี้ไม่ได้', async ({ page }) => {
@@ -216,7 +221,7 @@ test.describe.serial('ค่าที่ยังขาด', () => {
     await page.goto('/jobs/settings/rates/income')
     const nav = page.getByRole('navigation', { name: 'เมนูตั้งค่าข้อมูล' })
     await expect(nav.getByRole('link', { name: 'ค่าขนส่ง' })).toBeVisible({ timeout: 15000 })
-    await expect(nav.getByRole('link', { name: 'ค่าที่ยังขาด' })).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: 'งานที่ยังไม่มีค่า' })).toHaveCount(0)
   })
 
   test('Case 6: ทอยที่จะถูกดูดซับไม่อยู่ในค่าเที่ยว', async ({ page }) => {

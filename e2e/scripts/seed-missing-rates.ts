@@ -18,7 +18,7 @@ const NOTE = 'E2E_MISS'
 const DRIVER = 'E2E_MISS Driver'
 
 /**
- * seed หน้าค่าที่ยังขาด (เดือนก่อนหน้า)
+ * seed หน้างานที่ยังไม่มีค่า (เดือนก่อนหน้า)
  * - ปกติ: ลูกค้า/โรงงาน/คนขับ/ราคาน้ำมัน + J1–J4
  * - MISSING_PART=absorb: เพิ่ม J5 (ทอย) + J6 (รับตู้ที่คาหาง) ให้คนขับเดิม — ต้องรันหลัง seed ปกติ
  */
@@ -48,7 +48,7 @@ async function main() {
         factoryLocationId: f1.id, pickupLocationId: kahang.id, driverWage: 500, income: 5000,
       },
     })
-    console.log(`🌱 [Playwright] seed ทอยที่จะถูกดูดซับ (ค่าที่ยังขาด) เดือน ${month}`)
+    console.log(`🌱 [Playwright] seed ทอยที่จะถูกดูดซับ (งานที่ยังไม่มีค่า) เดือน ${month}`)
     return
   }
 
@@ -98,7 +98,7 @@ async function main() {
     data: { ...base, jobNumber: 'E2E-MISS-4', jobType: 'outbound', size: '20DC', jobDate: day(12) },
   })
 
-  console.log(`🌱 [Playwright] seed ค่าที่ยังขาด เดือน ${month}`)
+  console.log(`🌱 [Playwright] seed งานที่ยังไม่มีค่า เดือน ${month}`)
 }
 
 main()
