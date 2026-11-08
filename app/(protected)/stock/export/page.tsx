@@ -1,34 +1,42 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Table, Button, Card, App, Space, Tag } from 'antd'
+import { useState, useEffect, useCallback } from 'react'
+import { Table, Button, Card, App, Space, Tag, DatePicker } from 'antd'
 import { PlusOutlined, DeleteOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { StockOut } from '@/types/stock'
 import StockOutFormModal from '@/components/stock/StockOutFormModal'
 import dayjs from 'dayjs'
 
+const { RangePicker } = DatePicker
+
 export default function StockExportPage() {
   const { message, modal } = App.useApp()
   const [stockOuts, setStockOuts] = useState<StockOut[]>([])
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [filterDateRange, setFilterDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
 
-  const fetchStockOuts = async () => {
+  const fetchStockOuts = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/stock/export')
+      const params = new URLSearchParams()
+      if (filterDateRange) {
+        params.set('dateFrom', filterDateRange[0].startOf('day').toISOString())
+        params.set('dateTo', filterDateRange[1].endOf('day').toISOString())
+      }
+      const res = await fetch(`/api/stock/export?${params.toString()}`)
       if (res.ok) setStockOuts(await res.json())
     } catch {
       message.error('เกิดข้อผิดพลาดในการโหลดข้อมูล')
     } finally {
       setLoading(false)
     }
-  }
+  }, [filterDateRange, message])
 
   useEffect(() => {
     fetchStockOuts()
-  }, [])
+  }, [fetchStockOuts])
 
   const handleDelete = async (id: string) => {
     try {
@@ -174,6 +182,14 @@ export default function StockExportPage() {
           </Button>
         }
       >
+        <Space style={{ marginBottom: 16 }} wrap>
+          <RangePicker
+            id="stock-export-date-range"
+            format="DD/MM/YYYY"
+            placeholder={['วันที่เริ่ม', 'วันที่สิ้นสุด']}
+            onChange={(dates) => setFilterDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
+          />
+        </Space>
         <Table
           columns={columns}
           dataSource={stockOuts}
