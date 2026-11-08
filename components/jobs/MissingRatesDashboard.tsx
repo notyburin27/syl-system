@@ -112,9 +112,9 @@ export default function MissingRatesDashboard() {
   }
 
   const incomeColumns = [
-    { title: 'ลูกค้า', key: 'customer', render: (_: unknown, g: IncomeGroup) => g.customerName ?? '—' },
-    { title: 'โรงงาน', key: 'factory', render: (_: unknown, g: IncomeGroup) => g.factoryName ?? '—' },
-    { title: 'ลักษณะงาน', key: 'jobType', render: (_: unknown, g: IncomeGroup) => getJobTypeLabel(g.jobType) },
+    { title: 'ลูกค้า', key: 'customer', width: 200, render: (_: unknown, g: IncomeGroup) => g.customerName ?? '—' },
+    { title: 'โรงงาน', key: 'factory', width: 300, render: (_: unknown, g: IncomeGroup) => g.factoryName ?? '—' },
+    { title: 'ลักษณะงาน', key: 'jobType', width: 110, onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }), onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }), render: (_: unknown, g: IncomeGroup) => getJobTypeLabel(g.jobType) },
     { title: 'SIZE', key: 'size', width: 80, render: (_: unknown, g: IncomeGroup) => g.size ?? '—' },
     { title: 'จำนวน job', key: 'count', align: 'right' as const, width: 100, render: (_: unknown, g: IncomeGroup) => jobsBtn(g.jobs) },
     { title: 'ราคาน้ำมัน', key: 'fuel', align: 'right' as const, width: 130, render: (_: unknown, g: IncomeGroup) => fmtFuel(g.fuelPriceMin, g.fuelPriceMax) },
@@ -149,8 +149,8 @@ export default function MissingRatesDashboard() {
   ]
 
   const wageColumns = [
-    { title: 'โรงงาน', key: 'factory', render: (_: unknown, g: WageGroup) => g.factoryName ?? '—' },
-    { title: 'ลักษณะงาน', key: 'jobType', render: (_: unknown, g: WageGroup) => getJobTypeLabel(g.jobType) },
+    { title: 'โรงงาน', key: 'factory', width: 300, render: (_: unknown, g: WageGroup) => g.factoryName ?? '—' },
+    { title: 'ลักษณะงาน', key: 'jobType', width: 110, onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }), onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }), render: (_: unknown, g: WageGroup) => getJobTypeLabel(g.jobType) },
     { title: 'SIZE', key: 'size', width: 80, render: (_: unknown, g: WageGroup) => g.size ?? '—' },
     { title: 'จำนวน job', key: 'count', align: 'right' as const, width: 100, render: (_: unknown, g: WageGroup) => jobsBtn(g.jobs) },
     statusCol,
