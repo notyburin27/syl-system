@@ -27,6 +27,10 @@ const FONT_SIZE = 16
 const TITLE_FONT_SIZE = 22
 const NUM_FMT = '#,##0'
 const DATE_FMT = '[$-1070000]d/m/yy;@' // วันที่แบบไทย (d/m/yy)
+// เส้นบางสีเทาอ่อนในแถวข้อมูล (ตรงกับ "White, Background 1, Darker 15%" ของ Excel)
+const LIGHT_GRID_COLOR = { argb: 'FFD9D9D9' }
+// คอลัมน์ตั้งแต่ตัวนี้ไปทางขวา (ยกยอด, โอน, รวมยอดโอน, ... ยกเลิก) ใช้เส้นบางสีดำตามเดิม
+const LIGHT_GRID_END_HEADER = 'ยกยอด'
 
 // สัดส่วนแบ่งรายได้ที่แสดงเป็นสูตรใต้ตาราง (คนขับ/บริษัท)
 const SHARE_RATIOS = [0.55, 0.45]
@@ -109,8 +113,8 @@ type ColumnSpec = {
   numeric?: boolean
   /** รวมยอดท้ายตาราง (=SUM ของช่วงข้อมูล) */
   sum?: boolean
-  /** ขอบซ้าย/ขวาเข้ม (medium) เพื่อแยกคอลัมน์ยอดเงินสำคัญออกจากกลุ่มอื่น */
-  strongBorder?: boolean
+  /** ขอบเข้ม (medium) เพื่อแยกคอลัมน์/กลุ่มคอลัมน์ออกจากกันในทุกแถว */
+  strongBorder?: 'left' | 'right' | 'both'
 }
 
 function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
@@ -125,8 +129,8 @@ function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
     { header: 'สถานที่คืนตู้', width: 16.2 },
     ...(isAdmin
       ? [
-          { header: 'ค่าขนส่ง', width: 11.7, numeric: true, sum: true, strongBorder: true },
-          { header: 'ค่าเที่ยวคนขับ', width: 12, numeric: true, sum: true, strongBorder: true },
+          { header: 'ค่าขนส่ง', width: 11.7, numeric: true, sum: true, strongBorder: 'both' as const },
+          { header: 'ค่าเที่ยวคนขับ', width: 12, numeric: true, sum: true, strongBorder: 'both' as const },
         ]
       : []),
     { header: 'เบิกล่วงหน้า', width: 11.5, numeric: true, sum: true },
@@ -137,15 +141,16 @@ function buildColumns(isAdmin: boolean, maxTransfers: number): ColumnSpec[] {
     { header: 'ค่าฝากตู้', width: 9.5, numeric: true, sum: true },
     { header: 'ค่ายาง', width: 9.5, numeric: true, sum: true },
     { header: 'อื่นๆ', width: 9.5, numeric: true, sum: true },
-    { header: 'รวมคนรถปิดงาน', width: 17, numeric: true, sum: true, strongBorder: true },
+    { header: 'รวมคนรถปิดงาน', width: 17, numeric: true, sum: true, strongBorder: 'both' },
     { header: 'หมายเหตุ', width: 20 },
-    { header: 'ไมล์รถ', width: 10.2 },
+    // ไมล์รถ → น้ำมันเครดิต (฿) เป็นกลุ่มเดียวกัน ตีกรอบเข้มรอบกลุ่ม
+    { header: 'ไมล์รถ', width: 10.2, strongBorder: 'left' },
     { header: 'น้ำมัน OFF (ลิตร)', width: 12.2, numeric: true, sum: true },
     { header: 'น้ำมันสด (ลิตร)', width: 12.2 },
     { header: 'น้ำมันสด (฿)', width: 13 },
     { header: 'น้ำมันเครดิต (ลิตร)', width: 18 },
-    { header: 'น้ำมันเครดิต (฿)', width: 16 },
-    { header: 'ยกยอด', width: 11.5, numeric: true, sum: true },
+    { header: 'น้ำมันเครดิต (฿)', width: 16, strongBorder: 'right' },
+    { header: 'ยกยอด', width: 11.5, numeric: true, sum: true, strongBorder: 'both' },
     ...Array.from({ length: maxTransfers }, (_, i) => ({
       header: `โอนครั้งที่ ${i + 1}`,
       width: 11.7,
@@ -267,11 +272,32 @@ function buildJobsWorksheet(
   titleRow.height = 62
   ws.mergeCells(TITLE_ROW, 1, TITLE_ROW, totalCols)
 
+  // --- เส้นตั้ง ---
+  // edge e = เส้นระหว่างคอลัมน์ index e-1 กับ e (0 = ขอบซ้ายสุด, totalCols = ขอบขวาสุด)
+  // คิดเป็นรายเส้นแล้วให้ทั้งสองเซลล์ที่ชนกันใช้ค่าเดียวกัน ไม่งั้น Excel เลือกแสดงเส้นใดเส้นหนึ่งไม่แน่นอน
+  const isStrongEdge = (e: number): boolean => {
+    const leftCol = columns[e - 1]?.strongBorder
+    const rightCol = columns[e]?.strongBorder
+    return leftCol === 'right' || leftCol === 'both' || rightCol === 'left' || rightCol === 'both'
+  }
+  const edgeStyle = (e: number): ExcelJS.BorderStyle => (isStrongEdge(e) ? 'medium' : 'thin')
+
+  // แถวข้อมูล: เส้นบางสีเทาเฉพาะช่วงคอลัมน์ก่อน "ยกยอด" ส่วนที่เหลือเป็นเส้นดำ
+  const lightGridEnd = columns.findIndex((c) => c.header === LIGHT_GRID_END_HEADER)
+  const inLightGrid = (i: number) => i < lightGridEnd
+  const thinSide = (light: boolean): Partial<ExcelJS.Border> =>
+    light ? { style: 'thin', color: LIGHT_GRID_COLOR } : { style: 'thin' }
+  // เส้นตั้งในแถวข้อมูลเป็นสีเทาเมื่อคอลัมน์ทั้งสองฝั่ง (ที่มีอยู่จริง) อยู่ในช่วงเส้นเทา
+  const dataEdge = (e: number): Partial<ExcelJS.Border> =>
+    isStrongEdge(e)
+      ? { style: 'medium' }
+      : thinSide((e === 0 || inLightGrid(e - 1)) && (e === totalCols || inLightGrid(e)))
+
   // --- Header ---
   const headerRow = ws.getRow(HEADER_ROW)
   headerRow.height = 44 // รองรับ header 2 บรรทัด (wrapText)
-  // คอลัมน์ยอดเงินสำคัญใช้ขอบข้างเข้ม (medium) เพื่อแยกกลุ่มออกจากคอลัมน์รอบๆ
-  const sideStyle = (i: number): ExcelJS.BorderStyle => (columns[i].strongBorder ? 'medium' : 'thin')
+  // หัวตารางตีกรอบเข้มรอบทั้งแถว เส้นคั่นข้างในเป็นเส้นบางสีดำ (ยกเว้นเส้นแบ่งกลุ่ม)
+  const headerEdge = (e: number): ExcelJS.BorderStyle => (e === 0 || e === totalCols ? 'medium' : edgeStyle(e))
 
   columns.forEach((col, i) => {
     const cell = headerRow.getCell(i + 1)
@@ -281,8 +307,8 @@ function buildJobsWorksheet(
     cell.border = {
       top: { style: 'medium' },
       bottom: { style: 'medium' },
-      left: { style: sideStyle(i) },
-      right: { style: sideStyle(i) },
+      left: { style: headerEdge(i) },
+      right: { style: headerEdge(i + 1) },
     }
   })
 
@@ -290,12 +316,14 @@ function buildJobsWorksheet(
   merged.forEach((row, idx) => {
     const excelRow = ws.getRow(FIRST_DATA_ROW + idx)
     excelRow.height = 29
+    // แถวสุดท้ายใช้เส้นล่างสีดำคั่นกับแถวสรุป (ต้องตรงกับเส้นบนของแถวสรุปแรก)
+    const isLastDataRow = idx === merged.length - 1
     row.cells.forEach((value, i) => {
       const cell = excelRow.getCell(i + 1)
       if (value !== null) cell.value = value
       // งานที่ยกเลิก — ขีดฆ่าทั้งแถวให้เห็นชัดว่าไม่นับในรายงาน
       cell.font = { name: FONT_NAME, size: FONT_SIZE, ...(row.cancelled ? { strike: true } : {}) }
-      cell.border = { bottom: { style: 'thin' }, left: { style: sideStyle(i) }, right: { style: sideStyle(i) } }
+      cell.border = { bottom: thinSide(inLightGrid(i) && !isLastDataRow), left: dataEdge(i), right: dataEdge(i + 1) }
       if (i === 0) {
         cell.numFmt = DATE_FMT
         cell.alignment = { horizontal: 'center', vertical: 'middle' }
@@ -343,12 +371,13 @@ function buildJobsWorksheet(
     amountCell.alignment = { vertical: 'middle' }
 
     // ตีขอบทุกคอลัมน์ในแถวนี้ ไม่งั้นกรอบด้านล่างตารางจะขาดเป็นช่วงๆ
-    // แถวแรกของกลุ่มสรุปปิดขอบบนด้วย เพื่อให้บล็อกสรุปมีกรอบครบทั้งสี่ด้าน
+    // แถวแรกของกลุ่มสรุป: ช่วงเส้นเทาคั่นจากแถวข้อมูลด้วยเส้นดำบาง
+    // ส่วนช่วงยกยอด→ยกเลิก ปิดขอบบนเข้มเหมือนเดิม
     columns.forEach((_, i) => {
       row.getCell(i + 1).border = {
-        ...(rowIdx === summaryStartRow ? { top: { style: 'medium' as const } } : {}),
-        left: { style: sideStyle(i) },
-        right: { style: sideStyle(i) },
+        ...(rowIdx === summaryStartRow ? { top: { style: inLightGrid(i) ? ('thin' as const) : ('medium' as const) } } : {}),
+        left: { style: edgeStyle(i) },
+        right: { style: edgeStyle(i + 1) },
       }
     })
 
@@ -370,8 +399,8 @@ function buildJobsWorksheet(
     cell.border = {
       top: { style: 'medium' },
       bottom: { style: 'medium' },
-      left: { style: sideStyle(i) },
-      right: { style: sideStyle(i) },
+      left: { style: edgeStyle(i) },
+      right: { style: edgeStyle(i + 1) },
     }
   })
 
