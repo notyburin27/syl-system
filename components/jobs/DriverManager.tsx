@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Table, Button, Modal, Form, Input, InputNumber, App, Space, Tag, Popconfirm, AutoComplete, DatePicker, Checkbox } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
 import ImportCSVModal from './ImportCSVModal'
+import { vehicleNumberError } from '@/lib/utils/vehicleNumber'
 import type { Driver, DriverBankAccount } from '@/types/job'
 import dayjs from 'dayjs'
 import buddhistEra from 'dayjs/plugin/buddhistEra'
@@ -472,7 +473,16 @@ export default function DriverManager({ isAdmin }: { isAdmin: boolean }) {
           >
             <Input data-testid="driver-name-input" placeholder="ชื่อคนขับ" />
           </Form.Item>
-          <Form.Item name="vehicleNumber" label="เบอร์รถ">
+          <Form.Item
+            name="vehicleNumber"
+            label="เบอร์รถ"
+            rules={[{
+              validator: (_, value) => {
+                const err = vehicleNumberError(value)
+                return err ? Promise.reject(new Error(err)) : Promise.resolve()
+              },
+            }]}
+          >
             <Input data-testid="driver-vehicle-number-input" placeholder="เบอร์รถ" />
           </Form.Item>
           <Form.Item name="vehicleRegistration" label="ทะเบียนรถ">

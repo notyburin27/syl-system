@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { vehicleNumberError } from "@/lib/utils/vehicleNumber";
 
 interface ImportRow {
   name: string;
@@ -69,6 +70,11 @@ export async function POST(req: Request) {
       const dups = nameCount.get(row.name);
       if (dups && dups.length > 1) {
         errors.push({ row: rowNum, field: "name", message: `ชื่อคนขับซ้ำในไฟล์ (แถว ${dups.join(", ")})` });
+      }
+
+      const vehicleErr = vehicleNumberError(row.vehicleNumber);
+      if (vehicleErr) {
+        errors.push({ row: rowNum, field: "vehicleNumber", message: vehicleErr });
       }
     });
 
