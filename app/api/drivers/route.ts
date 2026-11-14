@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { vehicleNumberError } from "@/lib/utils/vehicleNumber";
 
 export async function GET() {
   const session = await auth();
@@ -47,6 +48,11 @@ export async function POST(req: Request) {
         { error: "กรุณากรอกชื่อคนขับ" },
         { status: 400 }
       );
+    }
+
+    const vehicleErr = vehicleNumberError(vehicleNumber);
+    if (vehicleErr) {
+      return NextResponse.json({ error: vehicleErr }, { status: 400 });
     }
 
     const isAdmin = session.user.role === "ADMIN";
