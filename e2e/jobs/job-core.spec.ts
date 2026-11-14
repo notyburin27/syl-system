@@ -132,6 +132,82 @@ test.describe.serial('Job core — ยกเลิก / ลบ / โอน / ย
     expect(after.driverWage).toBeNull()
   })
 
+  test('ยกเลิกงาน: งานที่ยกเลิกแล้วใส่ค่าขนส่ง/ค่าเที่ยวกลับไม่ได้ จนกว่าจะคืนสถานะ', async ({ page }) => {
+    const driverId = await createDriver(page)
+    const jobId = await createJob(page, { driverId, jobNumber: 'E2E-CANCEL-005', income: 5000 })
+    expect((await page.request.patch(`/api/jobs/${jobId}`, { data: { isCancelled: true } })).ok()).toBeTruthy()
+
+    // เคยหลุด: ฟอร์มเติมค่าขนส่งอัตโนมัติ (เปลี่ยนลูกค้า/สถานที่) แล้ว PATCH เข้างานที่ยกเลิกไปแล้ว
+    const setIncome = await page.request.patch(`/api/jobs/${jobId}`, { data: { income: 9500 } })
+    expect(setIncome.status()).toBe(400)
+    expect((await setIncome.json()).error).toContain('ยกเลิก')
+    const setWage = await page.request.patch(`/api/jobs/${jobId}`, { data: { driverWage: 800 } })
+    expect(setWage.status()).toBe(400)
+
+    // ส่ง null มาได้ — ไม่ได้เพิ่มยอด
+    expect((await page.request.patch(`/api/jobs/${jobId}`, { data: { income: null } })).ok()).toBeTruthy()
+
+    const stillCancelled = await getJob(page, jobId)
+    expect(stillCancelled.income).toBeNull()
+    expect(stillCancelled.driverWage).toBeNull()
+
+    // คืนสถานะพร้อมใส่ยอดใน request เดียวกันได้
+    const restored = await page.request.patch(`/api/jobs/${jobId}`, { data: { isCancelled: false, income: 6000 } })
+    expect(restored.ok()).toBeTruthy()
+    const after = await getJob(page, jobId)
+    expect(after.isCancelled).toBe(false)
+    expect(Number(after.income)).toBe(6000)
+  })
+
+  test('ยกเลิกงานจาก modal: ช่องค่าขนส่ง/ค่าเที่ยวว่างและล็อกทันที ไม่มีปุ่มดึงข้อมูล', async ({ page }) => {
+    const driverId = await createDriver(page)
+    const jobId = await createJob(page, { driverId, jobNumber: 'E2E-CANCEL-006', income: 5000, liftFee: 300 })
+    expect((await page.request.patch(`/api/jobs/${jobId}`, { data: { driverWage: 800 } })).ok()).toBeTruthy()
+    // ติ๊กยกเลิกได้ต้องมีรายการโอนก่อน
+    expect((await page.request.post(`/api/jobs/${jobId}/transfers`, { data: { amount: 300, isCompleted: true } })).ok()).toBeTruthy()
+
+    await page.goto(`/jobs/${driverId}?month=${CURRENT_MONTH}`)
+    const tableRow = page.locator('tr', { hasText: 'E2E-CANCEL-006' })
+    await expect(tableRow).toContainText('5,000')
+    await page.getByTestId('toggle-modal-edit-btn').click()
+    const jobCell = page.getByRole('cell', { name: 'E2E-CANCEL-006', exact: true })
+    // modal เปิดด้วยข้อมูลแถวก่อนแล้ว fetch ตัวสดมาทับ — รอให้ทับเสร็จก่อนติ๊ก ไม่งั้น state ถูกรีเซ็ต
+    const freshLoaded = page.waitForResponse(
+      (r) => r.url().endsWith(`/api/jobs/${jobId}`) && r.request().method() === 'GET',
+    )
+    await jobCell.click()
+    await freshLoaded
+    const modal = page.getByRole('dialog')
+    await expect(modal).toBeVisible()
+    await expect(modal.locator('#income')).toHaveValue('5000')
+    await expect(modal.locator('#driverWage')).toHaveValue('800')
+    await expect(modal.getByTestId('job-prefill-btn')).toBeVisible()
+
+    await modal.getByTestId('job-cancel-checkbox').check()
+    await expect.poll(async () => (await getJob(page, jobId)).isCancelled).toBe(true)
+
+    // ฟอร์มต้องตรงกับ DB ทันที ไม่ใช่โชว์ยอดเก่าค้างจนรีเฟรช
+    await expect(modal.locator('#income')).toHaveValue('')
+    await expect(modal.locator('#driverWage')).toHaveValue('')
+    await expect(modal.locator('#income')).toBeDisabled()
+    await expect(modal.locator('#driverWage')).toBeDisabled()
+    await expect(modal.getByTestId('job-prefill-btn')).toHaveCount(0)
+
+    // ปิด modal (ไม่รีเฟรชหน้า) — แถวในตารางต้องไม่โชว์ยอดเก่าค้าง
+    await page.keyboard.press('Escape')
+    await expect(modal).toBeHidden()
+    await expect(tableRow).not.toContainText('5,000')
+    await expect(tableRow).not.toContainText('800')
+    await jobCell.click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByRole('dialog').locator('#income')).toHaveValue('')
+    await expect(page.getByRole('dialog').locator('#driverWage')).toHaveValue('')
+
+    const after = await getJob(page, jobId)
+    expect(after.income).toBeNull()
+    expect(after.driverWage).toBeNull()
+  })
+
   test('ยกเลิกงาน: แถวในตารางแสดงสถานะยกเลิก (cancelled-row)', async ({ page }) => {
     const driverId = await createDriver(page)
     const jobId = await createJob(page, { driverId, jobNumber: 'E2E-CANCEL-002', liftFee: 300 })
