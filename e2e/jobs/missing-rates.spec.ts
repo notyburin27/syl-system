@@ -98,8 +98,11 @@ test.describe.serial('งานที่ยังไม่มีค่า', () =
     const dialog = page.getByRole('dialog', { name: 'ตั้งค่าขนส่ง' })
     await expect(dialog).toBeVisible()
     await expect(dialog).toContainText('E2E_MISS_C1E2E_MISS_F1ขาออก20DC')
-    await expect(dialog).toContainText('40.01 – 42.00')
-    await expect(dialog).toContainText('42.01 – 44.00')
+    // ช่วงแนะนำอยู่ในช่องที่แก้ได้
+    await expect(dialog.getByTestId('missing-range-min-0')).toHaveValue('40.01')
+    await expect(dialog.getByTestId('missing-range-max-0')).toHaveValue('42.00')
+    await expect(dialog.getByTestId('missing-range-min-1')).toHaveValue('42.01')
+    await expect(dialog.getByTestId('missing-range-max-1')).toHaveValue('44.00')
     await dialog.getByTestId('missing-range-price-0').fill('6000')
     await dialog.getByTestId('missing-range-price-1').fill('6300')
     // ช่วงต่ำสุดเป็นฐาน ช่วงอื่นแสดงส่วนต่าง
@@ -255,5 +258,59 @@ test.describe.serial('งานที่ยังไม่มีค่า', () =
     await expect(towingRow()).toHaveCount(1)
     await towingRow().getByTestId('missing-jobs-btn').click()
     await expect(page.getByRole('dialog', { name: 'รายการงาน' })).toContainText('E2E-MISS-5')
+  })
+
+  test('Case 7: แก้ช่วงราคาน้ำมันเองก่อนบันทึก', async ({ page }) => {
+    await login(page)
+    await openPage(page)
+
+    const row = rowOf(page, 'E2E_MISS_F1')
+    await row.getByTestId('missing-setup-btn').click()
+    const dialog = page.getByRole('dialog', { name: 'ตั้งค่าขนส่ง' })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('alert')).toHaveCount(0)
+
+    // ขยายช่วงแรกเป็น 40.01–43.00 → ทับช่วงที่สอง (42.01–44.00)
+    await dialog.getByTestId('missing-range-max-0').fill('43')
+    await expect(dialog.getByRole('alert')).toHaveText('ช่วงราคาน้ำมันทับกัน')
+
+    // เลื่อนช่วงที่สองเป็น 43.01–43.50 → งานราคาน้ำมัน 43.54 หลุดทุกช่วง
+    await dialog.getByTestId('missing-range-min-1').fill('43.01')
+    await dialog.getByTestId('missing-range-max-1').fill('43.5')
+    await expect(dialog.getByRole('alert')).toHaveText('มี 1 งานที่ราคาน้ำมันไม่อยู่ในช่วงใด')
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+    await expect(page.locator('.ant-message').getByText('มี 1 งานที่ราคาน้ำมันไม่อยู่ในช่วงใด')).toBeVisible()
+    await expect(dialog).toBeVisible()
+
+    await dialog.getByTestId('missing-range-max-1').fill('46')
+    await expect(dialog.getByRole('alert')).toHaveCount(0)
+
+    // ลบราคาที่กรอกแล้ว ต้องนับเป็นช่องว่าง ไม่ใช่ 0
+    await dialog.getByTestId('missing-range-price-0').fill('6000')
+    await dialog.getByTestId('missing-range-price-0').fill('')
+    await dialog.getByTestId('missing-range-price-1').fill('6300')
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+    await expect(page.locator('.ant-message').getByText('กรุณากรอกราคาให้ครบทุกช่อง')).toBeVisible()
+    await expect(dialog).toBeVisible()
+
+    await dialog.getByTestId('missing-range-price-0').fill('6000')
+    await dialog.getByRole('button', { name: 'บันทึก' }).click()
+    await expect(page.getByText('บันทึกและดึงข้อมูลค่าขนส่ง 2 งาน')).toBeVisible()
+    await expect(dialog).toBeHidden()
+
+    expect((await jobValues('E2E-MISS-1')).income).toBe(6000)
+    expect((await jobValues('E2E-MISS-2')).income).toBe(6300)
+    const surcharges = await sql<{ income: string; min: string; max: string; surcharge: string }>(
+      `SELECT r.income, s."fuelPriceMin" AS min, s."fuelPriceMax" AS max, s.surcharge
+         FROM rate_income r
+         JOIN rate_income_fuel_surcharge s ON s."rateIncomeId" = r.id
+         JOIN locations l ON l.id = r."factoryLocationId"
+        WHERE l.name = 'E2E_MISS_F1'
+        ORDER BY s."fuelPriceMin"`,
+    )
+    expect(surcharges.map((s) => [Number(s.income), Number(s.min), Number(s.max), Number(s.surcharge)])).toEqual([
+      [6000, 40.01, 43.01, 0],
+      [6000, 43.01, 46.01, 300],
+    ])
   })
 })

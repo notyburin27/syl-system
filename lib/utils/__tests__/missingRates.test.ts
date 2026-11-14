@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   previousMonth, defaultFuelRange, suggestIncomeRanges, pickCustomerRanges,
-  buildIncomeRateData, fuelPriceAt, incomeForRate, validateIncomeInput, groupMissing, incomeKey, wageKey,
+  buildIncomeRateData, fuelPriceAt, incomeForRate, validateIncomeInput, checkEditedRanges, groupMissing, incomeKey, wageKey,
   type MissingJobInput,
 } from '../missingRates'
 
@@ -186,4 +186,24 @@ test('groupMissing: noRate income ที่มี job ไม่มีราค�
   const r = groupMissing({ ...base, jobs: [job({ fuelPrice: null }), job({ id: 'j2', fuelPrice: 41.44 })] })
   assert.equal(r.income[0].status, 'noRate')
   assert.equal(r.income[0].hasMissingFuelPrice, true)
+})
+
+test('checkEditedRanges: ช่วงที่แก้ครอบทุกงานผ่าน (max เก็บแบบ exclusive)', () => {
+  const ranges = [{ fuelPriceMin: 40.01, fuelPriceMax: 43.01 }, { fuelPriceMin: 43.01, fuelPriceMax: 44.01 }]
+  assert.equal(checkEditedRanges(ranges, [41.44, 43.54, null]), null)
+  // ขอบล่างรวม ขอบบน (stored) ไม่รวม
+  assert.equal(checkEditedRanges(ranges, [40.01, 43.01, 44.0]), null)
+})
+test('checkEditedRanges: ช่องว่าง / min >= max / ทับกัน', () => {
+  assert.equal(checkEditedRanges([{ fuelPriceMin: null, fuelPriceMax: 42.01 }], [41]), 'กรุณากรอกช่วงราคาน้ำมันให้ครบ')
+  assert.equal(checkEditedRanges([{ fuelPriceMin: 40.01, fuelPriceMax: null }], [41]), 'กรุณากรอกช่วงราคาน้ำมันให้ครบ')
+  assert.equal(checkEditedRanges([{ fuelPriceMin: 42.01, fuelPriceMax: 42.01 }], []), 'ช่วงราคาน้ำมันไม่ถูกต้อง')
+  assert.equal(
+    checkEditedRanges([{ fuelPriceMin: 42.01, fuelPriceMax: 44.01 }, { fuelPriceMin: 40.01, fuelPriceMax: 43.01 }], [41, 43.5]),
+    'ช่วงราคาน้ำมันทับกัน',
+  )
+})
+test('checkEditedRanges: งานที่ราคาน้ำมันไม่อยู่ในช่วงใด', () => {
+  const ranges = [{ fuelPriceMin: 40.01, fuelPriceMax: 42.01 }, { fuelPriceMin: 43.01, fuelPriceMax: 44.01 }]
+  assert.equal(checkEditedRanges(ranges, [41.44, 42.5, 42.94, null]), 'มี 2 งานที่ราคาน้ำมันไม่อยู่ในช่วงใด')
 })
