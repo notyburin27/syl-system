@@ -161,6 +161,28 @@ export function validateIncomeInput(ranges: PricedRange[], basePrice: number | n
   return null
 }
 
+/**
+ * ตรวจช่วงราคาน้ำมันที่ผู้ใช้แก้ใน modal ตั้งค่าขนส่ง (max เก็บแบบ exclusive) — คืน error แรก หรือ null
+ * งานที่ราคาน้ำมันหลุดทุกช่วงจะได้ราคาฐานไปเงียบ ๆ จึงต้องครอบทุกงานที่มีราคาน้ำมัน
+ */
+export function checkEditedRanges(
+  ranges: { fuelPriceMin: number | null; fuelPriceMax: number | null }[],
+  fuelPrices: (number | null)[],
+): string | null {
+  if (ranges.some((r) => r.fuelPriceMin === null || r.fuelPriceMax === null)) return 'กรุณากรอกช่วงราคาน้ำมันให้ครบ'
+  const full = ranges as FuelRange[]
+  if (full.some((r) => r.fuelPriceMin >= r.fuelPriceMax)) return 'ช่วงราคาน้ำมันไม่ถูกต้อง'
+  const sorted = [...full].sort((a, b) => a.fuelPriceMin - b.fuelPriceMin)
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i - 1].fuelPriceMax > sorted[i].fuelPriceMin) return 'ช่วงราคาน้ำมันทับกัน'
+  }
+  const uncovered = fuelPrices.filter(
+    (p) => p !== null && !full.some((r) => r.fuelPriceMin <= p && p < r.fuelPriceMax),
+  ).length
+  if (uncovered > 0) return `มี ${uncovered} งานที่ราคาน้ำมันไม่อยู่ในช่วงใด`
+  return null
+}
+
 const STATUS_ORDER: Record<MissingStatus, number> = { noRate: 0, hasRate: 1, incomplete: 2 }
 
 const toView = (j: MissingJobInput): MissingJobView => ({

@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { Alert, App, InputNumber, Modal, Table, Tag, Typography } from 'antd'
-import type { IncomeGroup, WageGroup, PricedRange } from '@/lib/utils/missingRates'
+import { checkEditedRanges, type IncomeGroup, type WageGroup, type PricedRange } from '@/lib/utils/missingRates'
 import { getJobTypeLabel } from '@/types/job'
-import { fromStoredMax } from '@/lib/utils/fuelRateExcel'
+import { fromStoredMax, toStoredMax } from '@/lib/utils/fuelRateExcel'
 
-const fmt = (n: number) => n.toFixed(2)
 // ระยะห่างระหว่างส่วนต่าง ๆ ใน modal
 const bodyStyle = { display: 'flex', flexDirection: 'column', gap: 20, marginTop: 16, marginBottom: 8 } as const
 const baht = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 2 })
@@ -15,7 +14,11 @@ const baht = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 2
 const moneyInputProps = {
   min: 0,
   formatter: (v: string | number | undefined) => `${v ?? ''}`.replace(/\B(?=(\d{3})+(?!\d))/g, ','),
-  parser: (v: string | undefined) => Number((v ?? '').replace(/,/g, '')),
+  // ช่องว่างต้องคืน '' (rc-input-number มองเป็นค่าว่าง → onChange(null)); Number('') = 0 จะกลายเป็นราคา 0
+  parser: (v: string | undefined) => {
+    const t = (v ?? '').replace(/,/g, '').trim()
+    return (t === '' ? '' : Number(t)) as unknown as number
+  },
 }
 
 /** ข้อมูลกลุ่มเป็นตารางแถวเดียว — ไม่ส่ง customer (undefined) = ไม่มีคอลัมน์ลูกค้า (ค่าเที่ยวไม่ผูกลูกค้า) */
@@ -58,23 +61,38 @@ interface IncomeProps {
 export function MissingIncomeRateModal({ group, onClose, onSaved }: IncomeProps) {
   const { message } = App.useApp()
   const [prices, setPrices] = useState<(number | null)[]>([])
+  // ช่วงที่แสดง/แก้ใน modal: max แบบรวมขอบ (เช่น 42.00) — ตอนเก็บแปลงเป็น exclusive ด้วย toStoredMax
+  const [edits, setEdits] = useState<{ min: number | null; max: number | null }[]>([])
   const [basePrice, setBasePrice] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setPrices(group ? group.suggestedRanges.map(() => null) : [])
+    setEdits(group ? group.suggestedRanges.map((r) => ({ min: r.fuelPriceMin, max: fromStoredMax(r.fuelPriceMax) })) : [])
     setBasePrice(null)
   }, [group])
 
   const missingFuelCount = group ? group.jobs.filter((j) => j.fuelPrice === null).length : 0
+  const stored = edits.map((e) => ({ fuelPriceMin: e.min, fuelPriceMax: e.max === null ? null : toStoredMax(e.max) }))
+  const rangeError = group ? checkEditedRanges(stored, group.jobs.map((j) => j.fuelPrice)) : null
+  const setEdit = (idx: number, field: 'min' | 'max', v: number | null) =>
+    setEdits((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: v } : e)))
 
   const handleOk = async () => {
     if (!group) return
+    if (rangeError) {
+      message.error(rangeError)
+      return
+    }
     if (prices.some((p) => p === null) || (group.hasMissingFuelPrice && basePrice === null)) {
       message.error('กรุณากรอกราคาให้ครบทุกช่อง')
       return
     }
-    const ranges: PricedRange[] = group.suggestedRanges.map((r, i) => ({ ...r, price: prices[i] as number }))
+    const ranges: PricedRange[] = stored.map((r, i) => ({
+      fuelPriceMin: r.fuelPriceMin as number,
+      fuelPriceMax: r.fuelPriceMax as number,
+      price: prices[i] as number,
+    }))
     setSaving(true)
     const result = await postJson('/api/rates/missing/income', {
       jobType: group.jobType,
@@ -98,10 +116,11 @@ export function MissingIncomeRateModal({ group, onClose, onSaved }: IncomeProps)
   const base = group?.hasMissingFuelPrice ? basePrice : filled.length > 0 ? Math.min(...filled) : null
 
   const rows = group
-    ? group.suggestedRanges.map((r, i) => ({
+    ? stored.map((r, i) => ({
         idx: i,
-        range: r,
-        count: group.jobs.filter((j) => j.fuelPrice !== null && r.fuelPriceMin <= j.fuelPrice && j.fuelPrice < r.fuelPriceMax).length,
+        count: r.fuelPriceMin === null || r.fuelPriceMax === null
+          ? 0
+          : group.jobs.filter((j) => j.fuelPrice !== null && r.fuelPriceMin! <= j.fuelPrice && j.fuelPrice < r.fuelPriceMax!).length,
       }))
     : []
 
@@ -134,7 +153,30 @@ export function MissingIncomeRateModal({ group, onClose, onSaved }: IncomeProps)
               rowKey="idx"
               dataSource={rows}
               columns={[
-                { title: 'ช่วงราคาน้ำมัน (บาท/ลิตร)', key: 'range', render: (_: unknown, r) => `${fmt(r.range.fuelPriceMin)} – ${fmt(fromStoredMax(r.range.fuelPriceMax))}` },
+                {
+                  title: 'ช่วงราคาน้ำมัน (บาท/ลิตร)', key: 'range',
+                  render: (_: unknown, r) => (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <InputNumber
+                        data-testid={`missing-range-min-${r.idx}`}
+                        min={0}
+                        precision={2}
+                        style={{ width: 90 }}
+                        value={edits[r.idx]?.min ?? null}
+                        onChange={(v) => setEdit(r.idx, 'min', v)}
+                      />
+                      <span>–</span>
+                      <InputNumber
+                        data-testid={`missing-range-max-${r.idx}`}
+                        min={0}
+                        precision={2}
+                        style={{ width: 90 }}
+                        value={edits[r.idx]?.max ?? null}
+                        onChange={(v) => setEdit(r.idx, 'max', v)}
+                      />
+                    </div>
+                  ),
+                },
                 { title: 'งาน', key: 'count', align: 'right' as const, width: 60, render: (_: unknown, r) => r.count },
                 {
                   title: 'ค่าขนส่ง', key: 'price', width: 170,
@@ -162,6 +204,7 @@ export function MissingIncomeRateModal({ group, onClose, onSaved }: IncomeProps)
               ]}
             />
           )}
+          {rows.length > 0 && rangeError && <Alert type="error" showIcon message={rangeError} />}
           {group.hasMissingFuelPrice && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>ราคาฐาน (ใช้กับงานที่ไม่มีราคาน้ำมัน)</span>
