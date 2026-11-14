@@ -474,7 +474,9 @@ export default function JobFormModal({
     } catch {}
   };
 
+  // งานที่ยกเลิกต้องไม่มียอด — ไม่เติมอัตโนมัติ (API ก็ปฏิเสธอยู่แล้ว)
   const prefillIncome = async () => {
+    if (isCancelled) return;
     const currentVal = form.getFieldValue("income");
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
@@ -506,6 +508,7 @@ export default function JobFormModal({
   };
 
   const prefillDriverWage = async () => {
+    if (isCancelled) return;
     const currentVal = form.getFieldValue("driverWage");
     if (currentVal !== undefined && currentVal !== null && String(currentVal).trim() !== "") return;
     const jobType = form.getFieldValue("jobType");
@@ -1084,6 +1087,8 @@ export default function JobFormModal({
                         const ok = await onFieldSave(activeJob.id, "isCancelled", next);
                         handleSaveStatus(ok ? "saved" : "error");
                         if (!ok) setIsCancelled(!next);
+                        // server ล้างค่าขนส่ง/ค่าเที่ยวแล้ว — ฟอร์มต้องตรงกัน ไม่โชว์ยอดเก่าค้าง
+                        if (ok && next) form.setFieldsValue({ income: null, driverWage: null });
                       }}
                     >
                       ยกเลิกใบงาน
@@ -1127,7 +1132,7 @@ export default function JobFormModal({
                   บันทึกล้มเหลว
                 </span>
               )}
-              {isAdmin && !isSpecialType && activeJob && !isPairSecondary && !isTowingAbsorbed && (
+              {isAdmin && !isSpecialType && activeJob && !isPairSecondary && !isTowingAbsorbed && !isCancelled && (
                 <Button
                   data-testid="job-prefill-btn"
                   type="default"
@@ -1644,7 +1649,7 @@ export default function JobFormModal({
                 {isAdmin && (
                   <>
                     <Col span={3}>
-                      {numberInput("income", "ค่าขนส่ง", isAdvance || isPairSecondary)}
+                      {numberInput("income", "ค่าขนส่ง", isAdvance || isPairSecondary || isCancelled)}
                       {isPairSecondary && (
                         <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
                           ยอดรวมอยู่ที่ {pairPrimaryJobNumber}
@@ -1652,7 +1657,7 @@ export default function JobFormModal({
                       )}
                     </Col>
                     <Col span={3}>
-                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance || isPairSecondary || isTowingAbsorbed)}
+                      {numberInput("driverWage", "ค่าเที่ยวคนขับ", isAdvance || isPairSecondary || isTowingAbsorbed || isCancelled)}
                       {isPairSecondary && (
                         <div style={{ fontSize: 12, color: "#faad14", marginTop: 2 }}>
                           ยอดรวมอยู่ที่ {pairPrimaryJobNumber}

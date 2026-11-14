@@ -192,6 +192,17 @@ export async function PATCH(
     if (data.isCancelled === true) {
       data.income = null;
       data.driverWage = null;
+    } else if (
+      existing.isCancelled &&
+      data.isCancelled !== false &&
+      (data.income != null || data.driverWage != null)
+    ) {
+      // งานที่ยกเลิกอยู่แล้วห้ามใส่ยอดกลับ (เคยหลุดจากฟอร์มเติมค่าขนส่งอัตโนมัติ
+      // ตอนเปลี่ยนลูกค้า/สถานที่) — ต้องคืนสถานะก่อน หรือส่งมาพร้อม isCancelled: false
+      return NextResponse.json(
+        { error: "งานนี้ถูกยกเลิกแล้ว ใส่ค่าขนส่ง/ค่าเที่ยวไม่ได้" },
+        { status: 400 }
+      );
     }
 
     // จำ scope เดิมไว้ก่อนอัปเดต — ถ้าย้ายคนขับ/วัน ต้องคำนวณใหม่ทั้งของเก่าและของใหม่
